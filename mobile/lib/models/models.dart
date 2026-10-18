@@ -4,6 +4,8 @@ class Restaurant {
   final String? address;
   final String? phone;
   final String? description;
+  final String? openTime;
+  final String? closeTime;
   final double latitude;
   final double longitude;
   final int sellerId;
@@ -17,6 +19,8 @@ class Restaurant {
     this.address,
     this.phone,
     this.description,
+    this.openTime,
+    this.closeTime,
     required this.latitude,
     required this.longitude,
     required this.sellerId,
@@ -43,6 +47,8 @@ class Restaurant {
       address: json['address'] as String?,
       phone: json['phone'] as String?,
       description: json['description'] as String?,
+      openTime: json['open_time'] as String?,
+      closeTime: json['close_time'] as String?,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       sellerId: json['seller_id'] as int? ?? 1,
@@ -104,3 +110,114 @@ class GeocodePlace {
     );
   }
 }
+
+class Category {
+  final int id;
+  final int restaurantId;
+  final String name;
+  final String? description;
+  final int displayOrder;
+  final bool isActive;
+  final int dishCount;
+
+  Category({
+    required this.id,
+    required this.restaurantId,
+    required this.name,
+    this.description,
+    this.displayOrder = 0,
+    this.isActive = true,
+    this.dishCount = 0,
+  });
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id'] as int,
+      restaurantId: json['restaurant_id'] as int,
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      displayOrder: json['display_order'] as int? ?? 0,
+      isActive: json['is_active'] as bool? ?? true,
+      dishCount: json['dish_count'] as int? ?? 0,
+    );
+  }
+}
+
+class Dish {
+  final int id;
+  final int restaurantId;
+  final int? categoryId;
+  final String? category;
+  final String? categoryName;
+  final String name;
+  final double price;
+  final String? description;
+  final String? imageUrl;
+  final String mealType;
+  final List<String> tags;
+  final bool isAvailable;
+
+  Dish({
+    required this.id,
+    required this.restaurantId,
+    this.categoryId,
+    this.category,
+    this.categoryName,
+    required this.name,
+    required this.price,
+    this.description,
+    this.imageUrl,
+    this.mealType = 'all_day',
+    this.tags = const [],
+    this.isAvailable = true,
+  });
+
+  factory Dish.fromJson(Map<String, dynamic> json) {
+    var rawTags = json['tags'];
+    List<String> tagsList = [];
+    if (rawTags is List) {
+      tagsList = rawTags.map((e) => e.toString()).toList();
+    }
+    return Dish(
+      id: json['id'] as int,
+      restaurantId: json['restaurant_id'] as int,
+      categoryId: json['category_id'] as int?,
+      category: json['category'] as String?,
+      categoryName: json['category_name'] as String?,
+      name: json['name'] as String,
+      price: (json['price'] as num).toDouble(),
+      description: json['description'] as String?,
+      imageUrl: json['image_url'] as String?,
+      mealType: json['meal_type'] as String? ?? 'all_day',
+      tags: tagsList,
+      isAvailable: json['is_available'] as bool? ?? true,
+    );
+  }
+}
+
+class FavouriteDish {
+  final int id;
+  final int userId;
+  final int dishId;
+  final String createdAt;
+  final Dish? dish;
+
+  FavouriteDish({
+    required this.id,
+    required this.userId,
+    required this.dishId,
+    required this.createdAt,
+    this.dish,
+  });
+
+  factory FavouriteDish.fromJson(Map<String, dynamic> json) {
+    return FavouriteDish(
+      id: json['id'] as int,
+      userId: json['user_id'] as int,
+      dishId: json['dish_id'] as int,
+      createdAt: json['created_at'] as String? ?? '',
+      dish: json['dish'] != null ? Dish.fromJson(json['dish'] as Map<String, dynamic>) : null,
+    );
+  }
+}
+

@@ -32,6 +32,8 @@ class RestaurantService:
             longitude=data.longitude,
             phone=data.phone.strip() if data.phone else None,
             description=data.description.strip() if data.description else None,
+            open_time=data.open_time,
+            close_time=data.close_time,
             is_active=True,
         )
         db.add(restaurant)
@@ -186,6 +188,8 @@ class RestaurantService:
                 "longitude": restaurant.longitude,
                 "phone": restaurant.phone,
                 "description": restaurant.description,
+                "open_time": restaurant.open_time,
+                "close_time": restaurant.close_time,
                 "is_active": restaurant.is_active,
                 "created_at": restaurant.created_at,
                 "distance_meters": round(float(dist_m), 1),

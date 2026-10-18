@@ -61,6 +61,13 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  loginAdmin: (data: { email: string; password: string }) =>
+    request<RoleLoginResponse>('/auth/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+
   // --- RESTAURANTS (PUBLIC) ---
   getRestaurants: (skip = 0, limit = 50) =>
     request<Restaurant[]>(`/restaurants?skip=${skip}&limit=${limit}`),
@@ -89,6 +96,8 @@ export const api = {
       address?: string;
       phone?: string;
       description?: string;
+      open_time?: string | null;
+      close_time?: string | null;
       latitude: number;
       longitude: number;
     }
@@ -106,6 +115,8 @@ export const api = {
       address?: string;
       phone?: string;
       description?: string;
+      open_time?: string | null;
+      close_time?: string | null;
       latitude?: number;
       longitude?: number;
       is_active?: boolean;
@@ -142,4 +153,87 @@ export const api = {
       `/map/reverse?lat=${lat}&lon=${lon}`
     );
   },
+
+  // --- CATEGORIES ---
+  getRestaurantCategories: (restaurantId: number, isActiveOnly = false) =>
+    request<import('../types').Category[]>(
+      `/restaurants/${restaurantId}/categories?is_active_only=${isActiveOnly}`
+    ),
+
+  createCategory: (
+    sellerId: number,
+    restaurantId: number,
+    data: { name: string; description?: string; display_order?: number; is_active?: boolean }
+  ) =>
+    request<import('../types').Category>(
+      `/restaurants/${restaurantId}/categories?seller_id=${sellerId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
+
+  updateCategory: (
+    sellerId: number,
+    categoryId: number,
+    data: { name?: string; description?: string; display_order?: number; is_active?: boolean }
+  ) =>
+    request<import('../types').Category>(`/categories/${categoryId}?seller_id=${sellerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteCategory: (sellerId: number, categoryId: number) =>
+    request<{ message: string }>(`/categories/${categoryId}?seller_id=${sellerId}`, {
+      method: 'DELETE',
+    }),
+
+  // --- DISHES ---
+  getRestaurantDishes: (
+    restaurantId: number,
+    params?: { category_id?: number; category?: string; meal_type?: string; tag?: string }
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.category_id != null) query.append('category_id', String(params.category_id));
+    if (params?.category) query.append('category', params.category);
+    if (params?.meal_type) query.append('meal_type', params.meal_type);
+    if (params?.tag) query.append('tag', params.tag);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return request<import('../types').Dish[]>(`/restaurants/${restaurantId}/dishes${qs}`);
+  },
+
+  createDish: (sellerId: number, restaurantId: number, data: Partial<import('../types').Dish>) =>
+    request<import('../types').Dish>(
+      `/restaurants/${restaurantId}/dishes?seller_id=${sellerId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
+
+  updateDish: (sellerId: number, dishId: number, data: Partial<import('../types').Dish>) =>
+    request<import('../types').Dish>(`/dishes/${dishId}?seller_id=${sellerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteDish: (sellerId: number, dishId: number) =>
+    request<{ message: string }>(`/dishes/${dishId}?seller_id=${sellerId}`, {
+      method: 'DELETE',
+    }),
+
+  // --- FAVOURITES ---
+  addFavouriteDish: (userId: number, dishId: number) =>
+    request<import('../types').FavouriteDish>(`/users/${userId}/favourites/${dishId}`, {
+      method: 'POST',
+    }),
+
+  removeFavouriteDish: (userId: number, dishId: number) =>
+    request<{ message: string }>(`/users/${userId}/favourites/${dishId}`, {
+      method: 'DELETE',
+    }),
+
+  getUserFavourites: (userId: number) =>
+    request<import('../types').FavouriteDish[]>(`/users/${userId}/favourites`),
 };
+

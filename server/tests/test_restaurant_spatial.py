@@ -154,3 +154,36 @@ def test_calculate_distance_to_specific_restaurant(
     # Khoảng cách khoảng 758 mét (~0.76 km)
     assert 700 <= data["distance_meters"] <= 800
     assert 0.70 <= data["distance_km"] <= 0.85
+
+
+def test_nearby_restaurants_include_hours(
+    client: TestClient, spatial_seller: Seller
+):
+    """Kiểm tra API tìm quán gần đây trả về chính xác trường open_time và close_time."""
+    client.post(
+        f"/api/v1/sellers/{spatial_seller.id}/restaurants",
+        json={
+            "name": "Bún Ốc Phố Cổ",
+            "address": "11 Hàng Bạc, Hà Nội",
+            "latitude": 21.0340,
+            "longitude": 105.8510,
+            "open_time": "06:00",
+            "close_time": "14:00",
+        },
+    )
+
+    response = client.get(
+        "/api/v1/restaurants/nearby",
+        params={
+            "lat": 21.0340,
+            "lon": 105.8510,
+            "radius_km": 1.0,
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    items = response.json()
+    assert len(items) >= 1
+    found = next((i for i in items if i["name"] == "Bún Ốc Phố Cổ"), None)
+    assert found is not None
+    assert found["open_time"] == "06:00"
+    assert found["close_time"] == "14:00"

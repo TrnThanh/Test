@@ -5,6 +5,8 @@ from server.app.api.v1.endpoints import (
     auth_admin,
     map,
     restaurants,
+    categories,
+    dishes,
 )
 
 api_router = APIRouter()
@@ -36,3 +38,15 @@ api_router.include_router(
 api_router.include_router(
     restaurants.router,
 )
+
+api_router.include_router(
+    categories.router,
+    tags=["Categories"],
+)
+
+api_router.include_router(
+    dishes.router,
+    tags=["Dishes & Favourites"],
+)
+
+

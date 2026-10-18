@@ -30,6 +30,10 @@ const emit = defineEmits<{
       📞 {{ restaurant.phone }}
     </p>
 
+    <p v-if="restaurant.open_time && restaurant.close_time" class="restaurant-hours">
+      🕒 {{ restaurant.open_time }} – {{ restaurant.close_time }}
+    </p>
+
     <p v-if="restaurant.description" class="restaurant-desc">
       {{ restaurant.description }}
     </p>

@@ -55,6 +55,7 @@ erDiagram
         string phone "Số điện thoại liên hệ (Nullable)"
     }
 
+    RESTAURANTS ||--o{ CATEGORIES : "has (1-N, cascade delete)"
     RESTAURANTS ||--o{ DISHES : "offers (1-N, cascade delete)"
     RESTAURANTS {
         int id PK "Khóa chính tự tăng"
@@ -65,19 +66,36 @@ erDiagram
         float longitude "Kinh độ (-180 đến 180)"
         string phone "Hotline quán ăn (Nullable)"
         string description "Mô tả quán ăn (Nullable)"
+        time open_time "Giờ mở cửa HH:MM (Nullable)"
+        time close_time "Giờ đóng cửa HH:MM (Nullable)"
         boolean is_active "Trạng thái hoạt động (Default: true)"
         timestamp created_at "Thời điểm tạo quán (UTC)"
         geography location "PostGIS POINT(SRID 4326) - Cột tính toán tự động"
     }
 
+    CATEGORIES ||--o{ DISHES : "categorizes (1-N, set null)"
+    CATEGORIES {
+        int id PK "Khóa chính tự tăng"
+        int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id) ON DELETE CASCADE"
+        string name "Tên nhóm danh mục (Unique theo quán)"
+        string description "Mô tả danh mục (Nullable)"
+        int display_order "Thứ tự sắp xếp hiển thị (Default: 0)"
+        boolean is_active "Trạng thái hiển thị (Default: true)"
+        timestamp created_at "Thời điểm tạo (UTC)"
+    }
+
     DISHES ||--o{ FAVOURITE_DISHES : "referenced by (1-N, cascade delete)"
     DISHES {
         int id PK "Khóa chính tự tăng"
-        int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id)"
+        int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id) ON DELETE CASCADE"
+        int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) ON DELETE SET NULL"
         string name "Tên món ăn"
         numeric price "Giá bán (>= 0)"
         string description "Mô tả món ăn (Nullable)"
         string image_url "Đường dẫn ảnh món (Nullable)"
+        string category "Tên nhóm món dự phòng (Nullable)"
+        string meal_type "Bữa ăn: breakfast, lunch, dinner, snack, all_day"
+        string tags "Mảng nhãn món ăn ARRAY(Text)"
         boolean is_available "Trạng thái còn món (Default: true)"
         timestamp created_at "Thời điểm tạo món (UTC)"
     }
@@ -87,7 +105,6 @@ erDiagram
         int id PK "Khóa chính tự tăng"
         int user_id FK "Khóa ngoại trỏ về USERS(id) ON DELETE CASCADE"
         int dish_id FK "Khóa ngoại trỏ về DISHES(id) ON DELETE CASCADE"
-        string tag "Nhãn món do user đặt (Ăn sáng, Đồ chay, Ăn vặt...)"
         timestamp created_at "Thời điểm yêu thích món (UTC)"
     }
 ```
@@ -161,34 +178,54 @@ Model ORM: `server/app/models/restaurant.py`.
 
 ---
 
-### 3.5. Bảng `dishes` (Món ăn / Thực đơn của Quán)
-Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Dishes).
+### 3.5. Bảng `categories` (Nhóm món / Danh mục thực đơn của Quán)
+Model ORM: `server/app/models/category.py`.
+Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Categories). Mỗi món ăn có thể thuộc 1 Category (`dishes.category_id`).
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính định danh danh mục |
+| `restaurant_id` | `INTEGER` | `NOT NULL`, `FK(restaurants.id ON DELETE CASCADE)`, `INDEX` | Quán ăn sở hữu nhóm danh mục này |
+| `name` | `VARCHAR(100)` | `NOT NULL`, `UNIQUE(restaurant_id, name)` | Tên nhóm danh mục (vd: "Cơm đĩa", "Khai vị", "Đồ uống") |
+| `description` | `VARCHAR(500)` | `NULLABLE`, Default: `NULL` | Mô tả nhóm món |
+| `display_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự hiển thị menu |
+| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái hiển thị danh mục |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo danh mục (UTC) |
+
+---
+
+### 3.6. Bảng `dishes` (Món ăn / Thực đơn của Quán)
+Model ORM: `server/app/models/dish.py`.
+Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Dishes), liên kết tùy chọn với 1 Nhóm danh mục (N Dishes - 1 Category).
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
 | :--- | :--- | :--- | :--- |
 | `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính định danh món ăn |
 | `restaurant_id` | `INTEGER` | `NOT NULL`, `FK(restaurants.id ON DELETE CASCADE)`, `INDEX` | Quán ăn sở hữu món này |
+| `category_id` | `INTEGER` | `NULLABLE`, `FK(categories.id ON DELETE SET NULL)`, `INDEX` | **Khóa ngoại trỏ về `categories.id`**: Nhóm danh mục của món. Khi xóa danh mục, món ăn không bị xóa mà chuyển thành NULL (chưa phân loại). |
 | `name` | `VARCHAR(255)` | `NOT NULL` | Tên món ăn (vd: "Cơm tấm sườn nướng") |
-| `price` | `NUMERIC(12, 2)` | `NOT NULL`, `CHECK (price >= 0)` | Đơn giá món ăn (dùng NUMERIC tránh sai số) |
+| `price` | `DOUBLE PRECISION` / `NUMERIC` | `NOT NULL`, `CHECK (price >= 0)` | Đơn giá món ăn |
 | `description` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Giới thiệu, nguyên liệu, hương vị món ăn |
 | `image_url` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Đường dẫn ảnh minh họa món ăn |
+| `category` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Tên nhóm món dạng chuỗi (dự phòng tương thích ngược) |
+| `meal_type` | `VARCHAR(20)` | `NOT NULL`, Default: `'all_day'`, `CHECK (meal_type IN ('breakfast','lunch','dinner','snack','all_day'))` | Bữa ăn phù hợp |
+| `tags` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng nhãn món ăn (vd: `['cay', 'signature', 'chay']`) |
 | `is_available` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái món (còn món / tạm hết món) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo món (UTC) |
 
 ---
 
-### 3.6. Bảng `favourite_dishes` (Món ăn yêu thích của User kèm Tag)
+### 3.7. Bảng `favourite_dishes` (Món ăn yêu thích của User - Pure Junction Table)
 Quan hệ:
 - 1 User có nhiều món ăn yêu thích (`users ||--o{ favourite_dishes`, 1-N).
 - 1 Món ăn có thể được nhiều User yêu thích (`dishes ||--o{ favourite_dishes`, 1-N).
-- Bảng này đóng vai trò bảng trung gian (Junction Table) liên kết Người dùng (`users`) với Món ăn (`dishes`), kèm khóa ngoại trỏ về `users(id)` và thêm trường `tag` phân loại tùy chỉnh của người dùng.
+- Bảng trung gian (Junction Table) thuần túy liên kết Người dùng (`users`) với Món ăn (`dishes`). Bỏ trường `tag` theo yêu cầu thiết kế mới (tag được quản lý trực tiếp tại bảng `dishes`).
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
 | :--- | :--- | :--- | :--- |
 | `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính bản ghi món yêu thích |
 | `user_id` | `INTEGER` | `NOT NULL`, `FK(users.id ON DELETE CASCADE)`, `INDEX` | **Khóa ngoại trỏ về `users.id`**: Xác định User sở hữu mục yêu thích này. Khi User bị xóa, danh sách yêu thích tự động bị xóa theo. |
 | `dish_id` | `INTEGER` | `NOT NULL`, `FK(dishes.id ON DELETE CASCADE)`, `INDEX` | **Khóa ngoại trỏ về `dishes.id`**: Xác định Món ăn được yêu thích (thuộc bảng `dishes`). Khi quán xóa món, các mục yêu thích trỏ đến món này cũng tự động bị xóa. |
-| `tag` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Nhãn/Tag người dùng tự đặt (vd: *"Ăn sáng"*, *"Đồ chay"*, *"Healthy"*, *"Ăn vặt"*, *"Món quen"*) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm người dùng nhấn yêu thích món |
 
 ---
@@ -198,24 +235,30 @@ Quan hệ:
 1. **Ràng buộc kiểm tra hợp lệ tọa độ (Check Constraints):**
    - `ck_restaurant_latitude`: `latitude >= -90.0 AND latitude <= 90.0`
    - `ck_restaurant_longitude`: `longitude >= -180.0 AND longitude <= 180.0`
-2. **Ràng buộc kiểm tra giá món ăn:**
+2. **Ràng buộc kiểm tra giá món ăn & bữa ăn:**
    - `ck_dish_price`: `price >= 0` (đơn giá món ăn không được phép âm).
+   - `ck_dishes_meal_type`: `meal_type IN ('breakfast', 'lunch', 'dinner', 'snack', 'all_day')`.
 3. **Khóa ngoại và hành vi Cascade (Foreign Key):**
-   - `restaurants.seller_id` trỏ đến `sellers.id` với `ON DELETE CASCADE`: Khi một tài khoản Seller bị xóa, toàn bộ quán ăn thuộc sở hữu của Seller đó sẽ tự động bị xóa theo.
-   - `dishes.restaurant_id` trỏ đến `restaurants.id` với `ON DELETE CASCADE`: Khi một Quán ăn bị xóa, toàn bộ danh sách món ăn thuộc quán đó sẽ tự động bị xóa theo để tránh dữ liệu mồ côi.
-   - `favourite_dishes.user_id` trỏ đến `users.id` với `ON DELETE CASCADE`: **Khóa ngoại liên kết người dùng**; khi tài khoản User bị xóa, các món yêu thích của user đó tự động được dọn dẹp.
-   - `favourite_dishes.dish_id` trỏ đến `dishes.id` với `ON DELETE CASCADE`: Khi quán ăn xóa một món, các bản ghi yêu thích món đó của user cũng tự động bị xóa.
-4. **Ràng buộc duy nhất (Unique Constraint) cho Favourite Dishes:**
-   - `uq_user_favourite_dish`: `UNIQUE (user_id, dish_id)` đảm bảo mỗi người dùng chỉ yêu thích một món ăn 1 lần (có thể gắn/sửa nhãn `tag`).
-5. **Chỉ mục tổng hợp (Composite B-tree Index):**
-   - `ix_restaurants_lat_lon` trên `(latitude, longitude)` giúp tăng tốc các truy vấn lọc tọa độ phẳng.
-6. **Chỉ mục không gian (Spatial GiST Index):**
-   - Tạo trên cột `location`, cho phép hàm `ST_DWithin` và `ST_Distance` tìm kiếm các quán ăn trong bán kính $R$ mét với độ phức tạp $O(\log N)$.
-7. **Chỉ mục tra cứu món theo quán (B-tree Index):**
-   - `ix_dishes_restaurant_id` trên cột `restaurant_id` của bảng `dishes`, giúp truy vấn danh sách thực đơn của quán ăn cực nhanh.
-8. **Chỉ mục tra cứu món yêu thích của User:**
+   - `restaurants.seller_id` trỏ đến `sellers.id` với `ON DELETE CASCADE`.
+   - `categories.restaurant_id` trỏ đến `restaurants.id` với `ON DELETE CASCADE`.
+   - `dishes.restaurant_id` trỏ đến `restaurants.id` với `ON DELETE CASCADE`.
+   - `dishes.category_id` trỏ đến `categories.id` với `ON DELETE SET NULL`.
+   - `favourite_dishes.user_id` trỏ đến `users.id` với `ON DELETE CASCADE`.
+   - `favourite_dishes.dish_id` trỏ đến `dishes.id` với `ON DELETE CASCADE`.
+4. **Ràng buộc duy nhất (Unique Constraint):**
+   - `uq_restaurant_category_name`: `UNIQUE (restaurant_id, name)` đảm bảo mỗi quán không bị trùng tên danh mục.
+   - `uq_user_favourite_dish`: `UNIQUE (user_id, dish_id)` đảm bảo mỗi người dùng chỉ yêu thích một món ăn 1 lần (Idempotent).
+
+5. **Chỉ mục tổng hợp & không gian:**
+   - `ix_restaurants_lat_lon` trên `(latitude, longitude)`.
+   - `idx_restaurants_location` GiST Index trên cột `location`.
+6. **Chỉ mục tra cứu món ăn & nhóm món:**
+   - `ix_dishes_restaurant_id` trên cột `restaurant_id`.
+   - `ix_dishes_restaurant_category` trên `(restaurant_id, category)`.
+   - `ix_dishes_tags_gin` GIN Index trên mảng `tags` (`USING GIN (tags)`) giúp tối ưu toán tử lọc mảng `@>`.
+7. **Chỉ mục tra cứu món yêu thích của User:**
    - `ix_favourite_dishes_user_id`: Tối ưu câu lệnh lấy danh sách món yêu thích của 1 user.
-   - `ix_favourite_dishes_tag`: Tối ưu lọc danh sách món yêu thích theo tag (ví dụ: *"Lấy tất cả món ăn sáng yêu thích của tôi"*).
+   - `ix_favourite_dishes_dish_id`: Tối ưu câu lệnh kiểm tra trạng thái yêu thích của món.
 9. **Cột tính toán tự sinh (Stored Generated Column):**
    - Cột `location` được sinh tự động ngay trong PostgreSQL mỗi khi `longitude` hoặc `latitude` được thêm mới hoặc chỉnh sửa:
      ```sql
@@ -281,6 +324,8 @@ CREATE TABLE IF NOT EXISTS restaurants (
     longitude DOUBLE PRECISION NOT NULL,
     phone VARCHAR(50) DEFAULT NULL,
     description VARCHAR(1000) DEFAULT NULL,
+    open_time TIME DEFAULT NULL,
+    close_time TIME DEFAULT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     location GEOGRAPHY(POINT, 4326) GENERATED ALWAYS AS (
@@ -294,32 +339,53 @@ CREATE INDEX IF NOT EXISTS ix_restaurants_seller_id ON restaurants (seller_id);
 CREATE INDEX IF NOT EXISTS ix_restaurants_lat_lon ON restaurants (latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_restaurants_location ON restaurants USING GIST (location);
 
--- 6. Bảng dishes (Món ăn thuộc quán ăn - Quan hệ 1-N)
+-- 6. Bảng categories (Nhóm danh mục món ăn thuộc quán - Quan hệ 1-N)
+CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY,
+    restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500) DEFAULT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_restaurant_category_name UNIQUE (restaurant_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS ix_categories_restaurant_id ON categories (restaurant_id);
+
+-- 7. Bảng dishes (Món ăn thuộc quán ăn - Quan hệ 1-N)
 CREATE TABLE IF NOT EXISTS dishes (
     id SERIAL PRIMARY KEY,
     restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
-    price NUMERIC(12, 2) NOT NULL,
+    price DOUBLE PRECISION NOT NULL,
     description VARCHAR(1000) DEFAULT NULL,
     image_url VARCHAR(1000) DEFAULT NULL,
+    category VARCHAR(100) DEFAULT NULL,
+    meal_type VARCHAR(20) NOT NULL DEFAULT 'all_day',
+    tags TEXT[] NOT NULL DEFAULT '{}',
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT ck_dish_price CHECK (price >= 0)
+    CONSTRAINT ck_dish_price CHECK (price >= 0),
+    CONSTRAINT ck_dishes_meal_type CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack', 'all_day'))
 );
 
 CREATE INDEX IF NOT EXISTS ix_dishes_restaurant_id ON dishes (restaurant_id);
+CREATE INDEX IF NOT EXISTS ix_dishes_category_id ON dishes (category_id);
+CREATE INDEX IF NOT EXISTS ix_dishes_restaurant_category ON dishes (restaurant_id, category);
+CREATE INDEX IF NOT EXISTS ix_dishes_tags_gin ON dishes USING GIN (tags);
 
--- 7. Bảng favourite_dishes (Món ăn yêu thích của User kèm Tag - Khóa ngoại User & Dish)
+-- 8. Bảng favourite_dishes (Món ăn yêu thích của User - Pure Junction Table)
 CREATE TABLE IF NOT EXISTS favourite_dishes (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     dish_id INTEGER NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
-    tag VARCHAR(100) DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_user_favourite_dish UNIQUE (user_id, dish_id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_favourite_dishes_user_id ON favourite_dishes (user_id);
 CREATE INDEX IF NOT EXISTS ix_favourite_dishes_dish_id ON favourite_dishes (dish_id);
-CREATE INDEX IF NOT EXISTS ix_favourite_dishes_tag ON favourite_dishes (tag);
 ```
+

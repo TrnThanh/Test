@@ -133,6 +133,8 @@ class ApiService {
     String? address,
     String? phone,
     String? description,
+    String? openTime,
+    String? closeTime,
   }) async {
     final uri = Uri.parse('${Env.baseUrl}/sellers/$sellerId/restaurants');
     final res = await _client.post(
@@ -145,6 +147,8 @@ class ApiService {
         if (address != null) 'address': address,
         if (phone != null) 'phone': phone,
         if (description != null) 'description': description,
+        if (openTime != null && openTime.isNotEmpty) 'open_time': openTime,
+        if (closeTime != null && closeTime.isNotEmpty) 'close_time': closeTime,
       }),
     );
 
@@ -163,6 +167,8 @@ class ApiService {
     String? address,
     String? phone,
     String? description,
+    String? openTime,
+    String? closeTime,
   }) async {
     final uri = Uri.parse('${Env.baseUrl}/sellers/$sellerId/restaurants/$restaurantId');
     final res = await _client.put(
@@ -175,6 +181,8 @@ class ApiService {
         if (address != null) 'address': address,
         if (phone != null) 'phone': phone,
         if (description != null) 'description': description,
+        if (openTime != null) 'open_time': openTime.isEmpty ? null : openTime,
+        if (closeTime != null) 'close_time': closeTime.isEmpty ? null : closeTime,
       }),
     );
 
@@ -218,7 +226,119 @@ class ApiService {
     throw Exception('Lỗi chuyển toạ độ');
   }
 
+  // --- CATEGORIES ---
+  Future<List<Category>> getRestaurantCategories(int restaurantId) async {
+    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/categories?is_active_only=true');
+    final res = await _client.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
+      return list.map((e) => Category.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  Future<Category> createCategory(
+    int sellerId,
+    int restaurantId,
+    String name, {
+    String? description,
+    int displayOrder = 0,
+  }) async {
+    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/categories?seller_id=$sellerId');
+    final res = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        if (description != null) 'description': description,
+        'display_order': displayOrder,
+      }),
+    );
+    if (res.statusCode == 201) {
+      return Category.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+    }
+    _throwError(res);
+  }
+
+  Future<void> deleteCategory(int sellerId, int categoryId) async {
+    final uri = Uri.parse('${Env.baseUrl}/categories/$categoryId?seller_id=$sellerId');
+    final res = await _client.delete(uri);
+    if (res.statusCode == 200) return;
+    _throwError(res);
+  }
+
+  // --- DISHES ---
+  Future<List<Dish>> getRestaurantDishes(int restaurantId, {int? categoryId}) async {
+    String url = '${Env.baseUrl}/restaurants/$restaurantId/dishes';
+    if (categoryId != null) {
+      url += '?category_id=$categoryId';
+    }
+    final res = await _client.get(Uri.parse(url));
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
+      return list.map((e) => Dish.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  Future<Dish> createDish(int sellerId, int restaurantId, Map<String, dynamic> data) async {
+    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/dishes?seller_id=$sellerId');
+    final res = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    if (res.statusCode == 201) {
+      return Dish.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+    }
+    _throwError(res);
+  }
+
+  Future<void> deleteDish(int sellerId, int dishId) async {
+    final uri = Uri.parse('${Env.baseUrl}/dishes/$dishId?seller_id=$sellerId');
+    final res = await _client.delete(uri);
+    if (res.statusCode == 200) return;
+    _throwError(res);
+  }
+
+  // --- FAVOURITES ---
+  Future<List<FavouriteDish>> getUserFavourites(int userId) async {
+    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites');
+    final res = await _client.get(uri);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
+      return list.map((e) => FavouriteDish.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  Future<void> addFavouriteDish(int userId, int dishId) async {
+    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/$dishId');
+    final res = await _client.post(uri);
+    if (res.statusCode == 200 || res.statusCode == 201) return;
+    _throwError(res);
+  }
+
+  Future<void> removeFavouriteDish(int userId, int dishId) async {
+    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/$dishId');
+    final res = await _client.delete(uri);
+    if (res.statusCode == 200) return;
+    _throwError(res);
+  }
+
+  Future<void> removeFavourite(int userId, int favId) async {
+    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/by-id/$favId');
+    final res = await _client.delete(uri);
+    if (res.statusCode == 200 || res.statusCode == 204) return;
+    // Fallback to dish deletion if by-id is not separate
+    final fallbackUri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/$favId');
+    final res2 = await _client.delete(fallbackUri);
+    if (res2.statusCode == 200 || res2.statusCode == 204) return;
+    _throwError(res);
+  }
+
   Never _throwError(http.Response res) {
+
     try {
       final err = jsonDecode(utf8.decode(res.bodyBytes));
       if (err is Map && err['detail'] != null) {

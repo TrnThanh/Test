@@ -73,26 +73,26 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Kiểm tra màn hình Khám phá ban đầu
-    expect(find.text('🍜 PTC1 Khám Phá Quán Ăn'), findsOneWidget);
+    expect(find.text('PTC1 Khám Phá Quán Ăn'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
     expect(find.text('Bún Chả Đắc Kim'), findsOneWidget);
 
     // 2. Chuyển sang Tab "Gần đây"
     await tester.tap(find.text('Gần đây'));
     await tester.pumpAndSettle();
-    expect(find.text('📍 Quán Ăn Lân Cận (PostGIS)'), findsOneWidget);
+    expect(find.text('Quán Ăn Lân Cận (PostGIS)'), findsOneWidget);
     expect(find.text('Bán kính tìm kiếm:'), findsOneWidget);
 
     // 3. Chuyển sang Tab "Bản đồ OSM"
     await tester.tap(find.text('Bản đồ OSM'));
     await tester.pumpAndSettle();
-    expect(find.text('🗺️ Bản Đồ & Geocoding OSM'), findsOneWidget);
+    expect(find.text('Bản Đồ & Geocoding OSM'), findsOneWidget);
 
     // 4. Chuyển sang Tab "Tài khoản"
     await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
-    expect(find.text('Đăng Nhập'), findsOneWidget);
-    expect(find.text('👤 Thực khách'), findsOneWidget);
-    expect(find.text('🏪 Chủ quán'), findsOneWidget);
+    expect(find.text('Đăng Nhập Khách Hàng'), findsOneWidget);
+    expect(find.text('Email *'), findsOneWidget);
+    expect(find.text('Mật khẩu *'), findsOneWidget);
   });
 }

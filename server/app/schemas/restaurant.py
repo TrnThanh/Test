@@ -1,6 +1,23 @@
-from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from datetime import datetime, time
+from typing import Optional, Annotated
+from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, PlainSerializer
+
+
+def parse_time_or_none(v: Optional[object]) -> Optional[object]:
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return None
+    return v
+
+
+HHMMTime = Annotated[
+    Optional[time],
+    BeforeValidator(parse_time_or_none),
+    PlainSerializer(
+        lambda t: t.strftime("%H:%M") if t else None,
+        return_type=Optional[str],
+        when_used="json-unless-none",
+    ),
+]
 
 
 class RestaurantBase(BaseModel):
@@ -10,6 +27,8 @@ class RestaurantBase(BaseModel):
     longitude: float = Field(..., ge=-180.0, le=180.0, description="Kinh độ (-180 đến 180)")
     phone: Optional[str] = Field(None, max_length=50, description="Số điện thoại quán")
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả quán ăn")
+    open_time: Optional[HHMMTime] = Field(None, description="Thời gian mở cửa (HH:MM)")
+    close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
 
 
 class RestaurantCreate(RestaurantBase):
@@ -23,6 +42,8 @@ class RestaurantUpdate(BaseModel):
     longitude: Optional[float] = Field(None, ge=-180.0, le=180.0, description="Kinh độ (-180 đến 180)")
     phone: Optional[str] = Field(None, max_length=50, description="Số điện thoại quán")
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả quán ăn")
+    open_time: Optional[HHMMTime] = Field(None, description="Thời gian mở cửa (HH:MM)")
+    close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
     is_active: Optional[bool] = Field(None, description="Trạng thái hoạt động")
 
 

@@ -286,3 +286,98 @@ def test_cascade_delete_seller_deletes_restaurants(db_session: Session):
     # Kiểm tra 2 quán đã tự động bị xoá sạch
     stmt_after = select(Restaurant).where(Restaurant.seller_id == seller.id)
     assert len(list(db_session.scalars(stmt_after).all())) == 0
+
+
+def test_create_restaurant_with_opening_hours(client: TestClient, db_session: Session):
+    """Kiểm tra tạo quán ăn kèm thời gian mở cửa và đóng cửa (HH:MM)."""
+    seller = Seller(
+        email="hours_seller@example.com",
+        hashed_password=hash_password("123456"),
+        shop_name="Shop Giờ Mở Cửa",
+        is_active=True,
+    )
+    db_session.add(seller)
+    db_session.commit()
+    db_session.refresh(seller)
+
+    payload = {
+        "name": "Phở Đêm 24h",
+        "address": "123 Phố Cổ, Hoàn Kiếm, Hà Nội",
+        "latitude": 21.0333,
+        "longitude": 105.8500,
+        "open_time": "18:00",
+        "close_time": "04:30",
+    }
+    response = client.post(f"/api/v1/sellers/{seller.id}/restaurants", json=payload)
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["open_time"] == "18:00"
+    assert data["close_time"] == "04:30"
+
+
+def test_update_restaurant_hours(client: TestClient, db_session: Session):
+    """Kiểm tra cập nhật và xoá thời gian mở/đóng cửa quán ăn."""
+    seller = Seller(
+        email="update_hours@example.com",
+        hashed_password=hash_password("123456"),
+        shop_name="Shop Update Giờ",
+        is_active=True,
+    )
+    db_session.add(seller)
+    db_session.commit()
+    db_session.refresh(seller)
+
+    # Tạo ban đầu không có giờ
+    r = Restaurant(
+        seller_id=seller.id,
+        name="Cơm Tấm Sài Gòn",
+        address="10 Nguyễn Huệ, Q1, TP.HCM",
+        latitude=10.7769,
+        longitude=106.7009,
+    )
+    db_session.add(r)
+    db_session.commit()
+    db_session.refresh(r)
+
+    # Cập nhật giờ mở/đóng
+    up_resp = client.put(
+        f"/api/v1/sellers/{seller.id}/restaurants/{r.id}",
+        json={"open_time": "07:30", "close_time": "21:00"},
+    )
+    assert up_resp.status_code == status.HTTP_200_OK
+    assert up_resp.json()["open_time"] == "07:30"
+    assert up_resp.json()["close_time"] == "21:00"
+
+    # Xoá giờ (gửi None hoặc rỗng)
+    clear_resp = client.put(
+        f"/api/v1/sellers/{seller.id}/restaurants/{r.id}",
+        json={"open_time": None, "close_time": None},
+    )
+    assert clear_resp.status_code == status.HTTP_200_OK
+    assert clear_resp.json()["open_time"] is None
+    assert clear_resp.json()["close_time"] is None
+
+
+def test_create_restaurant_invalid_time_format(client: TestClient, db_session: Session):
+    """Kiểm tra validation lỗi 422 khi truyền định dạng giờ không hợp lệ."""
+    seller = Seller(
+        email="invalid_time@example.com",
+        hashed_password=hash_password("123456"),
+        shop_name="Shop Test Error",
+        is_active=True,
+    )
+    db_session.add(seller)
+    db_session.commit()
+    db_session.refresh(seller)
+
+    payload = {
+        "name": "Quán Giờ Lỗi",
+        "address": "456 Đường Lỗi",
+        "latitude": 21.0,
+        "longitude": 105.0,
+        "open_time": "25:99",
+        "close_time": "22:00",
+    }
+    response = client.post(f"/api/v1/sellers/{seller.id}/restaurants", json=payload)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+

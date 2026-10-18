@@ -1,12 +1,14 @@
-from datetime import datetime, timezone
-from typing import Any, Optional, TYPE_CHECKING
-from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Index, CheckConstraint, Computed
+from datetime import datetime, timezone, time
+from typing import Any, Optional, List, TYPE_CHECKING
+from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Index, CheckConstraint, Computed, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geography
 from server.app.db.base import Base
 
 if TYPE_CHECKING:
     from server.app.models.seller import Seller
+    from server.app.models.dish import Dish
+    from server.app.models.category import Category
 
 
 class Restaurant(Base):
@@ -28,6 +30,8 @@ class Restaurant(Base):
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
     description: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True, default=None)
+    open_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True, default=None)
+    close_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True, default=None)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -47,3 +51,10 @@ class Restaurant(Base):
     )
 
     seller: Mapped["Seller"] = relationship("Seller", back_populates="restaurants")
+    categories: Mapped[List["Category"]] = relationship(
+        "Category", back_populates="restaurant", cascade="all, delete-orphan"
+    )
+    dishes: Mapped[List["Dish"]] = relationship(
+        "Dish", back_populates="restaurant", cascade="all, delete-orphan"
+    )
+

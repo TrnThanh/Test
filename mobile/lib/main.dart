@@ -17,17 +17,19 @@ class Ptc1App extends StatelessWidget {
       title: 'PTC1 Spatial Food',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFE8590C),
-          primary: const Color(0xFFE8590C),
+        colorScheme: const ColorScheme.light(
+          primary: Colors.black,
+          onPrimary: Colors.white,
+          surface: Colors.white,
+          onSurface: Colors.black,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+        scaffoldBackgroundColor: const Color(0xFFFAFAFA),
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 0,
           backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
+          foregroundColor: Colors.black,
         ),
       ),
       home: MainShell(apiService: apiService ?? ApiService()),
@@ -203,6 +205,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
+              if (r.openTime != null && r.closeTime != null) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.access_time, size: 18, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text('Giờ mở cửa: ${r.openTime} – ${r.closeTime}',
+                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
               if (r.description != null) ...[
                 Text(r.description!, style: TextStyle(color: Colors.grey[700])),
                 const SizedBox(height: 8),
@@ -216,12 +229,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 child: Text('Toạ độ: ${r.latitude.toStringAsFixed(4)}, ${r.longitude.toStringAsFixed(4)}'),
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Đóng'),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.restaurant_menu),
+                      label: const Text('Thực Đơn'),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showMenuBottomSheet(r);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Đóng'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -230,11 +257,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  void _showMenuBottomSheet(Restaurant r) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, scrollController) {
+            return _RestaurantMenuWidget(api: widget.api, restaurant: r, scrollController: scrollController);
+          },
+        );
+      },
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🍜 PTC1 Khám Phá Quán Ăn', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('PTC1 Khám Phá Quán Ăn', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -300,7 +350,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   ),
                                   child: ListTile(
                                     title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    subtitle: Text(r.address ?? 'Chưa có địa chỉ'),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(r.address ?? 'Chưa có địa chỉ'),
+                                        if (r.openTime != null && r.closeTime != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text('🕒 ${r.openTime} – ${r.closeTime}',
+                                                style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                                          ),
+                                      ],
+                                    ),
                                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                     onTap: () => _showDetail(r),
                                   ),
@@ -378,7 +439,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('📍 Quán Ăn Lân Cận (PostGIS)', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Quán Ăn Lân Cận (PostGIS)', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: Column(
         children: [
@@ -479,7 +540,18 @@ class _NearbyScreenState extends State<NearbyScreen> {
                                 color: Colors.white,
                                 child: ListTile(
                                   title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  subtitle: Text(r.address ?? 'Toạ độ: ${r.latitude}, ${r.longitude}'),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(r.address ?? 'Toạ độ: ${r.latitude}, ${r.longitude}'),
+                                      if (r.openTime != null && r.closeTime != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Text('🕒 ${r.openTime} – ${r.closeTime}',
+                                              style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                                        ),
+                                    ],
+                                  ),
                                   trailing: distText.isNotEmpty
                                       ? Chip(
                                           label: Text(distText, style: const TextStyle(fontSize: 12)),
@@ -554,7 +626,7 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🗺️ Bản Đồ & Geocoding OSM', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Bản Đồ & Geocoding OSM', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -653,37 +725,50 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   bool _isRegister = false;
-  String _selectedRole = 'user'; // 'user' or 'seller'
 
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
-  final _shopNameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
 
   bool _loading = false;
   String? _error;
 
-  // Seller Dashboard
-  List<Restaurant> _sellerRestaurants = [];
-  bool _loadingSeller = false;
+  // Favourites list
+  List<FavouriteDish> _favourites = [];
+  bool _loadingFavourites = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.currentUser != null) {
+      _loadFavourites();
+    }
+  }
 
   @override
   void didUpdateWidget(covariant AccountScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentUser?.role == 'seller' && oldWidget.currentUser?.id != widget.currentUser?.id) {
-      _loadSellerRestaurants();
+    if (widget.currentUser?.id != oldWidget.currentUser?.id && widget.currentUser != null) {
+      _loadFavourites();
     }
   }
 
-  Future<void> _loadSellerRestaurants() async {
-    if (widget.currentUser?.role != 'seller') return;
-    setState(() => _loadingSeller = true);
+  Future<void> _loadFavourites() async {
+    if (widget.currentUser == null) return;
+    setState(() => _loadingFavourites = true);
     try {
-      final list = await widget.api.getSellerRestaurants(widget.currentUser!.id);
-      setState(() => _sellerRestaurants = list);
+      final list = await widget.api.getUserFavourites(widget.currentUser!.id);
+      setState(() => _favourites = list);
     } catch (_) {}
-    setState(() => _loadingSeller = false);
+    setState(() => _loadingFavourites = false);
+  }
+
+  Future<void> _removeFavourite(int favId) async {
+    if (widget.currentUser == null) return;
+    try {
+      await widget.api.removeFavourite(widget.currentUser!.id, favId);
+      _loadFavourites();
+    } catch (_) {}
   }
 
   Future<void> _handleAuth() async {
@@ -695,35 +780,19 @@ class _AccountScreenState extends State<AccountScreen> {
     try {
       RoleLoginResponse res;
       if (!_isRegister) {
-        // Login
-        if (_selectedRole == 'user') {
-          res = await widget.api.loginUser(_emailCtrl.text.trim(), _passwordCtrl.text);
-        } else {
-          res = await widget.api.loginSeller(_emailCtrl.text.trim(), _passwordCtrl.text);
-        }
+        // Login as User
+        res = await widget.api.loginUser(_emailCtrl.text.trim(), _passwordCtrl.text);
       } else {
-        // Register
-        if (_selectedRole == 'user') {
-          res = await widget.api.registerUser(
-            _emailCtrl.text.trim(),
-            _passwordCtrl.text,
-            _nameCtrl.text.trim(),
-          );
-        } else {
-          res = await widget.api.registerSeller(
-            email: _emailCtrl.text.trim(),
-            password: _passwordCtrl.text,
-            shopName: _shopNameCtrl.text.trim(),
-            fullName: _nameCtrl.text.trim(),
-            phone: _phoneCtrl.text.trim(),
-          );
-        }
+        // Register as User
+        res = await widget.api.registerUser(
+          _emailCtrl.text.trim(),
+          _passwordCtrl.text,
+          _nameCtrl.text.trim(),
+        );
       }
 
       widget.onLoginSuccess(res);
-      if (res.role == 'seller') {
-        _loadSellerRestaurants();
-      }
+      _loadFavourites();
     } catch (e) {
       setState(() {
         _error = e.toString().replaceAll('Exception: ', '');
@@ -735,82 +804,14 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  void _openAddRestaurantDialog([Restaurant? editItem]) {
-    final nameCtrl = TextEditingController(text: editItem?.name ?? '');
-    final addrCtrl = TextEditingController(text: editItem?.address ?? '');
-    final phoneCtrl = TextEditingController(text: editItem?.phone ?? '');
-    final descCtrl = TextEditingController(text: editItem?.description ?? '');
-    final latCtrl = TextEditingController(text: editItem != null ? editItem.latitude.toString() : '21.0285');
-    final lonCtrl = TextEditingController(text: editItem != null ? editItem.longitude.toString() : '105.8542');
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(editItem == null ? 'Thêm Quán Ăn Mới' : 'Sửa Quán Ăn'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Tên quán *')),
-                TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: 'Địa chỉ')),
-                TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Hotline')),
-                TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Mô tả')),
-                TextField(controller: latCtrl, decoration: const InputDecoration(labelText: 'Vĩ độ (Lat) *')),
-                TextField(controller: lonCtrl, decoration: const InputDecoration(labelText: 'Kinh độ (Lon) *')),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
-            FilledButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final sellerId = widget.currentUser!.id;
-                final lat = double.tryParse(latCtrl.text) ?? 21.0285;
-                final lon = double.tryParse(lonCtrl.text) ?? 105.8542;
-
-                if (editItem == null) {
-                  await widget.api.createSellerRestaurant(
-                    sellerId,
-                    name: nameCtrl.text.trim(),
-                    latitude: lat,
-                    longitude: lon,
-                    address: addrCtrl.text.trim(),
-                    phone: phoneCtrl.text.trim(),
-                    description: descCtrl.text.trim(),
-                  );
-                } else {
-                  await widget.api.updateSellerRestaurant(
-                    sellerId,
-                    editItem.id,
-                    name: nameCtrl.text.trim(),
-                    latitude: lat,
-                    longitude: lon,
-                    address: addrCtrl.text.trim(),
-                    phone: phoneCtrl.text.trim(),
-                    description: descCtrl.text.trim(),
-                  );
-                }
-                _loadSellerRestaurants();
-              },
-              child: const Text('Lưu'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.currentUser != null) {
       final user = widget.currentUser!;
-      final isSeller = user.role == 'seller';
 
       return Scaffold(
         appBar: AppBar(
-          title: Text(isSeller ? '🏪 Quán Của Tôi (Seller)' : '👤 Tài Khoản'),
+          title: const Text('Tài Khoản Của Tôi'),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
@@ -819,13 +820,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
           ],
         ),
-        floatingActionButton: isSeller
-            ? FloatingActionButton.extended(
-                onPressed: () => _openAddRestaurantDialog(),
-                icon: const Icon(Icons.add),
-                label: const Text('Thêm Quán'),
-              )
-            : null,
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -833,72 +827,125 @@ class _AccountScreenState extends State<AccountScreen> {
               color: Colors.white,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text('Xin chào, ${user.fullName ?? user.email}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text('Vai trò: ${user.role.toUpperCase()}',
-                        style: TextStyle(color: isSeller ? Colors.deepOrange : Colors.blue, fontWeight: FontWeight.w600)),
-                    if (user.shopName != null) ...[
-                      const SizedBox(height: 4),
-                      Text('Tên Shop: ${user.shopName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.black,
+                      child: Text(
+                        (user.fullName?.isNotEmpty == true
+                                ? user.fullName![0]
+                                : user.email[0])
+                            .toUpperCase(),
+                        style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user.fullName ?? 'Thực khách',
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(user.email,
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 13)),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEEEEE),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.black),
+                            ),
+                            child: const Text('Thực Khách (User)',
+                                style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-            if (isSeller) ...[
-              const SizedBox(height: 16),
-              const Text('Danh sách quán của bạn:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              if (_loadingSeller)
-                const Center(child: CircularProgressIndicator())
-              else if (_sellerRestaurants.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('Bạn chưa có quán ăn nào. Hãy bấm "Thêm Quán"!'),
-                )
-              else
-                ..._sellerRestaurants.map((r) => Card(
-                      color: Colors.white,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(r.address ?? 'Chưa có địa chỉ'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () => _openAddRestaurantDialog(r),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                              onPressed: () async {
-                                final ok = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Xoá quán?'),
-                                    content: Text('Bạn có chắc muốn xoá "${r.name}"?'),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
-                                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xoá')),
-                                    ],
-                                  ),
-                                );
-                                if (ok == true) {
-                                  await widget.api.deleteSellerRestaurant(user.id, r.id);
-                                  _loadSellerRestaurants();
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    )),
-            ],
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Món Ăn Yêu Thích',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                if (_loadingFavourites)
+                  const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_loadingFavourites)
+              const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ))
+            else if (_favourites.isEmpty)
+              Card(
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.favorite_border,
+                          size: 44, color: Colors.black54),
+                      const SizedBox(height: 8),
+                      Text('Bạn chưa có món ăn yêu thích nào.',
+                          style: TextStyle(color: Colors.grey[700])),
+                      const SizedBox(height: 4),
+                      Text(
+                          'Hãy khám phá quán ăn và thêm các món ngon vào danh sách nhé!',
+                          textAlign: TextAlign.center,
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ..._favourites.map((fav) {
+                final dish = fav.dish;
+                return Card(
+                  color: Colors.white,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFEEEEEE),
+                      child: Text('M', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                    ),
+                    title: Text(dish?.name ?? 'Món #${fav.dishId}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: dish != null
+                        ? Text(
+                            '${dish.price.toStringAsFixed(0)} đ • ${dish.mealType}')
+                        : null,
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.black, size: 20),
+                      tooltip: 'Bỏ thích',
+                      onPressed: () => _removeFavourite(fav.id),
+                    ),
+                  ),
+                );
+              }),
           ],
         ),
       );
@@ -907,7 +954,7 @@ class _AccountScreenState extends State<AccountScreen> {
     // Auth Form (Not logged in)
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isRegister ? 'Tạo Tài Khoản Mới' : 'Đăng Nhập'),
+        title: Text(_isRegister ? 'Tạo Tài Khoản Khách Hàng' : 'Đăng Nhập Khách Hàng'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -921,20 +968,6 @@ class _AccountScreenState extends State<AccountScreen> {
             onSelectionChanged: (set) {
               setState(() {
                 _isRegister = set.first;
-                _error = null;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'user', label: Text('👤 Thực khách')),
-              ButtonSegment(value: 'seller', label: Text('🏪 Chủ quán')),
-            ],
-            selected: {_selectedRole},
-            onSelectionChanged: (set) {
-              setState(() {
-                _selectedRole = set.first;
                 _error = null;
               });
             },
@@ -964,18 +997,6 @@ class _AccountScreenState extends State<AccountScreen> {
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: 'Họ và tên', border: OutlineInputBorder()),
             ),
-            if (_selectedRole == 'seller') ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _shopNameCtrl,
-                decoration: const InputDecoration(labelText: 'Tên cửa hàng/Shop *', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Số điện thoại', border: OutlineInputBorder()),
-              ),
-            ],
           ],
           const SizedBox(height: 20),
           FilledButton(
@@ -984,8 +1005,456 @@ class _AccountScreenState extends State<AccountScreen> {
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : Text(_isRegister ? 'Đăng ký ngay' : 'Đăng nhập'),
           ),
+          const SizedBox(height: 24),
+          Center(
+            child: Text(
+              '💡 Quản trị viên và Chủ quán vui lòng truy cập\nCổng Web Quản Lý (Vite/Vue) trên máy tính.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
+// ==========================================
+// CLIENT MENU BOTTOM SHEET WIDGET
+// ==========================================
+class _RestaurantMenuWidget extends StatefulWidget {
+  final ApiService api;
+  final Restaurant restaurant;
+  final ScrollController scrollController;
+
+  const _RestaurantMenuWidget({
+    required this.api,
+    required this.restaurant,
+    required this.scrollController,
+  });
+
+  @override
+  State<_RestaurantMenuWidget> createState() => _RestaurantMenuWidgetState();
+}
+
+class _RestaurantMenuWidgetState extends State<_RestaurantMenuWidget> {
+  List<Category> _categories = [];
+  List<Dish> _dishes = [];
+  int? _selectedCategoryId;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMenu();
+  }
+
+  Future<void> _loadMenu() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final cats = await widget.api.getRestaurantCategories(widget.restaurant.id);
+      final dishes = await widget.api.getRestaurantDishes(widget.restaurant.id);
+      setState(() {
+        _categories = cats;
+        _dishes = dishes;
+      });
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  List<Dish> get _displayedDishes {
+    if (_selectedCategoryId == null) return _dishes;
+    return _dishes.where((d) => d.categoryId == _selectedCategoryId).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Thực đơn: ${widget.restaurant.name}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    if (widget.restaurant.address != null)
+                      Text(widget.restaurant.address!,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+        ),
+        if (_categories.isNotEmpty)
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: const Text('Tất cả'),
+                    selected: _selectedCategoryId == null,
+                    onSelected: (_) => setState(() => _selectedCategoryId = null),
+                  ),
+                ),
+                ..._categories.map((c) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(c.name),
+                        selected: _selectedCategoryId == c.id,
+                        onSelected: (_) => setState(() => _selectedCategoryId = c.id),
+                      ),
+                    )),
+              ],
+            ),
+          ),
+        const Divider(),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(child: Text('Lỗi: $_error', style: const TextStyle(color: Colors.red)))
+                  : _displayedDishes.isEmpty
+                      ? const Center(child: Text('Quán chưa có món trong danh mục này'))
+                      : ListView.separated(
+                          controller: widget.scrollController,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: _displayedDishes.length,
+                          separatorBuilder: (_, __) => const Divider(height: 16),
+                          itemBuilder: (context, index) {
+                            final d = _displayedDishes[index];
+                            final formattedPrice = '${d.price.toStringAsFixed(0)} đ';
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(d.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 2),
+                                      Text(formattedPrice,
+                                          style: const TextStyle(
+                                              color: Colors.deepOrange, fontWeight: FontWeight.bold, fontSize: 14)),
+                                      if (d.description != null && d.description!.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(d.description!,
+                                            style: TextStyle(color: Colors.grey[600], fontSize: 12), maxLines: 2),
+                                      ],
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 4,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (d.categoryName != null)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                  color: Colors.blue[50], borderRadius: BorderRadius.circular(4)),
+                                              child: Text(d.categoryName!,
+                                                  style: const TextStyle(fontSize: 10, color: Colors.blue)),
+                                            ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                                color: Colors.grey[100], borderRadius: BorderRadius.circular(4)),
+                                            child: Text(d.mealType,
+                                                style: TextStyle(fontSize: 10, color: Colors.grey[700])),
+                                          ),
+                                          ...d.tags.map((t) => Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.orange[50], borderRadius: BorderRadius.circular(4)),
+                                                child: Text('#$t',
+                                                    style: const TextStyle(fontSize: 10, color: Colors.deepOrange)),
+                                              )),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+        ),
+      ],
+    );
+  }
+}
+
+// ==========================================
+// SELLER MENU MANAGEMENT DIALOG
+// ==========================================
+class _SellerMenuDialog extends StatefulWidget {
+  final ApiService api;
+  final int sellerId;
+  final Restaurant restaurant;
+
+  const _SellerMenuDialog({
+    required this.api,
+    required this.sellerId,
+    required this.restaurant,
+  });
+
+  @override
+  State<_SellerMenuDialog> createState() => _SellerMenuDialogState();
+}
+
+class _SellerMenuDialogState extends State<_SellerMenuDialog> with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+  List<Category> _categories = [];
+  List<Dish> _dishes = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    try {
+      final cats = await widget.api.getRestaurantCategories(widget.restaurant.id);
+      final dishes = await widget.api.getRestaurantDishes(widget.restaurant.id);
+      setState(() {
+        _categories = cats;
+        _dishes = dishes;
+      });
+    } catch (_) {}
+    setState(() => _loading = false);
+  }
+
+  void _openAddCategoryDialog() {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Thêm nhóm danh mục'),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(labelText: 'Tên danh mục (VD: Cơm, Khai vị)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+          FilledButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx);
+              await widget.api.createCategory(widget.sellerId, widget.restaurant.id, nameCtrl.text.trim());
+              _loadData();
+            },
+            child: const Text('Thêm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openAddDishDialog() {
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: '35000');
+    final tagsCtrl = TextEditingController();
+    int? selectedCatId = _categories.isNotEmpty ? _categories.first.id : null;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Thêm món ăn mới'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Tên món *')),
+                TextField(
+                    controller: priceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Giá bán (VNĐ) *')),
+                if (_categories.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: selectedCatId,
+                    decoration: const InputDecoration(labelText: 'Danh mục'),
+                    items: _categories
+                        .map((c) => DropdownMenuItem<int>(value: c.id, child: Text(c.name)))
+                        .toList(),
+                    onChanged: (val) => setDialogState(() => selectedCatId = val),
+                  ),
+
+                ],
+                TextField(controller: tagsCtrl, decoration: const InputDecoration(labelText: 'Tags (phẩy để tách)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ')),
+            FilledButton(
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty) return;
+                Navigator.pop(ctx);
+                final tagsList = tagsCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                await widget.api.createDish(widget.sellerId, widget.restaurant.id, {
+                  'name': nameCtrl.text.trim(),
+                  'price': double.tryParse(priceCtrl.text) ?? 35000,
+                  if (selectedCatId != null) 'category_id': selectedCatId,
+                  'tags': tagsList,
+                });
+                _loadData();
+              },
+              child: const Text('Thêm Món'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: SizedBox(
+        width: 450,
+        height: 520,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text('Thực đơn: ${widget.restaurant.name}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+            ),
+            TabBar(
+              controller: _tabCtrl,
+              tabs: [
+                Tab(text: 'Món ăn (${_dishes.length})'),
+                Tab(text: 'Danh mục (${_categories.length})'),
+              ],
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabCtrl,
+                      children: [
+                        // Tab 1: Dishes
+                        Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.add, size: 16),
+                                label: const Text('Thêm Món Ăn'),
+                                onPressed: _openAddDishDialog,
+                              ),
+                            ),
+                            Expanded(
+                              child: _dishes.isEmpty
+                                  ? const Center(child: Text('Chưa có món ăn nào'))
+                                  : ListView.builder(
+                                      itemCount: _dishes.length,
+                                      itemBuilder: (ctx, i) {
+                                        final d = _dishes[i];
+                                        return ListTile(
+                                          title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          subtitle: Text(
+                                              '${d.price.toStringAsFixed(0)} đ • ${d.categoryName ?? "Chưa phân loại"}'),
+                                          trailing: IconButton(
+                                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                            onPressed: () async {
+                                              await widget.api.deleteDish(widget.sellerId, d.id);
+                                              _loadData();
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
+                        // Tab 2: Categories
+                        Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.add, size: 16),
+                                label: const Text('Thêm Danh Mục'),
+                                onPressed: _openAddCategoryDialog,
+                              ),
+                            ),
+                            Expanded(
+                              child: _categories.isEmpty
+                                  ? const Center(child: Text('Chưa có nhóm danh mục nào'))
+                                  : ListView.builder(
+                                      itemCount: _categories.length,
+                                      itemBuilder: (ctx, i) {
+                                        final c = _categories[i];
+                                        return ListTile(
+                                          title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          subtitle: Text('Thứ tự: ${c.displayOrder} • ${c.dishCount} món'),
+                                          trailing: IconButton(
+                                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                            onPressed: () async {
+                                              await widget.api.deleteCategory(widget.sellerId, c.id);
+                                              _loadData();
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

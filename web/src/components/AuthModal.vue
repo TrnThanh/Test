@@ -8,8 +8,12 @@ const emit = defineEmits<{
   (e: 'loginSuccess', user: RoleLoginResponse): void;
 }>();
 
+const props = defineProps<{
+  initialRole?: 'seller' | 'admin';
+}>();
+
 const mode = ref<'login' | 'register'>('login');
-const role = ref<'user' | 'seller'>('user');
+const role = ref<'seller' | 'admin'>(props.initialRole || 'seller');
 
 // Form fields
 const email = ref('');
@@ -28,27 +32,22 @@ async function handleSubmit() {
   try {
     let result: RoleLoginResponse;
     if (mode.value === 'login') {
-      if (role.value === 'user') {
-        result = await api.loginUser({ email: email.value, password: password.value });
+      if (role.value === 'admin') {
+        result = await api.loginAdmin({ email: email.value, password: password.value });
       } else {
         result = await api.loginSeller({ email: email.value, password: password.value });
       }
     } else {
-      if (role.value === 'user') {
-        result = await api.registerUser({
-          email: email.value,
-          password: password.value,
-          full_name: fullName.value || undefined,
-        });
-      } else {
-        result = await api.registerSeller({
-          email: email.value,
-          password: password.value,
-          full_name: fullName.value || undefined,
-          shop_name: shopName.value,
-          phone: phone.value || undefined,
-        });
+      if (role.value === 'admin') {
+        throw new Error('Tài khoản Quản trị viên (Admin) chỉ được tạo bởi hệ thống, không hỗ trợ đăng ký tự do.');
       }
+      result = await api.registerSeller({
+        email: email.value,
+        password: password.value,
+        full_name: fullName.value || undefined,
+        shop_name: shopName.value,
+        phone: phone.value || undefined,
+      });
     }
 
     emit('loginSuccess', result);
@@ -65,12 +64,12 @@ async function handleSubmit() {
   <div class="modal-overlay" @click.self="emit('close')">
     <div class="modal-content auth-modal">
       <div class="modal-header">
-        <h3>{{ mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản mới' }}</h3>
+        <h3>{{ mode === 'login' ? 'Đăng nhập Cổng Quản Lý' : 'Đăng ký Chủ Quán Mới' }}</h3>
         <button type="button" class="modal-close" @click="emit('close')">×</button>
       </div>
 
-      <!-- Mode Switcher -->
-      <div class="segmented-control">
+      <!-- Mode Switcher (only show if not admin) -->
+      <div v-if="role !== 'admin'" class="segmented-control">
         <button
           type="button"
           class="segment-btn"
@@ -93,43 +92,43 @@ async function handleSubmit() {
       <div class="role-selector">
         <label
           class="role-card"
-          :class="{ active: role === 'user' }"
-          @click="role = 'user'; error = null;"
-        >
-          <input type="radio" name="role" value="user" :checked="role === 'user'" />
-          <div>
-            <div class="role-title">👤 Thực khách (User)</div>
-            <div class="role-desc">Xem quán, tìm kiếm món ăn</div>
-          </div>
-        </label>
-
-        <label
-          class="role-card"
           :class="{ active: role === 'seller' }"
           @click="role = 'seller'; error = null;"
         >
           <input type="radio" name="role" value="seller" :checked="role === 'seller'" />
           <div>
-            <div class="role-title">🏪 Chủ quán (Seller)</div>
-            <div class="role-desc">Đăng quán, quản lý cửa hàng</div>
+            <div class="role-title">Cổng Chủ quán (Seller)</div>
+            <div class="role-desc">Quản lý nhà hàng, nhóm món & thực đơn</div>
+          </div>
+        </label>
+
+        <label
+          class="role-card"
+          :class="{ active: role === 'admin' }"
+          @click="role = 'admin'; mode = 'login'; error = null;"
+        >
+          <input type="radio" name="role" value="admin" :checked="role === 'admin'" />
+          <div>
+            <div class="role-title">Cổng Quản trị (Admin)</div>
+            <div class="role-desc">Quản trị toàn hệ thống, danh mục, kiểm duyệt</div>
           </div>
         </label>
       </div>
 
       <!-- Error box -->
       <div v-if="error" class="alert alert-error" style="margin-top: 14px;">
-        ⚠️ {{ error }}
+        {{ error }}
       </div>
 
       <!-- Form -->
       <form style="margin-top: 14px;" @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label>Email *</label>
+          <label>{{ role === 'admin' ? 'Tài khoản Quản trị / Email *' : 'Email Chủ quán *' }}</label>
           <input
             v-model="email"
-            type="email"
+            :type="role === 'admin' ? 'text' : 'email'"
             required
-            placeholder="example@domain.com"
+            :placeholder="role === 'admin' ? 'admin hoặc admin@ptc1.vn' : 'seller@domain.com'"
           />
         </div>
 
@@ -251,8 +250,8 @@ async function handleSubmit() {
 }
 
 .role-card.active {
-  border-color: var(--c-primary);
-  background: var(--c-primary-light);
+  border-color: #000000;
+  background: #f5f5f5;
 }
 
 .role-title {
