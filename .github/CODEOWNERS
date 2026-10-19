@@ -1,0 +1,3 @@
+# Chỉ định @iamlocnguyen là Code Owner duy nhất của toàn bộ dự án
+# Mọi Pull Request muốn merge vào main bắt buộc phải được @iamlocnguyen phê duyệt
+* @iamlocnguyen
