@@ -22,7 +22,7 @@ Dự án cung cấp script tự động 1-click cài đặt đầy đủ từ A-
    Set-ExecutionPolicy Bypass -Scope Process
    .\setup.ps1
    ```
-fdhfgnjghm
+   dfghfnmbvm
 ---
 
 ## 🏃 Khởi Chạy Server
