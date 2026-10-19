@@ -128,4 +128,34 @@ export interface OptionUser {
   updated_at: string;
 }
 
+export interface SystemStats {
+  total_restaurants: number;
+  active_restaurants: number;
+  inactive_restaurants: number;
+  total_dishes: number;
+  total_categories: number;
+  total_sellers: number;
+  total_users: number;
+}
+
+export interface AdminSeller {
+  id: number;
+  email: string;
+  full_name?: string | null;
+  shop_name: string;
+  phone?: string | null;
+  is_active: boolean;
+  restaurant_count: number;
+  created_at: string;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  full_name?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+
 

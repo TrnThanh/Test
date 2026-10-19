@@ -1,4 +1,5 @@
-import type { Restaurant, GeocodePlace, RoleLoginResponse } from '../types';
+import type { Restaurant, GeocodePlace, RoleLoginResponse, SystemStats, AdminSeller, AdminUser } from '../types';
+
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -97,10 +98,42 @@ export const api = {
     } as RoleLoginResponse;
   },
 
+  // --- ADMIN OPERATIONS ---
+  getAdminStats: () =>
+    request<SystemStats>('/admin/stats'),
+
+  getAdminSellers: () =>
+    request<AdminSeller[]>('/admin/sellers'),
+
+  getAdminUsers: () =>
+    request<AdminUser[]>('/admin/users'),
+
+  toggleRestaurantStatus: (restaurantId: number, isActive: boolean) =>
+    request<Restaurant>(`/admin/restaurants/${restaurantId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active: isActive }),
+    }),
+
+  updateRestaurantAsAdmin: (restaurantId: number, data: Partial<Restaurant>) =>
+    request<Restaurant>(`/admin/restaurants/${restaurantId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getAdminRestaurants: (skip = 0, limit = 100, activeOnly = false) =>
+    request<Restaurant[]>(`/admin/restaurants?skip=${skip}&limit=${limit}&active_only=${activeOnly}`),
+
+  deleteRestaurantAsAdmin: (restaurantId: number) =>
+    request<{ message: string; restaurant_id: number }>(`/admin/restaurants/${restaurantId}`, {
+      method: 'DELETE',
+    }),
+
+
 
   // --- RESTAURANTS (PUBLIC) ---
   getRestaurants: (skip = 0, limit = 50) =>
-    request<Restaurant[]>(`/restaurants?skip=${skip}&limit=${limit}`),
+    request<Restaurant[]>(`/restaurants?skip=${skip}&limit=${Math.min(limit, 100)}`),
+
 
   getRestaurantDetail: (id: number) =>
     request<Restaurant>(`/restaurants/${id}`),

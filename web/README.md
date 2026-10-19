@@ -1,5 +1,20 @@
-# Vue 3 + TypeScript + Vite
+# PTC1 Admin Console (Web Portal)
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Cổng thông tin Quản Trị Hệ Thống chuyên trách dành cho ban điều hành PTC1 Spatial Platform (FastAPI + PostGIS).
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## Tính Năng Quản Trị
+- **Dashboard Tổng Quan:** Giám sát chỉ số KPI toàn hệ thống (tổng quán ăn, món ăn, danh mục, seller, user).
+- **Quản Lý Quán Ăn:** Bật/tắt hoạt động 1-click, chỉnh sửa thông tin, toạ độ PostGIS, xoá quán vi phạm.
+- **Kiểm Duyệt Thực Đơn:** Xem nhóm danh mục và danh sách món ăn của từng quán.
+- **Quản Lý Tài Khoản:** Xem danh sách đối tác Chủ Quán (Sellers) và Thực Khách (Users).
+
+## Tài Khoản Quản Trị Mặc Định
+- **Email:** `admin@example.com`
+- **Mật khẩu:** `admin123`
+
+## Khởi Chạy
+```bash
+npm install
+npm run dev
+```
+Truy cập: [http://localhost:5173/](http://localhost:5173/)

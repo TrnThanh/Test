@@ -3,6 +3,7 @@ from server.app.api.v1.endpoints import (
     auth_user,
     auth_seller,
     auth_admin,
+    admin,
     map,
     restaurants,
     categories,
@@ -13,6 +14,13 @@ from server.app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
+
+api_router.include_router(
+    admin.router,
+    prefix="/admin",
+    tags=["Admin Operations"],
+)
+
 
 api_router.include_router(
     auth_user.router,
