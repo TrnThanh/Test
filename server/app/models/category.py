@@ -7,6 +7,8 @@ from server.app.db.base import Base
 if TYPE_CHECKING:
     from server.app.models.restaurant import Restaurant
     from server.app.models.dish import Dish
+    from server.app.models.weather_category import WeatherCategory
+    from server.app.models.weather import Weather
 
 
 class Category(Base):
@@ -34,4 +36,10 @@ class Category(Base):
     restaurant: Mapped["Restaurant"] = relationship("Restaurant", back_populates="categories")
     dishes: Mapped[List["Dish"]] = relationship(
         "Dish", back_populates="category_rel", passive_deletes=True
+    )
+    weather_categories: Mapped[List["WeatherCategory"]] = relationship(
+        "WeatherCategory", back_populates="category", cascade="all, delete-orphan", passive_deletes=True
+    )
+    weathers: Mapped[List["Weather"]] = relationship(
+        "Weather", secondary="weather_categories", viewonly=True
     )

@@ -1,8 +1,12 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List, TYPE_CHECKING
 from sqlalchemy import String, Boolean, DateTime, Float, CheckConstraint, Integer, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from server.app.db.base import Base
+
+if TYPE_CHECKING:
+    from server.app.models.weather_category import WeatherCategory
+    from server.app.models.category import Category
 
 
 class Weather(Base):
@@ -30,4 +34,11 @@ class Weather(Base):
         default=lambda: datetime.now(timezone.utc),
         server_default=func.now(),
         nullable=False,
+    )
+
+    weather_categories: Mapped[List["WeatherCategory"]] = relationship(
+        "WeatherCategory", back_populates="weather", cascade="all, delete-orphan", passive_deletes=True
+    )
+    categories: Mapped[List["Category"]] = relationship(
+        "Category", secondary="weather_categories", viewonly=True
     )

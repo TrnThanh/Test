@@ -131,6 +131,14 @@ erDiagram
     USERS ||--o{ FAVOURITE_DISHES : "favourites (1-N, cascade delete)"
     USERS ||--o{ OPTION_USERS : "configures (1-N, cascade delete)"
     CATEGORIES ||--o{ OPTION_USERS : "configured by (1-N, cascade delete)"
+    WEATHER ||--o{ WEATHER_CATEGORIES : "associated with (1-N, cascade delete)"
+    CATEGORIES ||--o{ WEATHER_CATEGORIES : "associated with (1-N, cascade delete)"
+    WEATHER_CATEGORIES {
+        int id PK "Khóa chính tự tăng"
+        int weather_id FK "Khóa ngoại trỏ về WEATHER(id) ON DELETE CASCADE (Index)"
+        int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) ON DELETE CASCADE (Index)"
+        timestamp created_at "Thời điểm tạo liên kết (UTC)"
+    }
     OPTION_USERS {
         int id PK "Khóa chính tự tăng"
         int user_id FK "Khóa ngoại trỏ về USERS(id) ON DELETE CASCADE (Index)"
@@ -322,6 +330,21 @@ Quan hệ:
 
 ---
 
+### 3.10. Bảng `weather_categories` (Liên kết Thời tiết - Nhóm danh mục món ăn N-N)
+Model ORM: `server/app/models/weather_category.py`.
+Quan hệ: N-N giữa `weather` và `categories` (`weather ||--o{ weather_categories`, `categories ||--o{ weather_categories`), có khóa ngoại `weather_id` và `category_id` kèm `ON DELETE CASCADE`.
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính bản ghi liên kết |
+| `weather_id` | `INTEGER` | `NOT NULL`, `FK(weather.id ON DELETE CASCADE)`, `INDEX` | Khóa ngoại trỏ về `weather.id`. Khi trạng thái thời tiết bị xóa, liên kết tự động bị xóa theo. |
+| `category_id` | `INTEGER` | `NOT NULL`, `FK(categories.id ON DELETE CASCADE)`, `INDEX` | Khóa ngoại trỏ về `categories.id`. Khi danh mục bị xóa, liên kết tự động bị xóa theo. |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm thiết lập liên kết (UTC) |
+
+- **Ràng buộc duy nhất:** `UNIQUE (weather_id, category_id)` ngăn ngừa trùng lặp liên kết.
+
+---
+
 ## 4. Các Ràng buộc & Chỉ mục (Indexes & Constraints)
 
 1. **Ràng buộc kiểm tra hợp lệ tọa độ (Check Constraints):**
@@ -337,9 +360,14 @@ Quan hệ:
    - `dishes.category_id` trỏ đến `categories.id` với `ON DELETE SET NULL`.
    - `favourite_dishes.user_id` trỏ đến `users.id` với `ON DELETE CASCADE`.
    - `favourite_dishes.dish_id` trỏ đến `dishes.id` với `ON DELETE CASCADE`.
+   - `option_users.user_id` trỏ đến `users.id` với `ON DELETE CASCADE`.
+   - `option_users.category_id` trỏ đến `categories.id` với `ON DELETE CASCADE`.
+   - `weather_categories.weather_id` trỏ đến `weather.id` với `ON DELETE CASCADE`.
+   - `weather_categories.category_id` trỏ đến `categories.id` với `ON DELETE CASCADE`.
 4. **Ràng buộc duy nhất (Unique Constraint):**
    - `uq_restaurant_category_name`: `UNIQUE (restaurant_id, name)` đảm bảo mỗi quán không bị trùng tên danh mục.
    - `uq_user_favourite_dish`: `UNIQUE (user_id, dish_id)` đảm bảo mỗi người dùng chỉ yêu thích một món ăn 1 lần (Idempotent).
+   - `uq_weather_category`: `UNIQUE (weather_id, category_id)` đảm bảo liên kết giữa thời tiết và danh mục là duy nhất (Idempotent).
 
 5. **Chỉ mục tổng hợp & không gian:**
    - `ix_restaurants_lat_lon` trên `(latitude, longitude)`.
@@ -525,5 +553,17 @@ CREATE TABLE IF NOT EXISTS option_users (
 
 CREATE INDEX IF NOT EXISTS ix_option_users_user_id ON option_users (user_id);
 CREATE INDEX IF NOT EXISTS ix_option_users_category_id ON option_users (category_id);
+
+-- 12. Bảng weather_categories (Liên kết Nhiều-Nhiều Thời tiết - Danh mục món ăn)
+CREATE TABLE IF NOT EXISTS weather_categories (
+    id SERIAL PRIMARY KEY,
+    weather_id INTEGER NOT NULL REFERENCES weather(id) ON DELETE CASCADE,
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_weather_category UNIQUE (weather_id, category_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_weather_categories_weather_id ON weather_categories (weather_id);
+CREATE INDEX IF NOT EXISTS ix_weather_categories_category_id ON weather_categories (category_id);
 ```
 

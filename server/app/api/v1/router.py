@@ -11,6 +11,7 @@ from server.app.api.v1.endpoints import (
     meal_types,
     weather,
     option_user,
+    weather_categories,
 )
 
 api_router = APIRouter()
@@ -76,4 +77,10 @@ api_router.include_router(
     option_user.router,
     prefix="/users",
     tags=["User Options"],
+)
+
+api_router.include_router(
+    weather_categories.router,
+    prefix="/weather-categories",
+    tags=["Weather Categories"],
 )
