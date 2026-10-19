@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from server.app.models.user import User
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
+from server.app.models.meal_type import MealType
 from server.app.models.dish import Dish
 from server.app.models.favourite_dish import FavouriteDish
 from server.app.schemas.dish import DishCreate, DishUpdate, DishResponse
@@ -15,8 +16,10 @@ class DishService:
     @staticmethod
     def to_dish_response(dish: Dish) -> DishResponse:
         cat_name = dish.category_rel.name if dish.category_rel else dish.category
+        meal_name = dish.meal_type_rel.name if dish.meal_type_rel else None
         res = DishResponse.model_validate(dish)
         res.category_name = cat_name
+        res.meal_type_name = meal_name
         return res
 
     @classmethod
@@ -57,6 +60,22 @@ class DishService:
             if not category_str:
                 category_str = category.name
 
+        meal_type_val = data.meal_type
+        if data.meal_type_id is not None:
+            mt = db.get(MealType, data.meal_type_id)
+            if not mt:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Không tìm thấy loại bữa ăn với ID {data.meal_type_id}.",
+                )
+            if mt.code in ["breakfast", "lunch", "dinner", "snack", "all_day"]:
+                meal_type_val = mt.code
+
+        tag_val = data.tag.strip() if data.tag else None
+        tags_list = list(data.tags)
+        if tag_val and tag_val not in tags_list:
+            tags_list.insert(0, tag_val)
+
         dish = Dish(
             restaurant_id=restaurant_id,
             name=data.name.strip(),
@@ -65,8 +84,11 @@ class DishService:
             image_url=data.image_url.strip() if data.image_url else None,
             category_id=data.category_id,
             category=category_str,
-            meal_type=data.meal_type,
-            tags=data.tags,
+            meal_type_id=data.meal_type_id,
+            meal_type=meal_type_val,
+            tag=tag_val,
+            tags=tags_list,
+            ingredients=data.ingredients,
             is_available=data.is_available,
         )
         db.add(dish)
@@ -80,13 +102,15 @@ class DishService:
         restaurant_id: int,
         category_id: Optional[int] = None,
         category: Optional[str] = None,
+        meal_type_id: Optional[int] = None,
         meal_type: Optional[str] = None,
         tag: Optional[str] = None,
+        ingredient: Optional[str] = None,
         available_only: bool = True,
         skip: int = 0,
         limit: int = 100,
     ) -> List[Dish]:
-        """Lấy danh sách thực đơn của quán ăn kèm bộ lọc linh hoạt (category_id, category, meal_type, tag)."""
+        """Lấy danh sách thực đơn của quán ăn kèm bộ lọc linh hoạt (category_id, category, meal_type_id, meal_type, tag, ingredient)."""
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
@@ -94,17 +118,26 @@ class DishService:
                 detail=f"Không tìm thấy quán ăn với ID {restaurant_id}.",
             )
 
-        stmt = select(Dish).options(joinedload(Dish.category_rel)).where(Dish.restaurant_id == restaurant_id)
+        stmt = (
+            select(Dish)
+            .options(joinedload(Dish.category_rel), joinedload(Dish.meal_type_rel))
+            .where(Dish.restaurant_id == restaurant_id)
+        )
         if available_only:
             stmt = stmt.where(Dish.is_available.is_(True))
         if category_id is not None:
             stmt = stmt.where(Dish.category_id == category_id)
         if category:
             stmt = stmt.where(Dish.category == category.strip())
+        if meal_type_id is not None:
+            stmt = stmt.where(Dish.meal_type_id == meal_type_id)
         if meal_type:
             stmt = stmt.where(Dish.meal_type.in_([meal_type, "all_day"]))
         if tag:
-            stmt = stmt.where(Dish.tags.contains([tag.strip()]))
+            t = tag.strip()
+            stmt = stmt.where((Dish.tag == t) | (Dish.tags.contains([t])))
+        if ingredient:
+            stmt = stmt.where(Dish.ingredients.contains([ingredient.strip()]))
 
         stmt = stmt.order_by(Dish.category.asc().nulls_last(), Dish.id.asc()).offset(skip).limit(limit)
         return list(db.scalars(stmt).all())
@@ -112,7 +145,11 @@ class DishService:
     @staticmethod
     def get_dish_by_id(db: Session, dish_id: int) -> Dish:
         """Lấy chi tiết một món ăn theo ID."""
-        stmt = select(Dish).options(joinedload(Dish.category_rel)).where(Dish.id == dish_id)
+        stmt = (
+            select(Dish)
+            .options(joinedload(Dish.category_rel), joinedload(Dish.meal_type_rel))
+            .where(Dish.id == dish_id)
+        )
         dish = db.scalar(stmt)
         if not dish:
             raise HTTPException(
@@ -164,8 +201,24 @@ class DishService:
             else:
                 dish.category_id = None
 
+        if "meal_type_id" in update_data:
+            mt_id = update_data["meal_type_id"]
+            if mt_id is not None:
+                mt = db.get(MealType, mt_id)
+                if not mt:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Không tìm thấy loại bữa ăn với ID {mt_id}.",
+                    )
+                if ("meal_type" not in update_data or not update_data["meal_type"]) and mt.code in [
+                    "breakfast", "lunch", "dinner", "snack", "all_day"
+                ]:
+                    dish.meal_type = mt.code
+            else:
+                dish.meal_type_id = None
+
         for key, value in update_data.items():
-            if key == "category_id":
+            if key in ["category_id", "meal_type_id"]:
                 continue
             if isinstance(value, str):
                 value = value.strip()

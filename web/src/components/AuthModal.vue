@@ -9,11 +9,11 @@ const emit = defineEmits<{
 }>();
 
 const props = defineProps<{
-  initialRole?: 'seller' | 'admin';
+  initialRole?: 'user' | 'seller' | 'admin';
 }>();
 
 const mode = ref<'login' | 'register'>('login');
-const role = ref<'seller' | 'admin'>(props.initialRole || 'seller');
+const role = ref<'user' | 'seller' | 'admin'>(props.initialRole || 'user');
 
 // Form fields
 const email = ref('');
@@ -34,20 +34,29 @@ async function handleSubmit() {
     if (mode.value === 'login') {
       if (role.value === 'admin') {
         result = await api.loginAdmin({ email: email.value, password: password.value });
-      } else {
+      } else if (role.value === 'seller') {
         result = await api.loginSeller({ email: email.value, password: password.value });
+      } else {
+        result = await api.loginUser({ email: email.value, password: password.value });
       }
     } else {
       if (role.value === 'admin') {
         throw new Error('Tài khoản Quản trị viên (Admin) chỉ được tạo bởi hệ thống, không hỗ trợ đăng ký tự do.');
+      } else if (role.value === 'seller') {
+        result = await api.registerSeller({
+          email: email.value,
+          password: password.value,
+          full_name: fullName.value || undefined,
+          shop_name: shopName.value,
+          phone: phone.value || undefined,
+        });
+      } else {
+        result = await api.registerUser({
+          email: email.value,
+          password: password.value,
+          full_name: fullName.value || undefined,
+        });
       }
-      result = await api.registerSeller({
-        email: email.value,
-        password: password.value,
-        full_name: fullName.value || undefined,
-        shop_name: shopName.value,
-        phone: phone.value || undefined,
-      });
     }
 
     emit('loginSuccess', result);
@@ -61,129 +70,152 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="emit('close')">
-    <div class="modal-content auth-modal">
+  <div class="modal-backdrop" @click.self="emit('close')">
+    <div class="modal-card auth-modal">
       <div class="modal-header">
-        <h3>{{ mode === 'login' ? 'Đăng nhập Cổng Quản Lý' : 'Đăng ký Chủ Quán Mới' }}</h3>
+        <h3>{{ mode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản' }}</h3>
         <button type="button" class="modal-close" @click="emit('close')">×</button>
       </div>
 
-      <!-- Mode Switcher (only show if not admin) -->
-      <div v-if="role !== 'admin'" class="segmented-control">
-        <button
-          type="button"
-          class="segment-btn"
-          :class="{ active: mode === 'login' }"
-          @click="mode = 'login'; error = null;"
-        >
-          Đăng nhập
-        </button>
-        <button
-          type="button"
-          class="segment-btn"
-          :class="{ active: mode === 'register' }"
-          @click="mode = 'register'; error = null;"
-        >
-          Đăng ký
-        </button>
-      </div>
-
-      <!-- Role Selector -->
-      <div class="role-selector">
-        <label
-          class="role-card"
-          :class="{ active: role === 'seller' }"
-          @click="role = 'seller'; error = null;"
-        >
-          <input type="radio" name="role" value="seller" :checked="role === 'seller'" />
-          <div>
-            <div class="role-title">Cổng Chủ quán (Seller)</div>
-            <div class="role-desc">Quản lý nhà hàng, nhóm món & thực đơn</div>
-          </div>
-        </label>
-
-        <label
-          class="role-card"
-          :class="{ active: role === 'admin' }"
-          @click="role = 'admin'; mode = 'login'; error = null;"
-        >
-          <input type="radio" name="role" value="admin" :checked="role === 'admin'" />
-          <div>
-            <div class="role-title">Cổng Quản trị (Admin)</div>
-            <div class="role-desc">Quản trị toàn hệ thống, danh mục, kiểm duyệt</div>
-          </div>
-        </label>
-      </div>
-
-      <!-- Error box -->
-      <div v-if="error" class="alert alert-error" style="margin-top: 14px;">
-        {{ error }}
-      </div>
-
-      <!-- Form -->
-      <form style="margin-top: 14px;" @submit.prevent="handleSubmit">
-        <div class="form-group">
-          <label>{{ role === 'admin' ? 'Tài khoản Quản trị / Email *' : 'Email Chủ quán *' }}</label>
-          <input
-            v-model="email"
-            :type="role === 'admin' ? 'text' : 'email'"
-            required
-            :placeholder="role === 'admin' ? 'admin hoặc admin@ptc1.vn' : 'seller@domain.com'"
-          />
+      <div class="modal-body">
+        <!-- Role Selector 2 Roles for Portal: Seller & Admin -->
+        <div class="role-selector">
+          <button
+            type="button"
+            class="role-btn"
+            :class="{ active: role === 'seller' }"
+            @click="role = 'seller'; error = null;"
+          >
+            🏢 Chủ Quán
+          </button>
+          <button
+            type="button"
+            class="role-btn"
+            :class="{ active: role === 'admin' }"
+            @click="role = 'admin'; mode = 'login'; error = null;"
+          >
+            ⚙️ Quản Trị Hệ Thống
+          </button>
         </div>
 
-        <div class="form-group">
-          <label>Mật khẩu *</label>
-          <input
-            v-model="password"
-            type="password"
-            required
-            placeholder="••••••••"
-          />
+        <!-- Mode Switcher (only show if not admin) -->
+        <div v-if="role !== 'admin'" class="segmented-control">
+          <button
+            type="button"
+            class="segment-btn"
+            :class="{ active: mode === 'login' }"
+            @click="mode = 'login'; error = null;"
+          >
+            Đăng nhập
+          </button>
+          <button
+            type="button"
+            class="segment-btn"
+            :class="{ active: mode === 'register' }"
+            @click="mode = 'register'; error = null;"
+          >
+            Đăng ký mới
+          </button>
         </div>
 
-        <template v-if="mode === 'register'">
+        <!-- Error box -->
+        <div v-if="error" class="alert alert-error" style="margin-top: 14px;">
+          {{ error }}
+        </div>
+
+        <!-- Form -->
+        <form style="margin-top: 14px;" @submit.prevent="handleSubmit">
           <div class="form-group">
-            <label>Họ và tên</label>
+            <label class="form-label">
+              {{ role === 'admin' ? 'Tài khoản Quản trị / Email *' : 'Địa chỉ Email *' }}
+            </label>
             <input
-              v-model="fullName"
-              type="text"
-              placeholder="Nguyễn Văn A"
+              v-model="email"
+              :type="role === 'admin' ? 'text' : 'email'"
+              class="form-input"
+              required
+              :placeholder="role === 'admin' ? 'admin hoặc admin@ptc1.vn' : 'email@example.com'"
             />
           </div>
 
-          <template v-if="role === 'seller'">
+          <div class="form-group">
+            <label class="form-label">Mật khẩu *</label>
+            <input
+              v-model="password"
+              type="password"
+              class="form-input"
+              required
+              placeholder="••••••••"
+            />
+          </div>
+
+          <template v-if="mode === 'register'">
             <div class="form-group">
-              <label>Tên quán ăn / Shop *</label>
+              <label class="form-label">Họ và tên</label>
               <input
-                v-model="shopName"
+                v-model="fullName"
                 type="text"
-                required
-                placeholder="Phở Bát Đàn"
+                class="form-input"
+                placeholder="Nguyễn Văn A"
               />
             </div>
 
-            <div class="form-group">
-              <label>Số điện thoại liên hệ</label>
-              <input
-                v-model="phone"
-                type="tel"
-                placeholder="0912345678"
-              />
-            </div>
+            <template v-if="role === 'seller'">
+              <div class="form-group">
+                <label class="form-label">Tên quán ăn / Shop *</label>
+                <input
+                  v-model="shopName"
+                  type="text"
+                  class="form-input"
+                  required
+                  placeholder="Bún Bò Huế 365"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Số điện thoại liên hệ</label>
+                <input
+                  v-model="phone"
+                  type="tel"
+                  class="form-input"
+                  placeholder="0912345678"
+                />
+              </div>
+            </template>
           </template>
-        </template>
 
-        <button
-          type="submit"
-          class="btn btn-primary"
-          style="width: 100%; margin-top: 8px;"
-          :disabled="loading"
-        >
-          <span v-if="loading" class="spinner" style="width: 16px; height: 16px;"></span>
-          <span v-else>{{ mode === 'login' ? 'Đăng nhập ngay' : 'Đăng ký tài khoản' }}</span>
-        </button>
-      </form>
+          <div style="margin-top: 20px;">
+            <button
+              type="submit"
+              class="btn btn-primary btn-block"
+              :disabled="loading"
+            >
+              {{ loading ? 'Đang xử lý...' : (mode === 'login' ? 'Đăng nhập ngay' : 'Đăng ký tài khoản') }}
+            </button>
+          </div>
+
+          <!-- Quick Mock Fill Shortcuts -->
+          <div v-if="mode === 'login'" class="mock-hint">
+            <span class="mock-label">Tài khoản Mock thử nghiệm:</span>
+            <div class="mock-buttons">
+              <button
+                type="button"
+                class="btn-mock"
+                @click="role = 'seller'; email = 'seller@ptc1.vn'; password = 'seller123';"
+              >
+                Điền Chủ Quán (seller@ptc1.vn)
+              </button>
+              <button
+                type="button"
+                class="btn-mock"
+                @click="role = 'admin'; email = 'admin@ptc1.vn'; password = 'admin123';"
+              >
+                Điền Admin (admin@ptc1.vn)
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </template>
@@ -193,76 +225,99 @@ async function handleSubmit() {
   max-width: 440px;
 }
 
+.role-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.role-btn {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  padding: 8px 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+}
+
+.role-btn:hover {
+  border-color: #09090b;
+  color: #09090b;
+}
+
+.role-btn.active {
+  background-color: #18181b;
+  border-color: #18181b;
+  color: #ffffff;
+}
+
 .segmented-control {
   display: flex;
-  background: var(--c-bg);
+  background-color: var(--c-bg);
   padding: 4px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 16px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--c-border);
+  margin-bottom: 16px;
 }
 
 .segment-btn {
   flex: 1;
-  background: none;
+  background: transparent;
   border: none;
   padding: 8px;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
   font-size: 0.9rem;
+  font-weight: 600;
   color: var(--c-text-muted);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: var(--transition);
 }
 
 .segment-btn.active {
   background: var(--c-surface);
-  color: var(--c-primary);
+  color: var(--c-text);
   box-shadow: var(--shadow-sm);
 }
 
-.role-selector {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
+.mock-hint {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--c-border);
 }
 
-.role-card {
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  cursor: pointer;
+.mock-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--c-text-muted);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.mock-buttons {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-mock {
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  color: #18181b;
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
   transition: var(--transition);
 }
 
-.role-card input[type="radio"] {
-  width: auto;
-  margin-top: 3px;
-  accent-color: var(--c-primary);
-}
-
-.role-card:hover {
-  border-color: var(--c-border-hover);
-}
-
-.role-card.active {
-  border-color: #000000;
-  background: #f5f5f5;
-}
-
-.role-title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--c-text);
-}
-
-.role-desc {
-  font-size: 0.75rem;
-  color: var(--c-text-muted);
-  margin-top: 2px;
+.btn-mock:hover {
+  background: #e4e4e7;
+  border-color: #d4d4d8;
 }
 </style>

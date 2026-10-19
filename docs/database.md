@@ -84,18 +84,48 @@ erDiagram
         timestamp created_at "Thời điểm tạo (UTC)"
     }
 
+    MEAL_TYPES ||--o{ DISHES : "classifies (1-N, set null)"
+    MEAL_TYPES {
+        int id PK "Khóa chính tự tăng"
+        string code UK "Mã bữa ăn (Unique, Index)"
+        string name "Tên bữa ăn"
+        string description "Mô tả bữa ăn (Nullable)"
+        time start_time "Giờ bắt đầu gợi ý (Nullable)"
+        time end_time "Giờ kết thúc gợi ý (Nullable)"
+        int sort_order "Thứ tự sắp xếp (Default: 0)"
+        boolean is_active "Trạng thái kích hoạt (Default: true)"
+        timestamp created_at "Thời điểm tạo (UTC)"
+    }
+
+    WEATHER {
+        int id PK "Khóa chính tự tăng"
+        string code UK "Mã thời tiết (Unique, Index)"
+        string name "Tên trạng thái thời tiết"
+        string description "Mô tả thời tiết (Nullable)"
+        float min_temp "Nhiệt độ tối thiểu (Nullable)"
+        float max_temp "Nhiệt độ tối đa (Nullable)"
+        string condition "Điều kiện khí hậu (Nullable)"
+        string icon "Tên icon thời tiết (Nullable)"
+        int sort_order "Thứ tự sắp xếp (Default: 0)"
+        boolean is_active "Trạng thái kích hoạt (Default: true)"
+        timestamp created_at "Thời điểm tạo (UTC)"
+    }
+
     DISHES ||--o{ FAVOURITE_DISHES : "referenced by (1-N, cascade delete)"
     DISHES {
         int id PK "Khóa chính tự tăng"
         int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id) ON DELETE CASCADE"
         int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) ON DELETE SET NULL"
+        int meal_type_id FK "Khóa ngoại trỏ về MEAL_TYPES(id) ON DELETE SET NULL"
         string name "Tên món ăn"
         numeric price "Giá bán (>= 0)"
         string description "Mô tả món ăn (Nullable)"
         string image_url "Đường dẫn ảnh món (Nullable)"
         string category "Tên nhóm món dự phòng (Nullable)"
         string meal_type "Bữa ăn: breakfast, lunch, dinner, snack, all_day"
+        string tag "Nhãn chính dạng chuỗi (Nullable)"
         string tags "Mảng nhãn món ăn ARRAY(Text)"
+        string ingredients "Mảng nguyên liệu món ăn ARRAY(Text)"
         boolean is_available "Trạng thái còn món (Default: true)"
         timestamp created_at "Thời điểm tạo món (UTC)"
     }
@@ -203,19 +233,60 @@ Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Dishes), liên
 | `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính định danh món ăn |
 | `restaurant_id` | `INTEGER` | `NOT NULL`, `FK(restaurants.id ON DELETE CASCADE)`, `INDEX` | Quán ăn sở hữu món này |
 | `category_id` | `INTEGER` | `NULLABLE`, `FK(categories.id ON DELETE SET NULL)`, `INDEX` | **Khóa ngoại trỏ về `categories.id`**: Nhóm danh mục của món. Khi xóa danh mục, món ăn không bị xóa mà chuyển thành NULL (chưa phân loại). |
+| `meal_type_id` | `INTEGER` | `NULLABLE`, `FK(meal_types.id ON DELETE SET NULL)`, `INDEX` | **Khóa ngoại trỏ về `meal_types.id`**: Xác định bữa ăn chuẩn (Sáng, Trưa, Tối...). Khi xóa loại bữa ăn, món ăn chuyển thành NULL. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | Tên món ăn (vd: "Cơm tấm sườn nướng") |
 | `price` | `DOUBLE PRECISION` / `NUMERIC` | `NOT NULL`, `CHECK (price >= 0)` | Đơn giá món ăn |
 | `description` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Giới thiệu, nguyên liệu, hương vị món ăn |
 | `image_url` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Đường dẫn ảnh minh họa món ăn |
 | `category` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Tên nhóm món dạng chuỗi (dự phòng tương thích ngược) |
 | `meal_type` | `VARCHAR(20)` | `NOT NULL`, Default: `'all_day'`, `CHECK (meal_type IN ('breakfast','lunch','dinner','snack','all_day'))` | Bữa ăn phù hợp |
+| `tag` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Nhãn chính dạng chuỗi (vd: "signature", "bestseller") |
 | `tags` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng nhãn món ăn (vd: `['cay', 'signature', 'chay']`) |
+| `ingredients` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng nguyên liệu món ăn (vd: `['Thịt bò', 'Bánh phở', 'Hành lá']`) |
 | `is_available` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái món (còn món / tạm hết món) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo món (UTC) |
 
 ---
 
-### 3.7. Bảng `favourite_dishes` (Món ăn yêu thích của User - Pure Junction Table)
+### 3.7. Bảng `meal_types` (Loại Bữa Ăn)
+Model ORM: `server/app/models/meal_type.py`.
+Quan hệ: 1 Loại bữa ăn liên kết nhiều Món ăn (`meal_types ||--o{ dishes`, 1-N).
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng |
+| `code` | `VARCHAR(30)` | `NOT NULL`, `UNIQUE`, `INDEX` | Mã định danh duy nhất (breakfast, lunch, dinner, snack, all_day) |
+| `name` | `VARCHAR(100)` | `NOT NULL` | Tên hiển thị (Bữa sáng, Bữa trưa, Bữa tối...) |
+| `description` | `VARCHAR(500)` | `NULLABLE`, Default: `NULL` | Mô tả đặc trưng của bữa ăn |
+| `start_time` | `TIME` | `NULLABLE`, Default: `NULL` | Giờ bắt đầu gợi ý (vd: 06:00:00) |
+| `end_time` | `TIME` | `NULLABLE`, Default: `NULL` | Giờ kết thúc gợi ý (vd: 10:00:00) |
+| `sort_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự ưu tiên hiển thị |
+| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo (UTC) |
+
+---
+
+### 3.8. Bảng `weather` (Trạng thái Thời tiết - Chuẩn bị cho Recommendation)
+Model ORM: `server/app/models/weather.py`.
+Bảng độc lập lưu trữ các điều kiện thời tiết chuẩn bị cho tính năng gợi ý món ăn theo thời tiết.
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng |
+| `code` | `VARCHAR(30)` | `NOT NULL`, `UNIQUE`, `INDEX` | Mã thời tiết (hot, cold, rainy, mild...) |
+| `name` | `VARCHAR(100)` | `NOT NULL` | Tên trạng thái (Nắng nóng, Trời mưa, Gió rét...) |
+| `description` | `VARCHAR(500)` | `NULLABLE`, Default: `NULL` | Mô tả thời tiết và gợi ý ẩm thực |
+| `min_temp` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL` | Nhiệt độ tối thiểu (°C) |
+| `max_temp` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL` | Nhiệt độ tối đa (°C) |
+| `condition` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL` | Điều kiện khí hậu (sunny, rainy, cloudy, cold...) |
+| `icon` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tên icon hoặc URL hình ảnh đại diện |
+| `sort_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự sắp xếp hiển thị |
+| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo (UTC) |
+
+---
+
+### 3.9. Bảng `favourite_dishes` (Món ăn yêu thích của User - Pure Junction Table)
 Quan hệ:
 - 1 User có nhiều món ăn yêu thích (`users ||--o{ favourite_dishes`, 1-N).
 - 1 Món ăn có thể được nhiều User yêu thích (`dishes ||--o{ favourite_dishes`, 1-N).
@@ -353,18 +424,52 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE INDEX IF NOT EXISTS ix_categories_restaurant_id ON categories (restaurant_id);
 
--- 7. Bảng dishes (Món ăn thuộc quán ăn - Quan hệ 1-N)
+-- 7. Bảng meal_types (Loại bữa ăn)
+CREATE TABLE IF NOT EXISTS meal_types (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(30) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500) DEFAULT NULL,
+    start_time TIME DEFAULT NULL,
+    end_time TIME DEFAULT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS ix_meal_types_code ON meal_types (code);
+
+-- 8. Bảng weather (Trạng thái thời tiết chuẩn bị gợi ý món ăn)
+CREATE TABLE IF NOT EXISTS weather (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(30) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500) DEFAULT NULL,
+    min_temp DOUBLE PRECISION DEFAULT NULL,
+    max_temp DOUBLE PRECISION DEFAULT NULL,
+    condition VARCHAR(50) DEFAULT NULL,
+    icon VARCHAR(100) DEFAULT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_weather_temp_range CHECK (min_temp IS NULL OR max_temp IS NULL OR min_temp <= max_temp)
+);
+CREATE INDEX IF NOT EXISTS ix_weather_code ON weather (code);
+
+-- 9. Bảng dishes (Món ăn thuộc quán ăn - Quan hệ 1-N)
 CREATE TABLE IF NOT EXISTS dishes (
     id SERIAL PRIMARY KEY,
     restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
     category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+    meal_type_id INTEGER REFERENCES meal_types(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     price DOUBLE PRECISION NOT NULL,
     description VARCHAR(1000) DEFAULT NULL,
     image_url VARCHAR(1000) DEFAULT NULL,
     category VARCHAR(100) DEFAULT NULL,
     meal_type VARCHAR(20) NOT NULL DEFAULT 'all_day',
+    tag VARCHAR(100) DEFAULT NULL,
     tags TEXT[] NOT NULL DEFAULT '{}',
+    ingredients TEXT[] NOT NULL DEFAULT '{}',
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT ck_dish_price CHECK (price >= 0),
@@ -373,10 +478,13 @@ CREATE TABLE IF NOT EXISTS dishes (
 
 CREATE INDEX IF NOT EXISTS ix_dishes_restaurant_id ON dishes (restaurant_id);
 CREATE INDEX IF NOT EXISTS ix_dishes_category_id ON dishes (category_id);
+CREATE INDEX IF NOT EXISTS ix_dishes_meal_type_id ON dishes (meal_type_id);
 CREATE INDEX IF NOT EXISTS ix_dishes_restaurant_category ON dishes (restaurant_id, category);
+CREATE INDEX IF NOT EXISTS ix_dishes_tag ON dishes (tag);
 CREATE INDEX IF NOT EXISTS ix_dishes_tags_gin ON dishes USING GIN (tags);
+CREATE INDEX IF NOT EXISTS ix_dishes_ingredients_gin ON dishes USING GIN (ingredients);
 
--- 8. Bảng favourite_dishes (Món ăn yêu thích của User - Pure Junction Table)
+-- 10. Bảng favourite_dishes (Món ăn yêu thích của User - Pure Junction Table)
 CREATE TABLE IF NOT EXISTS favourite_dishes (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

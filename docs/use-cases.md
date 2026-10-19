@@ -54,6 +54,27 @@ Dành cho **Khách vãng lai (Guest)** và **Khách hàng (User)** tra cứu qu�
 
 ---
 
+### 2.5. Phân hệ 5: Quản lý Danh mục Món ăn (Categories)
+Dành cho **Người bán (Seller)** tổ chức các nhóm danh mục món ăn cho từng quán và **Khách hàng (User/Guest)** duyệt xem nhóm món.
+
+![Sơ đồ Use Case Quản lý Danh mục Chuẩn UML](uml-uc-categories.svg)
+
+---
+
+### 2.6. Phân hệ 6: Quản lý Thực đơn Món ăn & Món Yêu thích (Dishes & Favourites)
+Dành cho **Người bán (Seller)** quản lý thực đơn (giá, tag, ingredients, bữa ăn), **Khách hàng (User/Guest)** tìm kiếm/lọc món ăn đa chiều, và **Khách hàng (User)** lưu món yêu thích.
+
+![Sơ đồ Use Case Thực đơn & Món Yêu thích Chuẩn UML](uml-uc-dishes.svg)
+
+---
+
+### 2.7. Phân hệ 7: Quản lý Bữa ăn & Điều kiện Thời tiết (Meal Types & Weather)
+Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng thái thời tiết, và **Quản trị viên (Admin)** quản lý danh mục cấu hình.
+
+![Sơ đồ Use Case Bữa ăn & Thời tiết Chuẩn UML](uml-uc-meal-weather.svg)
+
+---
+
 ## 3. Đặc tả chi tiết từng Use Case (Use Case Specifications)
 
 ### 3.1. Phân hệ 1: Xác thực & Quản lý Tài khoản (Authentication)
@@ -214,14 +235,225 @@ Dành cho **Khách vãng lai (Guest)** và **Khách hàng (User)** tra cứu qu�
 
 ---
 
-## 4. Ma trận phân quyền chức năng (Role-Permission Matrix)
+### 3.5. Phân hệ 5: Quản lý Danh mục Món ăn (Categories Management)
 
-| Chức năng / Use Case | Khách vãng lai (Guest) | Khách hàng (User) | Người bán (Seller) | Quản trị viên (Admin) |
+#### UC-CAT-01: Tạo mới nhóm danh mục món ăn cho quán
+- **Actor chính:** Người bán (Seller).
+- **Tiền điều kiện:** Quán ăn (`restaurant_id`) tồn tại và thuộc quyền sở hữu của `seller_id`.
+- **Hậu điều kiện:** Bản ghi mới được lưu vào bảng `categories`.
+- **Luồng chính:**
+  1. Seller gửi thông tin: `restaurant_id`, `seller_id`, và body JSON `CategoryCreate` (`name`, `description`, `display_order`, `is_active`).
+  2. `CategoryService` kiểm tra sự tồn tại của quán ăn và xác minh quyền sở hữu (`restaurant.seller_id == seller_id`).
+  3. Chuẩn hóa tên danh mục (strip khoảng trắng thừa).
+  4. Kiểm tra ràng buộc duy nhất tên danh mục trong phạm vi quán ăn (`restaurant_id`, `name`).
+  5. Thêm bản ghi vào DB, `commit`, và trả về `CategoryResponse` (HTTP 201 Created).
+- **Luồng ngoại lệ:**
+  - *Quán ăn không tồn tại:* Trả về HTTP `404 Not Found` ("Không tìm thấy quán ăn.").
+  - *Không phải chủ quán:* Trả về HTTP `403 Forbidden` ("Bạn không có quyền quản lý quán ăn này.").
+  - *Trùng tên danh mục trong quán:* Trả về HTTP `400 Bad Request` ("Danh mục món ăn với tên này đã tồn tại trong quán.").
+- **API Endpoint:** `POST /api/v1/restaurants/{restaurant_id}/categories?seller_id={seller_id}`.
+
+#### UC-CAT-02: Xem danh sách các nhóm danh mục của quán ăn
+- **Actor chính:** Khách vãng lai (Guest), Khách hàng (User), Người bán (Seller).
+- **Luồng chính:**
+  1. Client gửi `restaurant_id` kèm query param tuỳ chọn `is_active_only` (mặc định False).
+  2. `CategoryService` truy vấn bảng `categories` theo `restaurant_id`, sắp xếp tăng dần theo `display_order`, sau đó theo `id`.
+  3. Với mỗi category, hệ thống đếm số lượng món ăn liên kết (`dish_count`) qua quan hệ `dishes`.
+  4. Trả về danh sách `List[CategoryResponse]` (HTTP 200 OK).
+- **API Endpoint:** `GET /api/v1/restaurants/{restaurant_id}/categories`.
+
+#### UC-CAT-03: Xem chi tiết một danh mục
+- **Actor chính:** Guest, User, Seller.
+- **Luồng chính:** Client gửi `category_id`. Hệ thống truy vấn bản ghi và trả về thông tin chi tiết kèm `dish_count`.
+- **Luồng ngoại lệ:** Nếu không tồn tại -> Trả về HTTP `404 Not Found`.
+- **API Endpoint:** `GET /api/v1/categories/{category_id}`.
+
+#### UC-CAT-04: Cập nhật thông tin danh mục món ăn
+- **Actor chính:** Người bán (Seller).
+- **Tiền điều kiện:** Danh mục tồn tại và quán ăn chứa danh mục thuộc sở hữu của `seller_id`.
+- **Luồng chính:**
+  1. Seller gửi `category_id`, `seller_id` và payload cập nhật (`name`, `description`, `display_order`, `is_active`).
+  2. Hệ thống kiểm tra quyền sở hữu qua quan hệ `category.restaurant.seller_id == seller_id`.
+  3. Nếu đổi `name`, kiểm tra trùng lặp với các danh mục khác của cùng quán ăn.
+  4. Cập nhật và lưu DB. Trả về `CategoryResponse` (HTTP 200 OK).
+- **Luồng ngoại lệ:**
+  - *Không tìm thấy danh mục:* HTTP `404 Not Found`.
+  - *Không có quyền quản lý:* HTTP `403 Forbidden`.
+  - *Tên mới bị trùng lặp:* HTTP `400 Bad Request`.
+- **API Endpoint:** `PUT /api/v1/categories/{category_id}?seller_id={seller_id}`.
+
+#### UC-CAT-05: Xóa danh mục món ăn
+- **Actor chính:** Người bán (Seller).
+- **Tiền điều kiện:** Danh mục thuộc quyền quản lý của Seller.
+- **Luồng chính:**
+  1. Seller gửi yêu cầu xóa với `category_id` và `seller_id`.
+  2. Hệ thống kiểm tra quyền sở hữu của Seller.
+  3. Thực hiện xóa danh mục khỏi DB. Khóa ngoại `dishes.category_id` tự động kích hoạt `ON DELETE SET NULL`, chuyển các món ăn liên quan về trạng thái không phân loại (không làm mất món ăn).
+  4. Trả về HTTP `200 OK` thông báo xóa thành công.
+- **API Endpoint:** `DELETE /api/v1/categories/{category_id}?seller_id={seller_id}`.
+
+---
+
+### 3.6. Phân hệ 6: Quản lý Thực đơn Món ăn & Món Yêu thích (Dishes & Favourites)
+
+#### UC-DISH-01: Tạo món ăn mới vào thực đơn quán
+- **Actor chính:** Người bán (Seller).
+- **Tiền điều kiện:** Quán ăn tồn tại và thuộc quyền sở hữu của `seller_id`. Nếu có chỉ định `category_id` thì danh mục đó phải thuộc cùng quán ăn.
+- **Hậu điều kiện:** Món ăn mới được tạo trong bảng `dishes`.
+- **Luồng chính:**
+  1. Seller gửi `restaurant_id`, `seller_id` và thông tin món ăn:
+     - Bắt buộc: `name`, `price >= 0`.
+     - Tuỳ chọn: `description`, `image_url`, `category_id`, `category` (chuỗi), `meal_type_id`, `meal_type` (enum: breakfast, lunch, dinner, snack, all_day), `tag` (chuỗi nhãn đặc trưng), `tags` (danh sách chuỗi), `ingredients` (danh sách nguyên liệu), `is_available`.
+  2. Hệ thống kiểm tra quán ăn và quyền sở hữu của Seller.
+  3. Nếu có `category_id`, kiểm tra danh mục tồn tại và đảm bảo `category.restaurant_id == restaurant_id`.
+  4. Nếu có `meal_type_id`, kiểm tra loại bữa ăn hợp lệ.
+  5. Đồng bộ `tag` vào mảng `tags` nếu chưa có.
+  6. Insert vào bảng `dishes`, `commit`, và trả về `DishResponse` (HTTP 201 Created).
+- **Luồng ngoại lệ:**
+  - *Quán không thuộc Seller:* HTTP `403 Forbidden`.
+  - *Giá âm hoặc sai định dạng:* HTTP `422 Unprocessable Entity`.
+  - *Category không thuộc cùng quán ăn:* HTTP `400 Bad Request` ("Danh mục không thuộc về quán ăn này.").
+- **API Endpoint:** `POST /api/v1/restaurants/{restaurant_id}/dishes?seller_id={seller_id}`.
+
+#### UC-DISH-02: Xem và lọc thực đơn món ăn của quán
+- **Actor chính:** Khách vãng lai (Guest), Khách hàng (User), Người bán (Seller).
+- **Luồng chính:**
+  1. Client gửi `restaurant_id` kèm các tiêu chí lọc linh hoạt:
+     - `category_id`: Lọc theo ID danh mục cụ thể.
+     - `category`: Lọc theo tên nhóm món (chuỗi).
+     - `meal_type_id`: Lọc theo ID bữa ăn.
+     - `meal_type`: Lọc theo bữa ăn (enum).
+     - `tag`: Lọc theo nhãn (khớp cột `tag` hoặc phần tử trong mảng `tags`).
+     - `ingredient`: Lọc theo nguyên liệu (sử dụng toán tử ANY trên mảng `ingredients`).
+     - `available_only`: Chỉ lấy món đang sẵn sàng phục vụ (mặc định True).
+     - Phân trang: `skip` (mặc định 0), `limit` (mặc định 100, tối đa 200).
+  2. `DishService` dựng câu lệnh truy vấn kết hợp các điều kiện lọc với toán tử AND.
+  3. Trả về `List[DishResponse]` (HTTP 200 OK).
+- **API Endpoint:** `GET /api/v1/restaurants/{restaurant_id}/dishes`.
+
+#### UC-DISH-03: Lấy danh sách nhóm món duy nhất (Distinct Categories)
+- **Actor chính:** Guest, User, Seller.
+- **Luồng chính:** Client gửi `restaurant_id`. Hệ thống truy vấn các giá trị `category` không trùng lặp và khác null để phục vụ thanh gợi ý danh mục nhanh.
+- **API Endpoint:** `GET /api/v1/restaurants/{restaurant_id}/dish-categories`.
+
+#### UC-DISH-04: Xem thông tin chi tiết một món ăn
+- **Actor chính:** Guest, User, Seller.
+- **Luồng chính:** Client gửi `dish_id`. Hệ thống truy vấn bản ghi và trả về `DishResponse` đầy đủ thông tin kèm nguyên liệu, tag và bữa ăn.
+- **Luồng ngoại lệ:** Nếu không tìm thấy món ăn -> HTTP `404 Not Found`.
+- **API Endpoint:** `GET /api/v1/dishes/{dish_id}`.
+
+#### UC-DISH-05: Cập nhật thông tin món ăn
+- **Actor chính:** Người bán (Seller).
+- **Tiền điều kiện:** Món ăn tồn tại và thuộc quán do `seller_id` quản lý.
+- **Luồng chính:**
+  1. Seller gửi `dish_id`, `seller_id` và payload cập nhật `DishUpdate`.
+  2. Hệ thống xác thực quyền sở hữu (`dish.restaurant.seller_id == seller_id`).
+  3. Kiểm tra tính hợp lệ của `category_id` (nếu thay đổi phải thuộc quán ăn của món).
+  4. Cập nhật các trường thông tin và lưu vào DB.
+  5. Trả về `DishResponse` sau cập nhật (HTTP 200 OK).
+- **Luồng ngoại lệ:**
+  - *Món ăn không tồn tại:* HTTP `404 Not Found`.
+  - *Không có quyền sửa:* HTTP `403 Forbidden`.
+  - *Category mới không thuộc quán:* HTTP `400 Bad Request`.
+- **API Endpoint:** `PUT /api/v1/dishes/{dish_id}?seller_id={seller_id}`.
+
+#### UC-DISH-06: Xóa món ăn khỏi thực đơn
+- **Actor chính:** Người bán (Seller).
+- **Tiền điều kiện:** Món ăn thuộc sở hữu của Seller.
+- **Luồng chính:**
+  1. Seller gửi `dish_id` và `seller_id`.
+  2. Hệ thống xác thực quyền sở hữu.
+  3. Xóa bản ghi món ăn khỏi DB (các lượt đánh dấu yêu thích `favourite_dishes` liên quan tự động xóa theo cascade).
+  4. Trả về HTTP `200 OK` xác nhận xóa thành công.
+- **API Endpoint:** `DELETE /api/v1/dishes/{dish_id}?seller_id={seller_id}`.
+
+#### UC-FAV-01: Thêm món ăn vào danh sách yêu thích
+- **Actor chính:** Khách hàng đã đăng nhập (User).
+- **Tiền điều kiện:** `user_id` và `dish_id` hợp lệ trong DB.
+- **Hậu điều kiện:** Bản ghi mới trong bảng `favourite_dishes`.
+- **Luồng chính:**
+  1. User gửi yêu cầu với `user_id` và `dish_id`.
+  2. Hệ thống kiểm tra sự tồn tại của User và Dish.
+  3. Kiểm tra trùng lặp: nếu đã yêu thích trước đó, trả về bản ghi hiện tại (Idempotent).
+  4. Nếu chưa có -> Tạo bản ghi mới trong `favourite_dishes` (không lưu trường tag).
+  5. Trả về `FavouriteDishResponse` kèm thông tin món ăn (HTTP 201 Created).
+- **Luồng ngoại lệ:**
+  - *User không tồn tại:* HTTP `404 Not Found` ("Không tìm thấy người dùng.").
+  - *Món ăn không tồn tại:* HTTP `404 Not Found` ("Không tìm thấy món ăn.").
+- **API Endpoint:** `POST /api/v1/users/{user_id}/favourites/{dish_id}`.
+
+#### UC-FAV-02: Bỏ món ăn khỏi danh sách yêu thích
+- **Actor chính:** Khách hàng (User).
+- **Luồng chính:**
+  1. User gửi yêu cầu với `user_id` và `dish_id`.
+  2. Hệ thống tìm bản ghi trong bảng `favourite_dishes`.
+  3. Nếu tìm thấy, thực hiện xóa khỏi DB và trả về HTTP `200 OK`.
+- **Luồng ngoại lệ:** Nếu món ăn chưa từng được yêu thích -> HTTP `404 Not Found`.
+- **API Endpoint:** `DELETE /api/v1/users/{user_id}/favourites/{dish_id}`.
+
+#### UC-FAV-03: Xem danh sách món ăn yêu thích cá nhân
+- **Actor chính:** Khách hàng (User).
+- **Luồng chính:**
+  1. User gửi `user_id` kèm phân trang `skip`, `limit`.
+  2. Hệ thống kiểm tra sự tồn tại của User và truy vấn danh sách `favourite_dishes` sắp xếp theo thời gian tạo mới nhất (`id DESC`).
+  3. Nạp đầy đủ quan hệ món ăn `dish` tương ứng.
+  4. Trả về `List[FavouriteDishResponse]` (HTTP 200 OK).
+- **API Endpoint:** `GET /api/v1/users/{user_id}/favourites`.
+
+---
+
+### 3.7. Phân hệ 7: Quản lý Bữa ăn & Điều kiện Thời tiết (Meal Types & Weather)
+
+#### UC-MEAL-01: Xem danh sách các loại bữa ăn
+- **Actor chính:** Khách vãng lai (Guest), Khách hàng (User), Người bán (Seller).
+- **Luồng chính:**
+  1. Client gửi yêu cầu lấy danh sách bữa ăn (tùy chọn `active_only=True`).
+  2. Hệ thống tự động đảm bảo dữ liệu mặc định đã được khởi tạo (Seed nếu chưa có: Sáng, Trưa, Tối, Ăn vặt, Cả ngày kèm khung giờ).
+  3. Trả về danh sách `List[MealTypeResponse]` (HTTP 200 OK).
+- **API Endpoint:** `GET /api/v1/meal-types`.
+
+#### UC-MEAL-02: Thêm mới loại bữa ăn tùy chỉnh
+- **Actor chính:** Quản trị viên (Admin) / Hệ thống.
+- **Luồng chính:**
+  1. Gửi payload `MealTypeCreate` (`code`, `name`, `description`, `start_time`, `end_time`, `display_order`).
+  2. Kiểm tra tính duy nhất của mã bữa ăn (`code`).
+  3. Lưu vào DB và trả về `MealTypeResponse` (HTTP 201 Created).
+- **Luồng ngoại lệ:** Trùng mã bữa ăn -> HTTP `400 Bad Request`.
+- **API Endpoint:** `POST /api/v1/meal-types`.
+
+#### UC-WEATH-01: Xem danh sách trạng thái thời tiết
+- **Actor chính:** Khách vãng lai (Guest), Khách hàng (User).
+- **Luồng chính:**
+  1. Client gửi yêu cầu truy vấn danh sách trạng thái thời tiết.
+  2. Hệ thống tự động seed dữ liệu mặc định (Nắng, Mưa, Se lạnh, Nắng nóng...) nếu chưa có.
+  3. Trả về danh sách `List[WeatherResponse]` (HTTP 200 OK).
+- **API Endpoint:** `GET /api/v1/weather`.
+
+#### UC-WEATH-02: Thêm mới trạng thái thời tiết
+- **Actor chính:** Quản trị viên (Admin) / Hệ thống.
+- **Luồng chính:**
+  1. Gửi payload `WeatherCreate` (`code`, `name`, `icon`, `temp_min`, `temp_max`, `description`).
+  2. Kiểm tra tính duy nhất của mã thời tiết (`code`).
+  3. Lưu vào DB và trả về `WeatherResponse` (HTTP 201 Created).
+- **Luồng ngoại lệ:** Trùng mã thời tiết -> HTTP `400 Bad Request`.
+- **API Endpoint:** `POST /api/v1/weather`.
+
+---
+
+## 4. Ma trận phân quyền chức năng toàn diện (Role-Permission Matrix)
+
+| Phân hệ / Nhóm Chức năng | Khách vãng lai (Guest) | Khách hàng (User) | Người bán (Seller) | Quản trị viên (Admin) |
 | :--- | :---: | :---: | :---: | :---: |
-| Đăng ký / Đăng nhập tài khoản | ✓ | ✓ | ✓ | ✓ |
-| Tìm kiếm địa chỉ & tọa độ (OpenStreetMap) | ✓ | ✓ | ✓ | ✓ |
-| Xem danh sách & Chi tiết quán công khai | ✓ | ✓ | ✓ | ✓ |
-| Tìm quán gần đây theo GPS (PostGIS) | ✓ | ✓ | ✓ | ✓ |
-| Tính khoảng cách tới quán ăn | ✓ | ✓ | ✓ | ✓ |
-| Tạo / Quản lý quán ăn của mình | ✗ | ✗ | **✓ (Chính chủ)** | ✗ |
-| Quản trị hệ thống & Xem dữ liệu nền tảng | ✗ | ✗ | ✗ | **✓** |
+| **Xác thực & Tài khoản:** Đăng ký / Đăng nhập | ✓ | ✓ | ✓ | ✓ |
+| **Bản đồ OSM:** Tìm kiếm địa chỉ & Tọa độ | ✓ | ✓ | ✓ | ✓ |
+| **Quán ăn:** Xem danh sách & Chi tiết quán | ✓ | ✓ | ✓ | ✓ |
+| **Không gian GPS:** Tìm quán gần đây (PostGIS) | ✓ | ✓ | ✓ | ✓ |
+| **Quán ăn Seller:** CRUD quán ăn của chính mình | ✗ | ✗ | **✓ (Chính chủ)** | ✗ |
+| **Danh mục (Categories):** Xem danh mục quán | ✓ | ✓ | ✓ | ✓ |
+| **Danh mục (Categories):** CRUD danh mục cho quán | ✗ | ✗ | **✓ (Chính chủ quán)** | ✗ |
+| **Thực đơn (Dishes):** Xem & lọc thực đơn đa tiêu chí | ✓ | ✓ | ✓ | ✓ |
+| **Thực đơn (Dishes):** Thêm, sửa, xoá món ăn | ✗ | ✗ | **✓ (Chính chủ quán)** | ✗ |
+| **Món yêu thích (Favourites):** Thêm / Xoá / Xem yêu thích | ✗ | **✓ (Cá nhân)** | ✗ | ✗ |
+| **Bữa ăn & Thời tiết:** Tra cứu loại bữa ăn & thời tiết | ✓ | ✓ | ✓ | ✓ |
+| **Cấu hình Nền tảng:** Thêm mới MealType & Weather | ✗ | ✗ | ✗ | **✓** |
+| **Quản trị cấp cao:** Vận hành và giám sát nền tảng | ✗ | ✗ | ✗ | **✓** |

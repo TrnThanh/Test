@@ -67,18 +67,48 @@ export interface Category {
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'all_day';
 
+export interface MealTypeEntity {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Weather {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  min_temp?: number | null;
+  max_temp?: number | null;
+  condition?: string | null;
+  icon?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Dish {
   id: number;
   restaurant_id: number;
   category_id?: number | null;
   category?: string | null;
   category_name?: string | null;
+  meal_type_id?: number | null;
+  meal_type_name?: string | null;
   name: string;
   price: number;
   description?: string | null;
   image_url?: string | null;
   meal_type: MealType;
+  tag?: string | null;
   tags: string[];
+  ingredients?: string[];
   is_available: boolean;
   created_at?: string;
 }

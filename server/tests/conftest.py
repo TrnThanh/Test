@@ -9,6 +9,8 @@ from server.app.core.config import settings
 from server.app.db.base import Base
 from server.app.db.session import get_db
 from server.app.services.admin_service import AdminService
+from server.app.services.meal_type_service import MealTypeService
+from server.app.services.weather_service import WeatherService
 
 test_engine = create_engine(
     settings.TEST_DATABASE_URL,
@@ -25,13 +27,15 @@ TestingSessionLocal = sessionmaker(
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
-    """Khởi tạo toàn bộ bảng trên PostgreSQL test database và seed admin mặc định."""
+    """Khởi tạo toàn bộ bảng trên PostgreSQL test database và seed admin, meal_types, weathers mặc định."""
     with test_engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
     Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     with TestingSessionLocal() as session:
         AdminService.seed_default_admin(session)
+        MealTypeService.seed_default_meal_types(session)
+        WeatherService.seed_default_weathers(session)
     yield
     Base.metadata.drop_all(bind=test_engine)
     test_engine.dispose()

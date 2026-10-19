@@ -10,6 +10,8 @@ from server.app.db.base import Base
 from server.app.db.session import engine, SessionLocal
 from server.app.api.v1.router import api_router
 from server.app.services.admin_service import AdminService
+from server.app.services.meal_type_service import MealTypeService
+from server.app.services.weather_service import WeatherService
 # Import models để Base.metadata nhận diện các bảng trước khi create_all
 import server.app.models  # noqa: F401
 
@@ -18,15 +20,17 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Khởi tạo vòng đời ứng dụng: tự động tạo bảng PostgreSQL và seed admin mặc định."""
+    """Khởi tạo vòng đời ứng dụng: tự động tạo bảng PostgreSQL và seed admin, meal_types, weathers mặc định."""
     try:
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
         Base.metadata.create_all(bind=engine)
-        # Tự động seed tài khoản Admin mặc định
+        # Tự động seed tài khoản Admin, MealTypes và Weathers mặc định
         with SessionLocal() as db:
             AdminService.seed_default_admin(db)
-        logger.info("Khởi tạo PostgreSQL tables và seed admin thành công.")
+            MealTypeService.seed_default_meal_types(db)
+            WeatherService.seed_default_weathers(db)
+        logger.info("Khởi tạo PostgreSQL tables và seed dữ liệu ban đầu thành công.")
     except Exception as exc:
         logger.warning("Không thể tự động tạo bảng DB khi khởi động: %s", exc)
     yield

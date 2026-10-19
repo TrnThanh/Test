@@ -2,12 +2,12 @@
 import type { RoleLoginResponse } from '../types';
 
 defineProps<{
-  currentPath: string; // '/seller' or '/admin' or '/'
+  activeTab: string; // 'seller' | 'admin'
   currentUser: RoleLoginResponse | null;
 }>();
 
 const emit = defineEmits<{
-  (e: 'navigate', path: string): void;
+  (e: 'changeTab', tab: string): void;
   (e: 'openAuth'): void;
   (e: 'logout'): void;
 }>();
@@ -16,37 +16,50 @@ const emit = defineEmits<{
 <template>
   <header class="navbar">
     <div class="nav-container">
-      <div class="brand" @click="emit('navigate', '/seller')">
-        <span class="brand-name">PTC1 Portal</span>
-        <span class="portal-tag">Quản Lý</span>
+      <!-- Brand Logo / Portal Label -->
+      <div class="brand">
+        <span class="brand-badge">PORTAL</span>
+        <div class="brand-info">
+          <span class="brand-title">PTC1 Quản Trị</span>
+          <span class="brand-sub">Hệ thống quản lý dữ liệu ẩm thực</span>
+        </div>
       </div>
 
+      <!-- Main Navigation Tabs: Quán Ăn / Món Ăn & Quản Trị Hệ Thống -->
       <nav class="nav-links">
         <button
           type="button"
           class="nav-tab"
-          :class="{ active: currentPath.startsWith('/seller') }"
-          @click="emit('navigate', '/seller')"
+          :class="{ active: activeTab === 'seller' }"
+          @click="emit('changeTab', 'seller')"
         >
-          Cổng Chủ Quán
+          <span class="tab-dot"></span>
+          <span>Quán Ăn & Món Ăn</span>
         </button>
         <button
           type="button"
-          class="nav-tab admin-tab"
-          :class="{ active: currentPath.startsWith('/admin') }"
-          @click="emit('navigate', '/admin')"
+          class="nav-tab"
+          :class="{ active: activeTab === 'admin' }"
+          @click="emit('changeTab', 'admin')"
         >
-          Cổng Quản Trị Hệ Thống
+          <span class="tab-dot"></span>
+          <span>Quản Trị Hệ Thống</span>
         </button>
       </nav>
 
+      <!-- Auth Area -->
       <div class="nav-auth">
         <template v-if="currentUser">
           <div class="user-pill">
-            <span class="user-name">{{ currentUser.shop_name || currentUser.full_name || currentUser.email }}</span>
-            <span class="badge" :class="currentUser.role === 'admin' ? 'badge-primary' : 'badge-success'">
-              {{ currentUser.role === 'admin' ? 'Quản Trị' : 'Chủ Quán' }}
-            </span>
+            <span class="user-avatar">{{ (currentUser.shop_name || currentUser.email).charAt(0).toUpperCase() }}</span>
+            <div class="user-details">
+              <span class="user-name">
+                {{ currentUser.shop_name || currentUser.full_name || currentUser.email }}
+              </span>
+              <span class="user-role-badge">
+                {{ currentUser.role === 'admin' ? 'Admin' : 'Chủ Quán' }}
+              </span>
+            </div>
           </div>
           <button type="button" class="btn btn-outline btn-sm" @click="emit('logout')">
             Đăng xuất
@@ -54,7 +67,7 @@ const emit = defineEmits<{
         </template>
         <template v-else>
           <button type="button" class="btn btn-primary btn-sm" @click="emit('openAuth')">
-            Đăng nhập Quản Lý
+            Đăng nhập Quản Trị
           </button>
         </template>
       </div>
@@ -72,64 +85,95 @@ const emit = defineEmits<{
 }
 
 .nav-container {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 12px 16px;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-weight: 800;
-  font-size: 1.2rem;
-  color: #000000;
+  gap: 12px;
   user-select: none;
 }
 
-.portal-tag {
-  background: #f5f5f5;
-  border: 1px solid var(--c-border);
-  font-size: 0.72rem;
+.brand-badge {
+  background-color: #18181b;
+  color: #ffffff;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  letter-spacing: 0.08em;
+  padding: 3px 7px;
+  border-radius: 4px;
+}
+
+.brand-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--c-text);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.brand-sub {
+  font-size: 0.75rem;
   color: var(--c-text-muted);
-  text-transform: uppercase;
 }
 
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  background-color: #f4f4f5;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--c-border);
 }
 
 .nav-tab {
   background: transparent;
-  border: 1px solid transparent;
-  font-size: 0.92rem;
-  font-weight: 600;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 500;
   color: var(--c-text-muted);
   padding: 6px 14px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
   transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: transparent;
 }
 
 .nav-tab:hover {
-  color: #000000;
-  border-color: var(--c-border);
+  color: var(--c-text);
 }
 
 .nav-tab.active {
-  color: #ffffff;
-  background: #000000;
-  border-color: #000000;
+  color: #09090b;
+  background-color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.nav-tab.active .tab-dot {
+  background-color: #18181b;
 }
 
 .nav-auth {
@@ -141,32 +185,56 @@ const emit = defineEmits<{
 .user-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #ffffff;
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
+  gap: 10px;
+  background: #f4f4f5;
+  padding: 4px 10px 4px 5px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--c-border);
 }
 
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: #18181b;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
 .user-name {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
   max-width: 140px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--c-text);
+  line-height: 1.2;
+}
+
+.user-role-badge {
+  font-size: 0.7rem;
+  color: var(--c-text-muted);
 }
 
 @media (max-width: 768px) {
   .nav-container {
     flex-wrap: wrap;
+    padding: 10px 16px;
   }
   .nav-links {
     order: 3;
     width: 100%;
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-top: 8px;
+    justify-content: center;
   }
 }
 </style>

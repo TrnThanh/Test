@@ -14,9 +14,9 @@ Tài liệu này mô tả chi tiết các luồng xử lý tuần tự (Sequence
 
 ### 1.2. Các Thành phần Hệ thống (System Participants)
 - 🚪 **FastAPI APIRouter:** Tầng Controller tiếp nhận HTTP Request, xác thực schema Pydantic và điều phối.
-- ⚙️ **Service Layer (`UserService`, `RestaurantService`, `MapService`):** Tầng xử lý logic nghiệp vụ.
+- ⚙️ **Service Layer (`UserService`, `RestaurantService`, `MapService`, `CategoryService`, `DishService`, `MealTypeService`, `WeatherService`):** Tầng xử lý logic nghiệp vụ.
 - 🔐 **Security Utils (`server.app.core.security`):** Băm và xác thực mật khẩu bằng thuật toán chuẩn PBKDF2-HMAC-SHA256 (100.000 vòng lặp).
-- 🗄️ **Database Layer (PostgreSQL 14 & PostGIS Engine):** Lưu trữ dữ liệu quan hệ và thực thi các truy vấn không gian (`ST_DWithin`, `ST_Distance`).
+- 🗄️ **Database Layer (PostgreSQL 14 & PostGIS Engine):** Lưu trữ dữ liệu quan hệ, mảng Postgres (`ARRAY(Text)`), chỉ mục GIN, và thực thi các truy vấn không gian (`ST_DWithin`, `ST_Distance`).
 
 ---
 
@@ -208,3 +208,215 @@ sequenceDiagram
 3. Gửi truy vấn HTTP GET tới endpoint tìm kiếm của Nominatim với giới hạn quốc gia Việt Nam (`countrycodes=vn`).
 4. Chuẩn hóa dữ liệu trả về thành cấu trúc DTO sạch gồm: `display_name`, `latitude`, `longitude`, `type`.
 5. Trả về kết quả phục vụ hiển thị gợi ý tìm kiếm hoặc tự động điền tọa độ khi chủ quán tạo quán ăn mới.
+
+---
+
+## 6. Luồng 5: Seller Tạo Món Ăn Mới (Dishes) & Xác Thực Danh Mục, Bữa Ăn, Quyền Sở Hữu
+
+Áp dụng cho module: `server/app/api/v1/endpoints/dishes.py` & `server/app/services/dish_service.py`.
+
+![Sơ đồ Tuần tự Seller Tạo Món Ăn](seq-dish-create.png)
+
+<details>
+<summary><b>Xem mã nguồn Mermaid</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Seller as Người bán (Seller)
+    participant API as Dish Router (dishes.py)
+    participant Svc as DishService (dish_service.py)
+    participant DB as PostgreSQL (dishes, restaurants, categories, meal_types)
+
+    Seller->>API: POST /api/v1/restaurants/{id}/dishes?seller_id={seller_id} {name, price, tag, tags, ingredients, category_id, meal_type_id}
+    activate API
+    API->>Svc: create_dish(db, restaurant_id, seller_id, data)
+    activate Svc
+    
+    Svc->>DB: db.get(Restaurant, restaurant_id)
+    DB-->>Svc: Restaurant entity
+    alt Quán không tồn tại
+        Svc-->>API: HTTPException 404 (Không tìm thấy quán ăn)
+        API-->>Seller: HTTP 404 Not Found
+    else Không phải chủ quán (restaurant.seller_id != seller_id)
+        Svc-->>API: HTTPException 403 (Bạn không có quyền thêm món ăn vào quán này)
+        API-->>Seller: HTTP 403 Forbidden
+    end
+
+    opt Có truyền category_id
+        Svc->>DB: db.get(Category, category_id)
+        DB-->>Svc: Category entity
+        alt category.restaurant_id != restaurant_id
+            Svc-->>API: HTTPException 400 (Danh mục không thuộc về quán ăn này)
+            API-->>Seller: HTTP 400 Bad Request
+        end
+    end
+
+    opt Có truyền meal_type_id
+        Svc->>DB: db.get(MealType, meal_type_id)
+        DB-->>Svc: MealType entity
+        alt meal_type không tồn tại
+            Svc-->>API: HTTPException 404 (Không tìm thấy loại bữa ăn)
+            API-->>Seller: HTTP 404 Not Found
+        end
+    end
+
+    Note over Svc: Chuẩn hóa dữ liệu:<br/>- Tự động bổ sung `tag` đơn vào mảng `tags`<br/>- Chuẩn hóa mảng `ingredients`<br/>- Gán mặc định meal_type='all_day' nếu chưa có
+
+    Svc->>DB: INSERT INTO dishes (restaurant_id, name, price, tag, tags, ingredients, ...)
+    activate DB
+    DB-->>Svc: db.commit() + db.refresh() -> Dish (id, created_at)
+    deactivate DB
+
+    Svc->>Svc: to_dish_response(dish) (nạp quan hệ category_rel, meal_type_rel)
+    Svc-->>API: DishResponse
+    deactivate Svc
+    API-->>Seller: HTTP 201 Created (DishResponse)
+    deactivate API
+```
+</details>
+
+### Diễn giải chi tiết:
+1. Seller gửi yêu cầu tạo món ăn kèm các thông số: tên, giá tiền, tag đặc trưng, danh sách tags phụ, mảng nguyên liệu (`ingredients`), mã danh mục (`category_id`), và mã loại bữa ăn (`meal_type_id`).
+2. Tầng Controller Pydantic xác thực dữ liệu: `price >= 0`, `meal_type` thuộc các giá trị enum hợp lệ.
+3. `DishService` thực hiện kiểm tra đa tầng:
+   - Kiểm tra quán ăn tồn tại trong DB.
+   - Xác thực quyền sở hữu: đảm bảo `restaurant.seller_id == seller_id`.
+   - Nếu có `category_id`: kiểm tra danh mục tồn tại và bắt buộc phải thuộc cùng quán ăn (`category.restaurant_id == restaurant_id`) để tránh gán nhầm danh mục của quán khác.
+   - Nếu có `meal_type_id`: kiểm tra loại bữa ăn hợp lệ.
+4. Xử lý đồng bộ dữ liệu: chuỗi `tag` đơn lẻ được tự động chèn vào mảng `tags` nếu chưa có.
+5. Thực thi lệnh INSERT vào bảng `dishes`, kích hoạt cập nhật các chỉ mục B-Tree và GIN (`ix_dishes_tags_gin`, `ix_dishes_ingredients_gin`).
+6. Trả về `DishResponse` với HTTP 201 Created.
+
+---
+
+## 7. Luồng 6: Khách Hàng Tìm Kiếm & Lọc Thực Đơn Đa Tiêu Chí
+
+Áp dụng cho module: `server/app/api/v1/endpoints/dishes.py` (Endpoint `GET /api/v1/restaurants/{id}/dishes`).
+
+![Sơ đồ Tuần tự Lọc Món Ăn Đa Tiêu Chí](seq-dish-filter.png)
+
+<details>
+<summary><b>Xem mã nguồn Mermaid</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Khách hàng / Guest
+    participant API as Dish Router (dishes.py)
+    participant Svc as DishService (dish_service.py)
+    participant DB as PostgreSQL (dishes table, GIN Indexes)
+
+    Client->>API: GET /api/v1/restaurants/{id}/dishes?category_id=1&meal_type=lunch&tag=signature&ingredient=Thịt bò
+    activate API
+    API->>Svc: get_dishes_by_restaurant(db, restaurant_id, category_id, meal_type, tag, ingredient...)
+    activate Svc
+    
+    Note over Svc, DB: Xây dựng truy vấn động kết hợp toán tử AND:<br/>1. restaurant_id == restaurant_id<br/>2. category_id == 1<br/>3. meal_type == 'lunch'<br/>4. (tag == 'signature' OR tags.contains(['signature']))<br/>5. Dish.ingredients.any('Thịt bò')<br/>6. is_available == True
+    
+    Svc->>DB: SELECT * FROM dishes WHERE restaurant_id = :id AND ... ORDER BY id DESC LIMIT 100
+    activate DB
+    Note right of DB: Tận dụng các chỉ mục:<br/>- B-Tree: ix_dishes_tag, ix_dishes_restaurant_category<br/>- GIN Index: ix_dishes_tags_gin, ix_dishes_ingredients_gin
+    DB-->>Svc: List[Dish] entities
+    deactivate DB
+
+    Svc->>Svc: Chuyển đổi List[Dish] sang List[DishResponse] qua to_dish_response
+    Svc-->>API: List[DishResponse]
+    deactivate Svc
+    API-->>Client: HTTP 200 OK (Danh sách món ăn phù hợp tiêu chí lọc)
+    deactivate API
+```
+</details>
+
+### Diễn giải chi tiết:
+1. Client gửi yêu cầu lấy thực đơn của quán kèm các tham số lọc tuỳ chọn: `category_id`, `meal_type_id`, `meal_type`, `tag`, `ingredient`, `available_only`.
+2. `DishService` xây dựng câu lệnh truy vấn SQLAlchemy linh hoạt:
+   - Bộ lọc `tag`: kiểm tra đồng thời cả cột chuỗi đơn `Dish.tag == t` hoặc mảng `Dish.tags.contains([t])`.
+   - Bộ lọc `ingredient`: sử dụng toán tử SQL mảng `Dish.ingredients.any(ingredient)` để tìm món chứa nguyên liệu chỉ định.
+   - Kết hợp các điều kiện bằng phép `AND`, chỉ lấy món đang phục vụ (`is_available = True` theo mặc định).
+3. PostgreSQL thực thi tối ưu nhờ các chỉ mục GIN trên `tags` và `ingredients`.
+4. Trả về mảng danh sách món ăn đã định dạng đầy đủ thông tin cho giao diện người dùng.
+
+---
+
+## 8. Luồng 7: Khách Hàng Quản Lý Món Ăn Yêu Thích (Favourites)
+
+Áp dụng cho module: `server/app/api/v1/endpoints/dishes.py` (Endpoints `/users/{user_id}/favourites`).
+
+![Sơ đồ Tuần tự Món Ăn Yêu Thích](seq-favourite.png)
+
+<details>
+<summary><b>Xem mã nguồn Mermaid</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Khách hàng (User)
+    participant API as Dishes/Favourites Router (dishes.py)
+    participant Svc as DishService (dish_service.py)
+    participant DB as PostgreSQL (favourite_dishes, users, dishes)
+
+    Note over User, DB: Thao tác 1: Thêm món vào danh sách yêu thích (Idempotent)
+    User->>API: POST /api/v1/users/{user_id}/favourites/{dish_id}
+    activate API
+    API->>Svc: add_favourite_dish(db, user_id, dish_id)
+    activate Svc
+    
+    Svc->>DB: db.get(User, user_id)
+    DB-->>Svc: User record
+    alt User không tồn tại
+        Svc-->>API: HTTPException 404 (Không tìm thấy người dùng)
+        API-->>User: HTTP 404 Not Found
+    end
+
+    Svc->>DB: db.get(Dish, dish_id)
+    DB-->>Svc: Dish record
+    alt Dish không tồn tại
+        Svc-->>API: HTTPException 404 (Không tìm thấy món ăn)
+        API-->>User: HTTP 404 Not Found
+    end
+
+    Svc->>DB: SELECT * FROM favourite_dishes WHERE user_id = :uid AND dish_id = :did
+    DB-->>Svc: Existing FavouriteDish or None
+    alt Đã yêu thích trước đó
+        Svc-->>API: Trả về FavouriteDish hiện tại (Idempotent)
+    else Chưa có trong danh sách
+        Svc->>DB: INSERT INTO favourite_dishes (user_id, dish_id)
+        DB-->>Svc: commit() -> New FavouriteDish record
+        Svc-->>API: FavouriteDish entity
+    end
+    deactivate Svc
+    API-->>User: HTTP 201 Created (FavouriteDishResponse kèm chi tiết dish)
+    deactivate API
+
+    Note over User, DB: Thao tác 2: Bỏ yêu thích món ăn
+    User->>API: DELETE /api/v1/users/{user_id}/favourites/{dish_id}
+    activate API
+    API->>Svc: remove_favourite_dish(db, user_id, dish_id)
+    activate Svc
+    Svc->>DB: SELECT * FROM favourite_dishes WHERE user_id = :uid AND dish_id = :did
+    DB-->>Svc: FavouriteDish record
+    alt Không tìm thấy bản ghi yêu thích
+        Svc-->>API: HTTPException 404 (Món ăn chưa nằm trong danh sách yêu thích)
+        API-->>User: HTTP 404 Not Found
+    else Tìm thấy bản ghi
+        Svc->>DB: DELETE FROM favourite_dishes WHERE id = :id
+        DB-->>Svc: commit()
+        Svc-->>API: True
+        API-->>User: HTTP 200 OK {"message": "Đã bỏ món ăn khỏi danh sách yêu thích"}
+    end
+    deactivate Svc
+    deactivate API
+```
+</details>
+
+### Diễn giải chi tiết:
+1. **Thêm yêu thích (POST):**
+   - User gửi `user_id` và `dish_id`.
+   - Hệ thống xác minh sự tồn tại của người dùng và món ăn.
+   - Cơ chế **Idempotent**: kiểm tra xem cặp `(user_id, dish_id)` đã có trong bảng `favourite_dishes` chưa. Nếu đã có, trả về ngay bản ghi hiện tại mà không báo lỗi hoặc tạo thêm bản ghi trùng.
+   - Nếu chưa có, tạo bản ghi mới (không lưu trường `tag` theo đúng thiết kế hiện tại) và trả về HTTP 201 Created.
+2. **Bỏ yêu thích (DELETE):**
+   - User gửi `user_id` và `dish_id`.
+   - Hệ thống tìm và xoá bản ghi khỏi bảng `favourite_dishes`. Nếu không tìm thấy trả về HTTP 404 Not Found.
+3. **Cascade Integrity:** Khi món ăn (`Dish`) hoặc tài khoản khách hàng (`User`) bị xoá, toàn bộ các bản ghi `favourite_dishes` liên quan sẽ tự động được xoá theo nhờ cơ chế `ON DELETE CASCADE`.

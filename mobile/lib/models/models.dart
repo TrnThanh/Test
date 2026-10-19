@@ -143,18 +143,92 @@ class Category {
   }
 }
 
+class MealTypeEntity {
+  final int id;
+  final String code;
+  final String name;
+  final String? description;
+  final String? startTime;
+  final String? endTime;
+  final int sortOrder;
+  final bool isActive;
+
+  MealTypeEntity({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.description,
+    this.startTime,
+    this.endTime,
+    this.sortOrder = 0,
+    this.isActive = true,
+  });
+
+  factory MealTypeEntity.fromJson(Map<String, dynamic> json) {
+    return MealTypeEntity(
+      id: json['id'] as int,
+      code: json['code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      startTime: json['start_time'] as String?,
+      endTime: json['end_time'] as String?,
+      sortOrder: json['sort_order'] as int? ?? 0,
+      isActive: json['is_active'] as bool? ?? true,
+    );
+  }
+}
+
+class Weather {
+  final int id;
+  final String code;
+  final String name;
+  final String? description;
+  final double? minTemp;
+  final double? maxTemp;
+  final String? condition;
+  final String? icon;
+
+  Weather({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.description,
+    this.minTemp,
+    this.maxTemp,
+    this.condition,
+    this.icon,
+  });
+
+  factory Weather.fromJson(Map<String, dynamic> json) {
+    return Weather(
+      id: json['id'] as int,
+      code: json['code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      minTemp: (json['min_temp'] as num?)?.toDouble(),
+      maxTemp: (json['max_temp'] as num?)?.toDouble(),
+      condition: json['condition'] as String?,
+      icon: json['icon'] as String?,
+    );
+  }
+}
+
 class Dish {
   final int id;
   final int restaurantId;
   final int? categoryId;
   final String? category;
   final String? categoryName;
+  final int? mealTypeId;
+  final String? mealTypeName;
   final String name;
   final double price;
   final String? description;
   final String? imageUrl;
   final String mealType;
+  final String? tag;
   final List<String> tags;
+  final List<String> ingredients;
   final bool isAvailable;
 
   Dish({
@@ -163,12 +237,16 @@ class Dish {
     this.categoryId,
     this.category,
     this.categoryName,
+    this.mealTypeId,
+    this.mealTypeName,
     required this.name,
     required this.price,
     this.description,
     this.imageUrl,
     this.mealType = 'all_day',
+    this.tag,
     this.tags = const [],
+    this.ingredients = const [],
     this.isAvailable = true,
   });
 
@@ -178,18 +256,27 @@ class Dish {
     if (rawTags is List) {
       tagsList = rawTags.map((e) => e.toString()).toList();
     }
+    var rawIngredients = json['ingredients'];
+    List<String> ingredientsList = [];
+    if (rawIngredients is List) {
+      ingredientsList = rawIngredients.map((e) => e.toString()).toList();
+    }
     return Dish(
       id: json['id'] as int,
       restaurantId: json['restaurant_id'] as int,
       categoryId: json['category_id'] as int?,
       category: json['category'] as String?,
       categoryName: json['category_name'] as String?,
+      mealTypeId: json['meal_type_id'] as int?,
+      mealTypeName: json['meal_type_name'] as String?,
       name: json['name'] as String,
       price: (json['price'] as num).toDouble(),
       description: json['description'] as String?,
       imageUrl: json['image_url'] as String?,
       mealType: json['meal_type'] as String? ?? 'all_day',
+      tag: json['tag'] as String?,
       tags: tagsList,
+      ingredients: ingredientsList,
       isAvailable: json['is_available'] as bool? ?? true,
     );
   }
