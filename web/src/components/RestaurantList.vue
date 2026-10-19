@@ -264,15 +264,12 @@ onMounted(() => {
                   <span v-if="dish.category_name || dish.category" class="badge badge-info">
                     📁 {{ dish.category_name || dish.category }}
                   </span>
-                  <span class="badge badge-secondary">
-                    🍴 {{ dish.meal_type }}
-                  </span>
                   <span
-                    v-for="t in dish.tags"
-                    :key="t"
-                    class="badge badge-primary"
+                    v-for="ing in dish.ingredients"
+                    :key="ing"
+                    class="badge badge-secondary"
                   >
-                    #{{ t }}
+                    🥬 {{ ing }}
                   </span>
                   <span v-if="!dish.is_available" class="badge badge-danger">
                     Tạm hết

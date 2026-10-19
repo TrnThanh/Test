@@ -69,17 +69,17 @@ def test_user(db_session: Session) -> User:
     return user
 
 
-def test_create_dish_with_category_meal_type_tags(
+def test_create_dish_with_category_meal_type_and_ingredients(
     client: TestClient, test_seller: Seller, test_restaurant: Restaurant
 ):
-    """Kiểm tra tạo món ăn mới có category, meal_type và tags mảng chuỗi."""
+    """Kiểm tra tạo món ăn mới có category, meal_type và ingredients mảng chuỗi."""
     payload = {
         "name": "Phở Bò Tái Lăn",
         "price": 65000.0,
         "description": "Thịt bò tươi xào lăn đậm đà, nước dùng thơm ngọt.",
         "category": "Món chính",
         "meal_type": "breakfast",
-        "tags": ["bestseller", "signature", "nóng"],
+        "ingredients": ["Thịt bò tươi", "Bánh phở", "Hành hoa"],
     }
     response = client.post(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
@@ -91,8 +91,8 @@ def test_create_dish_with_category_meal_type_tags(
     assert data["price"] == 65000.0
     assert data["category"] == "Món chính"
     assert data["meal_type"] == "breakfast"
-    assert "bestseller" in data["tags"]
-    assert "signature" in data["tags"]
+    assert "Thịt bò tươi" in data["ingredients"]
+    assert "Bánh phở" in data["ingredients"]
     assert data["restaurant_id"] == test_restaurant.id
     assert data["is_available"] is True
 
@@ -112,10 +112,10 @@ def test_create_dish_ownership_forbidden(
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-def test_filter_dishes_by_category_meal_type_and_tag(
+def test_filter_dishes_by_category_and_meal_type(
     client: TestClient, test_seller: Seller, test_restaurant: Restaurant
 ):
-    """Kiểm tra tra cứu và lọc món ăn theo category, meal_type và tag."""
+    """Kiểm tra tra cứu và lọc món ăn theo category và meal_type."""
     # Tạo 3 món ăn với đặc tính khác nhau
     dishes = [
         {
@@ -123,21 +123,21 @@ def test_filter_dishes_by_category_meal_type_and_tag(
             "price": 60000.0,
             "category": "Món chính",
             "meal_type": "breakfast",
-            "tags": ["signature", "bò"],
+            "ingredients": ["Thịt bò", "Bánh phở"],
         },
         {
             "name": "Cơm Rang Dưa Bò",
             "price": 55000.0,
             "category": "Món chính",
             "meal_type": "lunch",
-            "tags": ["no_lau", "bestseller"],
+            "ingredients": ["Cơm", "Dưa chua", "Thịt bò"],
         },
         {
             "name": "Trà Chanh Hoa Nhài",
             "price": 20000.0,
             "category": "Đồ uống",
             "meal_type": "all_day",
-            "tags": ["giải khát", "signature"],
+            "ingredients": ["Trà xanh", "Chanh", "Hoa nhài"],
         },
     ]
     for d in dishes:
@@ -165,15 +165,6 @@ def test_filter_dishes_by_category_meal_type_and_tag(
     assert res_meal.status_code == status.HTTP_200_OK
     items_meal = res_meal.json()
     assert len(items_meal) == 2  # Phở Tái Bắp và Trà Chanh (all_day)
-
-    # 3. Lọc theo tag = "signature" (sử dụng toán tử PostgreSQL ARRAY @>)
-    res_tag = client.get(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
-        params={"tag": "signature"},
-    )
-    assert res_tag.status_code == status.HTTP_200_OK
-    items_tag = res_tag.json()
-    assert len(items_tag) == 2
 
 
 def test_get_distinct_dish_categories(
@@ -221,12 +212,12 @@ def test_update_and_delete_dish(
     # Chủ sở hữu sửa thành công
     success_update = client.put(
         f"/api/v1/dishes/{dish_id}?seller_id={test_seller.id}",
-        json={"name": "Món Đã Sửa", "price": 45000.0, "tags": ["mới", "ngon"]},
+        json={"name": "Món Đã Sửa", "price": 45000.0, "description": "Món ngon đặc biệt"},
     )
     assert success_update.status_code == status.HTTP_200_OK
     assert success_update.json()["name"] == "Món Đã Sửa"
     assert success_update.json()["price"] == 45000.0
-    assert success_update.json()["tags"] == ["mới", "ngon"]
+    assert success_update.json()["description"] == "Món ngon đặc biệt"
 
     # Xoá món ăn
     del_res = client.delete(f"/api/v1/dishes/{dish_id}?seller_id={test_seller.id}")
@@ -262,7 +253,7 @@ def test_favourite_dishes_without_tag(
     """Kiểm tra lưu món yêu thích không còn trường tag (Junction Table thuần tuý)."""
     create_dish = client.post(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
-        json={"name": "Bún Bò Huế Yêu Thích", "price": 50000.0, "tags": ["cay", "đặc biệt"]},
+        json={"name": "Bún Bò Huế Yêu Thích", "price": 50000.0, "ingredients": ["Thịt bò", "Bún"]},
     )
     dish_id = create_dish.json()["id"]
 

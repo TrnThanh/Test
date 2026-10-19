@@ -71,11 +71,6 @@ class DishService:
             if mt.code in ["breakfast", "lunch", "dinner", "snack", "all_day"]:
                 meal_type_val = mt.code
 
-        tag_val = data.tag.strip() if data.tag else None
-        tags_list = list(data.tags)
-        if tag_val and tag_val not in tags_list:
-            tags_list.insert(0, tag_val)
-
         dish = Dish(
             restaurant_id=restaurant_id,
             name=data.name.strip(),
@@ -86,8 +81,6 @@ class DishService:
             category=category_str,
             meal_type_id=data.meal_type_id,
             meal_type=meal_type_val,
-            tag=tag_val,
-            tags=tags_list,
             ingredients=data.ingredients,
             is_available=data.is_available,
         )
@@ -104,13 +97,12 @@ class DishService:
         category: Optional[str] = None,
         meal_type_id: Optional[int] = None,
         meal_type: Optional[str] = None,
-        tag: Optional[str] = None,
         ingredient: Optional[str] = None,
         available_only: bool = True,
         skip: int = 0,
         limit: int = 100,
     ) -> List[Dish]:
-        """Lấy danh sách thực đơn của quán ăn kèm bộ lọc linh hoạt (category_id, category, meal_type_id, meal_type, tag, ingredient)."""
+        """Lấy danh sách thực đơn của quán ăn kèm bộ lọc linh hoạt (category_id, category, meal_type_id, meal_type, ingredient)."""
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
@@ -133,9 +125,6 @@ class DishService:
             stmt = stmt.where(Dish.meal_type_id == meal_type_id)
         if meal_type:
             stmt = stmt.where(Dish.meal_type.in_([meal_type, "all_day"]))
-        if tag:
-            t = tag.strip()
-            stmt = stmt.where((Dish.tag == t) | (Dish.tags.contains([t])))
         if ingredient:
             stmt = stmt.where(Dish.ingredients.contains([ingredient.strip()]))
 

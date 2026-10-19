@@ -14,22 +14,20 @@ class DishBase(BaseModel):
     category: Optional[str] = Field(None, max_length=100, description="Nhóm món (vd: Món chính, Khai vị, Đồ uống)")
     meal_type_id: Optional[int] = Field(None, description="ID loại bữa ăn (Foreign Key)")
     meal_type: MealType = Field("all_day", description="Bữa ăn: breakfast, lunch, dinner, snack, all_day")
-    tag: Optional[str] = Field(None, max_length=100, description="Nhãn chính dạng chuỗi (vd: 'signature', 'bestseller')")
-    tags: List[str] = Field(default_factory=list, description="Danh sách nhãn món ăn (vd: ['cay', 'chay', 'signature'])")
     ingredients: List[str] = Field(default_factory=list, description="Danh sách nguyên liệu món ăn (vd: ['Thịt bò', 'Hành lá'])")
     is_available: bool = Field(True, description="Trạng thái còn món / tạm hết món")
 
-    @field_validator("category", "tag")
+    @field_validator("category")
     @classmethod
-    def normalize_string_fields(cls, v: Optional[str]) -> Optional[str]:
+    def normalize_category_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             v = v.strip()
             return v if v else None
         return None
 
-    @field_validator("tags", "ingredients")
+    @field_validator("ingredients")
     @classmethod
-    def normalize_string_list(cls, v: List[str]) -> List[str]:
+    def normalize_ingredients_list(cls, v: List[str]) -> List[str]:
         cleaned: List[str] = []
         for t in v:
             t = t.strip()
@@ -51,22 +49,20 @@ class DishUpdate(BaseModel):
     category: Optional[str] = Field(None, max_length=100, description="Nhóm món")
     meal_type_id: Optional[int] = Field(None, description="ID loại bữa ăn")
     meal_type: Optional[MealType] = Field(None, description="Bữa ăn")
-    tag: Optional[str] = Field(None, max_length=100, description="Nhãn chính dạng chuỗi")
-    tags: Optional[List[str]] = Field(None, description="Danh sách nhãn món")
     ingredients: Optional[List[str]] = Field(None, description="Danh sách nguyên liệu")
     is_available: Optional[bool] = Field(None, description="Trạng thái còn món")
 
-    @field_validator("category", "tag")
+    @field_validator("category")
     @classmethod
-    def normalize_string_fields(cls, v: Optional[str]) -> Optional[str]:
+    def normalize_category_field(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             v = v.strip()
             return v if v else None
         return None
 
-    @field_validator("tags", "ingredients")
+    @field_validator("ingredients")
     @classmethod
-    def normalize_string_list(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def normalize_ingredients_list(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         if v is not None:
             cleaned: List[str] = []
             for t in v:

@@ -337,6 +337,40 @@ class ApiService {
     _throwError(res);
   }
 
+  // --- USER OPTIONS (OptionUser) ---
+  Future<List<OptionUser>> getUserOptions(int userId, {bool? hide}) async {
+    String url = '${Env.baseUrl}/users/$userId/options';
+    if (hide != null) {
+      url += '?hide=$hide';
+    }
+    final res = await _client.get(Uri.parse(url));
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
+      return list.map((e) => OptionUser.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  Future<OptionUser> setUserOption(int userId, int categoryId, bool hide) async {
+    final uri = Uri.parse('${Env.baseUrl}/users/$userId/options');
+    final res = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'category_id': categoryId, 'hide': hide}),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return OptionUser.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+    }
+    _throwError(res);
+  }
+
+  Future<void> deleteUserOption(int userId, int optionId) async {
+    final uri = Uri.parse('${Env.baseUrl}/users/$userId/options/$optionId');
+    final res = await _client.delete(uri);
+    if (res.statusCode == 200 || res.statusCode == 204) return;
+    _throwError(res);
+  }
+
   Never _throwError(http.Response res) {
 
     try {

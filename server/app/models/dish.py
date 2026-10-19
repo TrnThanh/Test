@@ -22,8 +22,6 @@ class Dish(Base):
             name="ck_dishes_meal_type",
         ),
         Index("ix_dishes_restaurant_category", "restaurant_id", "category"),
-        Index("ix_dishes_tag", "tag"),
-        Index("ix_dishes_tags_gin", "tags", postgresql_using="gin"),
         Index("ix_dishes_ingredients_gin", "ingredients", postgresql_using="gin"),
     )
 
@@ -45,10 +43,6 @@ class Dish(Base):
     meal_type: Mapped[str] = mapped_column(
         String(20), nullable=False, default="all_day", server_default="all_day", index=True
     )
-    tag: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None)
-    tags: Mapped[List[str]] = mapped_column(
-        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
-    )
     ingredients: Mapped[List[str]] = mapped_column(
         ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
     )
@@ -65,4 +59,3 @@ class Dish(Base):
     favourite_users: Mapped[List["FavouriteDish"]] = relationship(
         "FavouriteDish", back_populates="dish", cascade="all, delete-orphan"
     )
-

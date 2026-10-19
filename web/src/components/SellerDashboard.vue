@@ -47,7 +47,7 @@ const dishName = ref('');
 const dishPrice = ref<number>(30000);
 const dishCategoryId = ref<number | null>(null);
 const dishMealType = ref<MealType>('all_day');
-const dishTags = ref('');
+const dishIngredients = ref('');
 const dishDesc = ref('');
 const dishAvailable = ref(true);
 const dishLoading = ref(false);
@@ -215,7 +215,7 @@ function openAddDishForm() {
   dishPrice.value = 35000;
   dishCategoryId.value = categories.value.length > 0 ? categories.value[0].id : null;
   dishMealType.value = 'all_day';
-  dishTags.value = '';
+  dishIngredients.value = '';
   dishDesc.value = '';
   dishAvailable.value = true;
   showDishForm.value = true;
@@ -227,7 +227,7 @@ function openEditDishForm(dish: Dish) {
   dishPrice.value = dish.price;
   dishCategoryId.value = dish.category_id || null;
   dishMealType.value = dish.meal_type;
-  dishTags.value = (dish.tags || []).join(', ');
+  dishIngredients.value = (dish.ingredients || []).join(', ');
   dishDesc.value = dish.description || '';
   dishAvailable.value = dish.is_available;
   showDishForm.value = true;
@@ -236,8 +236,8 @@ function openEditDishForm(dish: Dish) {
 async function handleSaveDish() {
   if (!activeMenuRestaurant.value || !dishName.value.trim()) return;
   dishLoading.value = true;
-  const tagsArr = dishTags.value
-    ? dishTags.value.split(',').map((t) => t.trim()).filter((t) => t.length > 0)
+  const ingredientsArr = dishIngredients.value
+    ? dishIngredients.value.split(',').map((t) => t.trim()).filter((t) => t.length > 0)
     : [];
 
   try {
@@ -247,7 +247,7 @@ async function handleSaveDish() {
         price: Number(dishPrice.value),
         category_id: dishCategoryId.value || undefined,
         meal_type: dishMealType.value,
-        tags: tagsArr,
+        ingredients: ingredientsArr,
         description: dishDesc.value.trim() || undefined,
         is_available: dishAvailable.value,
       });
@@ -257,7 +257,7 @@ async function handleSaveDish() {
         price: Number(dishPrice.value),
         category_id: dishCategoryId.value ?? undefined,
         meal_type: dishMealType.value,
-        tags: tagsArr,
+        ingredients: ingredientsArr,
         description: dishDesc.value.trim() || undefined,
         is_available: dishAvailable.value,
       });
@@ -526,8 +526,8 @@ onMounted(() => {
             </div>
 
             <div class="form-group">
-              <label class="label">Nhãn (Tags, cách nhau bởi dấu phẩy)</label>
-              <input v-model="dishTags" type="text" class="input" placeholder="cay, đặc biệt, bán chạy" />
+              <label class="label">Nguyên liệu chính (cách nhau bởi dấu phẩy)</label>
+              <input v-model="dishIngredients" type="text" class="input" placeholder="Thịt bò, Bánh phở, Hành hoa" />
             </div>
 
             <div class="form-group">

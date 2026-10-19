@@ -39,7 +39,7 @@ def create_dish(
 @router.get(
     "/restaurants/{restaurant_id}/dishes",
     response_model=List[DishResponse],
-    summary="Lấy thực đơn của quán ăn (Có bộ lọc category_id, category, meal_type_id, meal_type, tag, ingredient)",
+    summary="Lấy thực đơn của quán ăn (Có bộ lọc category_id, category, meal_type_id, meal_type, ingredient)",
 )
 def get_restaurant_dishes(
     restaurant_id: int = Path(..., description="ID quán ăn"),
@@ -47,7 +47,6 @@ def get_restaurant_dishes(
     category: Optional[str] = Query(None, description="Lọc theo tên nhóm món (vd: Món chính, Đồ uống)"),
     meal_type_id: Optional[int] = Query(None, description="Lọc theo ID loại bữa ăn"),
     meal_type: Optional[str] = Query(None, description="Lọc theo bữa ăn (breakfast, lunch, dinner, snack, all_day)"),
-    tag: Optional[str] = Query(None, description="Lọc theo nhãn món ăn (vd: cay, chay, signature)"),
     ingredient: Optional[str] = Query(None, description="Lọc theo nguyên liệu món ăn (vd: Thịt bò, Nấm)"),
     available_only: bool = Query(True, description="Chỉ lấy món đang còn phục vụ"),
     skip: int = Query(0, ge=0),
@@ -62,7 +61,6 @@ def get_restaurant_dishes(
         category=category,
         meal_type_id=meal_type_id,
         meal_type=meal_type,
-        tag=tag,
         ingredient=ingredient,
         available_only=available_only,
         skip=skip,

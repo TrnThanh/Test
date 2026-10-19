@@ -37,35 +37,65 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   // --- AUTH ---
-  registerUser: (data: { email: string; password: string; full_name?: string }) =>
-    request<RoleLoginResponse>('/auth/user/register', {
+  registerUser: async (data: { email: string; password: string; full_name?: string }) => {
+    const res = await request<any>('/auth/user/register', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    return {
+      role: res.role || 'user',
+      ...(res.data || {}),
+      access_token: res.access_token || '',
+    } as RoleLoginResponse;
+  },
 
-  loginUser: (data: { email: string; password: string }) =>
-    request<RoleLoginResponse>('/auth/user/login', {
+  loginUser: async (data: { email: string; password: string }) => {
+    const res = await request<any>('/auth/user/login', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    return {
+      role: res.role || 'user',
+      ...(res.data || {}),
+      access_token: res.access_token || '',
+    } as RoleLoginResponse;
+  },
 
-  registerSeller: (data: { email: string; password: string; full_name?: string; shop_name: string; phone?: string }) =>
-    request<RoleLoginResponse>('/auth/seller/register', {
+  registerSeller: async (data: { email: string; password: string; full_name?: string; shop_name: string; phone?: string }) => {
+    const res = await request<any>('/auth/seller/register', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    return {
+      role: res.role || 'seller',
+      ...(res.data || {}),
+      access_token: res.access_token || '',
+    } as RoleLoginResponse;
+  },
 
-  loginSeller: (data: { email: string; password: string }) =>
-    request<RoleLoginResponse>('/auth/seller/login', {
+  loginSeller: async (data: { email: string; password: string }) => {
+    const res = await request<any>('/auth/seller/login', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    return {
+      role: res.role || 'seller',
+      ...(res.data || {}),
+      access_token: res.access_token || '',
+    } as RoleLoginResponse;
+  },
 
-  loginAdmin: (data: { email: string; password: string }) =>
-    request<RoleLoginResponse>('/auth/admin/login', {
+  loginAdmin: async (data: { email: string; password: string }) => {
+    const res = await request<any>('/auth/admin/login', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+    return {
+      role: res.role || 'admin',
+      ...(res.data || {}),
+      access_token: res.access_token || '',
+    } as RoleLoginResponse;
+  },
 
 
   // --- RESTAURANTS (PUBLIC) ---
@@ -235,5 +265,22 @@ export const api = {
 
   getUserFavourites: (userId: number) =>
     request<import('../types').FavouriteDish[]>(`/users/${userId}/favourites`),
+
+  // --- USER OPTIONS (CATEGORY HIDE PREFERENCES) ---
+  getUserOptions: (userId: number, hide?: boolean) => {
+    const qs = hide !== undefined ? `?hide=${hide}` : '';
+    return request<import('../types').OptionUser[]>(`/users/${userId}/options${qs}`);
+  },
+
+  setUserCategoryOption: (userId: number, categoryId: number, hide: boolean) =>
+    request<import('../types').OptionUser>(`/users/${userId}/options`, {
+      method: 'POST',
+      body: JSON.stringify({ category_id: categoryId, hide }),
+    }),
+
+  deleteUserCategoryOption: (userId: number, optionId: number) =>
+    request<void>(`/users/${userId}/options/${optionId}`, {
+      method: 'DELETE',
+    }),
 };
 

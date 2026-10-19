@@ -114,7 +114,6 @@ def test_create_dish_with_ingredients_and_meal_type_id(
         "price": 55000.0,
         "description": "Nước dùng đậm đà hương sả ruốc",
         "meal_type_id": breakfast_id,
-        "tags": ["cay", "dac_san", "signature"],
         "ingredients": ["Thịt bắp bò", "Giò heo", "Chả cua", "Bún tươi", "Hành hoa", "Rau sống"],
         "is_available": True,
     }

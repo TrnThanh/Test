@@ -9,6 +9,7 @@ from server.app.api.v1.endpoints import (
     dishes,
     meal_types,
     weather,
+    option_user,
 )
 
 api_router = APIRouter()
@@ -63,4 +64,8 @@ api_router.include_router(
     tags=["Weather"],
 )
 
-
+api_router.include_router(
+    option_user.router,
+    prefix="/users",
+    tags=["User Options"],
+)

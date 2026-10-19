@@ -226,8 +226,6 @@ class Dish {
   final String? description;
   final String? imageUrl;
   final String mealType;
-  final String? tag;
-  final List<String> tags;
   final List<String> ingredients;
   final bool isAvailable;
 
@@ -244,18 +242,11 @@ class Dish {
     this.description,
     this.imageUrl,
     this.mealType = 'all_day',
-    this.tag,
-    this.tags = const [],
     this.ingredients = const [],
     this.isAvailable = true,
   });
 
   factory Dish.fromJson(Map<String, dynamic> json) {
-    var rawTags = json['tags'];
-    List<String> tagsList = [];
-    if (rawTags is List) {
-      tagsList = rawTags.map((e) => e.toString()).toList();
-    }
     var rawIngredients = json['ingredients'];
     List<String> ingredientsList = [];
     if (rawIngredients is List) {
@@ -274,8 +265,6 @@ class Dish {
       description: json['description'] as String?,
       imageUrl: json['image_url'] as String?,
       mealType: json['meal_type'] as String? ?? 'all_day',
-      tag: json['tag'] as String?,
-      tags: tagsList,
       ingredients: ingredientsList,
       isAvailable: json['is_available'] as bool? ?? true,
     );
@@ -307,4 +296,39 @@ class FavouriteDish {
     );
   }
 }
+
+class OptionUser {
+  final int id;
+  final int userId;
+  final int categoryId;
+  final bool hide;
+  final String createdAt;
+  final String updatedAt;
+
+  OptionUser({
+    required this.id,
+    required this.userId,
+    required this.categoryId,
+    this.hide = true,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory OptionUser.fromJson(Map<String, dynamic> json) {
+    return OptionUser(
+      id: json['id'] as int,
+      userId: json['user_id'] as int,
+      categoryId: json['category_id'] as int,
+      hide: json['hide'] as bool? ?? true,
+      createdAt: json['created_at'] as String? ?? '',
+      updatedAt: json['updated_at'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'category_id': categoryId,
+    'hide': hide,
+  };
+}
+
 

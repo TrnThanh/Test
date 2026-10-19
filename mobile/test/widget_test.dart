@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/models/models.dart';
@@ -16,6 +17,8 @@ class FakeApiService extends ApiService {
         latitude: 21.0185,
         longitude: 105.8572,
         sellerId: 1,
+        openTime: '06:00',
+        closeTime: '22:00',
         isActive: true,
       ),
       Restaurant(
@@ -27,6 +30,8 @@ class FakeApiService extends ApiService {
         latitude: 21.0325,
         longitude: 105.8492,
         sellerId: 1,
+        openTime: '08:00',
+        closeTime: '21:00',
         isActive: true,
       ),
     ];
@@ -46,6 +51,8 @@ class FakeApiService extends ApiService {
         latitude: 21.0185,
         longitude: 105.8572,
         sellerId: 1,
+        openTime: '06:00',
+        closeTime: '22:00',
         isActive: true,
         distanceKm: 0.8,
       ),
@@ -61,6 +68,40 @@ class FakeApiService extends ApiService {
         longitude: 105.8542,
       ),
     ];
+  }
+
+  @override
+  Future<List<Category>> getRestaurantCategories(int restaurantId) async {
+    return [
+      Category(
+        id: 1,
+        restaurantId: restaurantId,
+        name: 'Phở Gia Truyền',
+        displayOrder: 1,
+        isActive: true,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<Dish>> getRestaurantDishes(int restaurantId, {int? categoryId}) async {
+    return [
+      Dish(
+        id: 101,
+        restaurantId: restaurantId,
+        name: 'Phở Tái Lăn',
+        price: 65000,
+        categoryId: 1,
+        categoryName: 'Phở Gia Truyền',
+        mealType: 'breakfast',
+        ingredients: ['Thịt bò', 'Bánh phở', 'Hành lá'],
+      ),
+    ];
+  }
+
+  @override
+  Future<List<FavouriteDish>> getUserFavourites(int userId) async {
+    return [];
   }
 }
 
@@ -92,7 +133,66 @@ void main() {
     await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
     expect(find.text('Đăng Nhập Khách Hàng'), findsOneWidget);
+    expect(find.text('Thực khách (User)'), findsOneWidget);
+    expect(find.text('Chủ quán (Seller)'), findsOneWidget);
     expect(find.text('Email *'), findsOneWidget);
     expect(find.text('Mật khẩu *'), findsOneWidget);
+  });
+
+  testWidgets('Kiểm thử Auth Gate khi khách vãng lai nhấn xem thực đơn và bấm yêu thích', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
+    await tester.pumpAndSettle();
+
+    // Bấm nút "Xem Thực Đơn" ở quán đầu tiên
+    final menuBtn = find.text('Xem Thực Đơn').first;
+    expect(menuBtn, findsOneWidget);
+    await tester.tap(menuBtn);
+    await tester.pumpAndSettle();
+
+    // Kiểm tra thực đơn mở ra có món ăn
+    expect(find.text('Thực đơn: Phở Thìn Lò Đúc'), findsOneWidget);
+    expect(find.text('Phở Tái Lăn'), findsOneWidget);
+
+    // Bấm nút Trái Tim (❤) yêu thích món ăn khi chưa đăng nhập
+    final heartBtn = find.byIcon(Icons.favorite_border).first;
+    await tester.tap(heartBtn);
+    await tester.pumpAndSettle();
+
+    // Kiểm tra Auth Gate Dialog hiện lên yêu cầu đăng nhập
+    expect(find.text('Yêu Cầu Đăng Nhập'), findsOneWidget);
+    expect(find.text('Bạn cần đăng nhập tài khoản Thực khách để lưu món ăn này vào danh sách yêu thích.'), findsOneWidget);
+    expect(find.text('Đăng nhập ngay'), findsOneWidget);
+
+    // Bấm "Đăng nhập ngay" chuyển thẳng sang Tab Tài khoản
+    await tester.tap(find.text('Đăng nhập ngay'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đăng Nhập Khách Hàng'), findsOneWidget);
+  });
+
+  testWidgets('Kiểm thử chuyển đổi vai trò Thực khách và Chủ quán trên màn hình Đăng ký', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
+    await tester.pumpAndSettle();
+
+    // Vào Tab Tài khoản
+    await tester.tap(find.text('Tài khoản'));
+    await tester.pumpAndSettle();
+
+    // Chuyển sang chế độ Đăng Ký
+    await tester.tap(find.text('Đăng ký'));
+    await tester.pumpAndSettle();
+    expect(find.text('Họ và tên'), findsOneWidget);
+
+    // Chuyển vai trò sang Chủ quán (Seller)
+    await tester.tap(find.text('Chủ quán (Seller)'));
+    await tester.pumpAndSettle();
+
+    // Kiểm tra xuất hiện các trường của Seller
+    expect(find.text('Tên cửa hàng/Shop *'), findsOneWidget);
+    expect(find.text('Số điện thoại'), findsOneWidget);
   });
 }

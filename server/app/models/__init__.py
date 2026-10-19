@@ -8,6 +8,7 @@ from server.app.models.dish import Dish
 from server.app.models.favourite_dish import FavouriteDish
 from server.app.models.meal_type import MealType
 from server.app.models.weather import Weather
+from server.app.models.option_user import OptionUser
 
 __all__ = [
     "User",
@@ -19,5 +20,5 @@ __all__ = [
     "FavouriteDish",
     "MealType",
     "Weather",
+    "OptionUser",
 ]
-

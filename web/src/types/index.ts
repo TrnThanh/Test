@@ -106,8 +106,6 @@ export interface Dish {
   description?: string | null;
   image_url?: string | null;
   meal_type: MealType;
-  tag?: string | null;
-  tags: string[];
   ingredients?: string[];
   is_available: boolean;
   created_at?: string;
@@ -120,4 +118,14 @@ export interface FavouriteDish {
   created_at: string;
   dish?: Dish;
 }
+
+export interface OptionUser {
+  id: number;
+  user_id: number;
+  category_id: number;
+  hide: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 

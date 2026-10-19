@@ -123,14 +123,22 @@ erDiagram
         string image_url "Đường dẫn ảnh món (Nullable)"
         string category "Tên nhóm món dự phòng (Nullable)"
         string meal_type "Bữa ăn: breakfast, lunch, dinner, snack, all_day"
-        string tag "Nhãn chính dạng chuỗi (Nullable)"
-        string tags "Mảng nhãn món ăn ARRAY(Text)"
         string ingredients "Mảng nguyên liệu món ăn ARRAY(Text)"
         boolean is_available "Trạng thái còn món (Default: true)"
         timestamp created_at "Thời điểm tạo món (UTC)"
     }
 
     USERS ||--o{ FAVOURITE_DISHES : "favourites (1-N, cascade delete)"
+    USERS ||--o{ OPTION_USERS : "configures (1-N, cascade delete)"
+    CATEGORIES ||--o{ OPTION_USERS : "configured by (1-N, cascade delete)"
+    OPTION_USERS {
+        int id PK "Khóa chính tự tăng"
+        int user_id FK "Khóa ngoại trỏ về USERS(id) ON DELETE CASCADE (Index)"
+        int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) ON DELETE CASCADE (Index)"
+        boolean hide "Trạng thái ẩn danh mục (true: ẩn, false: hiển thị)"
+        timestamp created_at "Thời điểm tạo (UTC)"
+        timestamp updated_at "Thời điểm cập nhật (UTC)"
+    }
     FAVOURITE_DISHES {
         int id PK "Khóa chính tự tăng"
         int user_id FK "Khóa ngoại trỏ về USERS(id) ON DELETE CASCADE"
@@ -240,11 +248,24 @@ Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Dishes), liên
 | `image_url` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Đường dẫn ảnh minh họa món ăn |
 | `category` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Tên nhóm món dạng chuỗi (dự phòng tương thích ngược) |
 | `meal_type` | `VARCHAR(20)` | `NOT NULL`, Default: `'all_day'`, `CHECK (meal_type IN ('breakfast','lunch','dinner','snack','all_day'))` | Bữa ăn phù hợp |
-| `tag` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Nhãn chính dạng chuỗi (vd: "signature", "bestseller") |
-| `tags` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng nhãn món ăn (vd: `['cay', 'signature', 'chay']`) |
 | `ingredients` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng nguyên liệu món ăn (vd: `['Thịt bò', 'Bánh phở', 'Hành lá']`) |
 | `is_available` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái món (còn món / tạm hết món) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo món (UTC) |
+
+---
+
+### 3.6b. Bảng `option_users` (Tùy chọn Ẩn/Hiện Danh Mục của Người dùng)
+Model ORM: `server/app/models/option_user.py`.
+Quan hệ: N-N giữa `users` và `categories` (`users ||--o{ option_users`, `categories ||--o{ option_users`), có khóa ngoại `user_id` và `category_id` kèm `ON DELETE CASCADE`.
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng |
+| `user_id` | `INTEGER` | `NOT NULL`, `FK(users.id ON DELETE CASCADE)`, `INDEX` | Khóa ngoại trỏ về người dùng sở hữu tùy chọn |
+| `category_id` | `INTEGER` | `NOT NULL`, `FK(categories.id ON DELETE CASCADE)`, `INDEX` | Khóa ngoại trỏ về danh mục cần ẩn/hiện |
+| `hide` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái ẩn (true: ẩn, false: hiển thị) |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo (UTC) |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian cập nhật gần nhất (UTC) |
 
 ---
 
@@ -290,7 +311,7 @@ Bảng độc lập lưu trữ các điều kiện thời tiết chuẩn bị ch
 Quan hệ:
 - 1 User có nhiều món ăn yêu thích (`users ||--o{ favourite_dishes`, 1-N).
 - 1 Món ăn có thể được nhiều User yêu thích (`dishes ||--o{ favourite_dishes`, 1-N).
-- Bảng trung gian (Junction Table) thuần túy liên kết Người dùng (`users`) với Món ăn (`dishes`). Bỏ trường `tag` theo yêu cầu thiết kế mới (tag được quản lý trực tiếp tại bảng `dishes`).
+- Bảng trung gian (Junction Table) thuần túy liên kết Người dùng (`users`) với Món ăn (`dishes`). Đã loại bỏ hoàn toàn trường `tag` / `tags` khỏi hệ thống.
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
 | :--- | :--- | :--- | :--- |
@@ -326,7 +347,7 @@ Quan hệ:
 6. **Chỉ mục tra cứu món ăn & nhóm món:**
    - `ix_dishes_restaurant_id` trên cột `restaurant_id`.
    - `ix_dishes_restaurant_category` trên `(restaurant_id, category)`.
-   - `ix_dishes_tags_gin` GIN Index trên mảng `tags` (`USING GIN (tags)`) giúp tối ưu toán tử lọc mảng `@>`.
+   - `ix_dishes_ingredients_gin` GIN Index trên mảng `ingredients` (`USING GIN (ingredients)`) giúp tối ưu toán tử lọc nguyên liệu `@>`.
 7. **Chỉ mục tra cứu món yêu thích của User:**
    - `ix_favourite_dishes_user_id`: Tối ưu câu lệnh lấy danh sách món yêu thích của 1 user.
    - `ix_favourite_dishes_dish_id`: Tối ưu câu lệnh kiểm tra trạng thái yêu thích của món.
@@ -467,8 +488,6 @@ CREATE TABLE IF NOT EXISTS dishes (
     image_url VARCHAR(1000) DEFAULT NULL,
     category VARCHAR(100) DEFAULT NULL,
     meal_type VARCHAR(20) NOT NULL DEFAULT 'all_day',
-    tag VARCHAR(100) DEFAULT NULL,
-    tags TEXT[] NOT NULL DEFAULT '{}',
     ingredients TEXT[] NOT NULL DEFAULT '{}',
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -480,8 +499,6 @@ CREATE INDEX IF NOT EXISTS ix_dishes_restaurant_id ON dishes (restaurant_id);
 CREATE INDEX IF NOT EXISTS ix_dishes_category_id ON dishes (category_id);
 CREATE INDEX IF NOT EXISTS ix_dishes_meal_type_id ON dishes (meal_type_id);
 CREATE INDEX IF NOT EXISTS ix_dishes_restaurant_category ON dishes (restaurant_id, category);
-CREATE INDEX IF NOT EXISTS ix_dishes_tag ON dishes (tag);
-CREATE INDEX IF NOT EXISTS ix_dishes_tags_gin ON dishes USING GIN (tags);
 CREATE INDEX IF NOT EXISTS ix_dishes_ingredients_gin ON dishes USING GIN (ingredients);
 
 -- 10. Bảng favourite_dishes (Món ăn yêu thích của User - Pure Junction Table)
@@ -495,5 +512,18 @@ CREATE TABLE IF NOT EXISTS favourite_dishes (
 
 CREATE INDEX IF NOT EXISTS ix_favourite_dishes_user_id ON favourite_dishes (user_id);
 CREATE INDEX IF NOT EXISTS ix_favourite_dishes_dish_id ON favourite_dishes (dish_id);
+
+-- 11. Bảng option_users (Tùy chọn ẩn danh mục của người dùng)
+CREATE TABLE IF NOT EXISTS option_users (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    hide BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_option_users_user_id ON option_users (user_id);
+CREATE INDEX IF NOT EXISTS ix_option_users_category_id ON option_users (category_id);
 ```
 
