@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from server.app.models.user import User
-from server.app.models.seller import Seller
 from server.app.models.restaurant import Restaurant
 from server.app.models.dish import Dish
 from server.app.models.favourite_dish import FavouriteDish
@@ -13,37 +12,8 @@ from server.app.core.security import hash_password
 
 
 @pytest.fixture
-def test_seller(db_session: Session) -> Seller:
-    seller = Seller(
-        email="dish_seller@example.com",
-        hashed_password=hash_password("123456"),
-        shop_name="Quán Phở Gia Truyền",
-        is_active=True,
-    )
-    db_session.add(seller)
-    db_session.commit()
-    db_session.refresh(seller)
-    return seller
-
-
-@pytest.fixture
-def other_seller(db_session: Session) -> Seller:
-    seller = Seller(
-        email="other_seller@example.com",
-        hashed_password=hash_password("123456"),
-        shop_name="Quán Khác",
-        is_active=True,
-    )
-    db_session.add(seller)
-    db_session.commit()
-    db_session.refresh(seller)
-    return seller
-
-
-@pytest.fixture
-def test_restaurant(db_session: Session, test_seller: Seller) -> Restaurant:
+def test_restaurant(db_session: Session) -> Restaurant:
     restaurant = Restaurant(
-        seller_id=test_seller.id,
         name="Phở Gia Truyền Bát Đàn",
         address="49 Bát Đàn, Hà Nội",
         latitude=21.0335,
@@ -70,7 +40,7 @@ def test_user(db_session: Session) -> User:
 
 
 def test_create_dish_with_category_meal_type_and_ingredients(
-    client: TestClient, test_seller: Seller, test_restaurant: Restaurant
+    client: TestClient, test_restaurant: Restaurant
 ):
     """Kiểm tra tạo món ăn mới có category, meal_type và ingredients mảng chuỗi."""
     payload = {
@@ -82,7 +52,7 @@ def test_create_dish_with_category_meal_type_and_ingredients(
         "ingredients": ["Thịt bò tươi", "Bánh phở", "Hành hoa"],
     }
     response = client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json=payload,
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -97,23 +67,8 @@ def test_create_dish_with_category_meal_type_and_ingredients(
     assert data["is_available"] is True
 
 
-def test_create_dish_ownership_forbidden(
-    client: TestClient, other_seller: Seller, test_restaurant: Restaurant
-):
-    """Kiểm tra Seller khác không được phép thêm món vào quán không thuộc sở hữu (403 Forbidden)."""
-    payload = {
-        "name": "Món Hack Quán",
-        "price": 50000.0,
-    }
-    response = client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={other_seller.id}",
-        json=payload,
-    )
-    assert response.status_code == status.HTTP_403_FORBIDDEN
-
-
 def test_filter_dishes_by_category_and_meal_type(
-    client: TestClient, test_seller: Seller, test_restaurant: Restaurant
+    client: TestClient, test_restaurant: Restaurant
 ):
     """Kiểm tra tra cứu và lọc món ăn theo category và meal_type."""
     # Tạo 3 món ăn với đặc tính khác nhau
@@ -142,7 +97,7 @@ def test_filter_dishes_by_category_and_meal_type(
     ]
     for d in dishes:
         resp = client.post(
-            f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+            f"/api/v1/restaurants/{test_restaurant.id}/dishes",
             json=d,
         )
         assert resp.status_code == status.HTTP_201_CREATED
@@ -168,19 +123,19 @@ def test_filter_dishes_by_category_and_meal_type(
 
 
 def test_get_distinct_dish_categories(
-    client: TestClient, test_seller: Seller, test_restaurant: Restaurant
+    client: TestClient, test_restaurant: Restaurant
 ):
     """Kiểm tra lấy danh sách các nhóm món (category) duy nhất của quán để autocomplete."""
     client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món 1", "price": 10000.0, "category": "Món khai vị"},
     )
     client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món 2", "price": 20000.0, "category": "Món chính"},
     )
     client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món 3", "price": 30000.0, "category": "Món chính"},
     )
 
@@ -193,25 +148,18 @@ def test_get_distinct_dish_categories(
 
 
 def test_update_and_delete_dish(
-    client: TestClient, test_seller: Seller, other_seller: Seller, test_restaurant: Restaurant
+    client: TestClient, test_restaurant: Restaurant
 ):
-    """Kiểm tra cập nhật và xoá món ăn, kèm kiểm tra bảo mật."""
+    """Kiểm tra cập nhật và xoá món ăn."""
     create_res = client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món Cần Sửa", "price": 40000.0, "category": "Món cũ"},
     )
     dish_id = create_res.json()["id"]
 
-    # Seller khác cố sửa -> 403
-    forbidden_update = client.put(
-        f"/api/v1/dishes/{dish_id}?seller_id={other_seller.id}",
-        json={"price": 50000.0},
-    )
-    assert forbidden_update.status_code == status.HTTP_403_FORBIDDEN
-
-    # Chủ sở hữu sửa thành công
+    # Cập nhật món ăn
     success_update = client.put(
-        f"/api/v1/dishes/{dish_id}?seller_id={test_seller.id}",
+        f"/api/v1/dishes/{dish_id}",
         json={"name": "Món Đã Sửa", "price": 45000.0, "description": "Món ngon đặc biệt"},
     )
     assert success_update.status_code == status.HTTP_200_OK
@@ -220,7 +168,7 @@ def test_update_and_delete_dish(
     assert success_update.json()["description"] == "Món ngon đặc biệt"
 
     # Xoá món ăn
-    del_res = client.delete(f"/api/v1/dishes/{dish_id}?seller_id={test_seller.id}")
+    del_res = client.delete(f"/api/v1/dishes/{dish_id}")
     assert del_res.status_code == status.HTTP_200_OK
 
     # Xem lại sau xoá -> 404
@@ -229,30 +177,30 @@ def test_update_and_delete_dish(
 
 
 def test_dish_validation_errors(
-    client: TestClient, test_seller: Seller, test_restaurant: Restaurant
+    client: TestClient, test_restaurant: Restaurant
 ):
     """Kiểm tra bắt lỗi validate khi truyền meal_type hoặc price không hợp lệ."""
     # 1. meal_type không nằm trong danh sách cho phép
     err_meal = client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món Lỗi Bữa Ăn", "price": 50000.0, "meal_type": "midnight_snack"},
     )
     assert err_meal.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     # 2. price âm
     err_price = client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món Giá Âm", "price": -1000.0},
     )
     assert err_price.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_favourite_dishes_without_tag(
-    client: TestClient, test_seller: Seller, test_restaurant: Restaurant, test_user: User
+    client: TestClient, test_restaurant: Restaurant, test_user: User
 ):
     """Kiểm tra lưu món yêu thích không còn trường tag (Junction Table thuần tuý)."""
     create_dish = client.post(
-        f"/api/v1/restaurants/{test_restaurant.id}/dishes?seller_id={test_seller.id}",
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Bún Bò Huế Yêu Thích", "price": 50000.0, "ingredients": ["Thịt bò", "Bún"]},
     )
     dish_id = create_dish.json()["id"]
@@ -286,11 +234,10 @@ def test_favourite_dishes_without_tag(
 
 
 def test_cascade_delete_restaurant_deletes_dishes_and_favourites(
-    db_session: Session, test_seller: Seller, test_user: User
+    db_session: Session, test_user: User
 ):
     """Kiểm tra khi xoá quán ăn, toàn bộ món ăn và bản ghi yêu thích tự động xoá theo (Cascade delete)."""
     restaurant = Restaurant(
-        seller_id=test_seller.id,
         name="Quán Sắp Xoá",
         address="100 Phố Nhỏ",
         latitude=21.0,

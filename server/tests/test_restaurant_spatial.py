@@ -4,32 +4,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from sqlalchemy import select, text
 
-from server.app.models.seller import Seller
 from server.app.models.restaurant import Restaurant
-from server.app.core.security import hash_password
 
 
-@pytest.fixture
-def spatial_seller(db_session: Session) -> Seller:
-    """Fixture tạo Seller để test không gian PostGIS."""
-    seller = Seller(
-        email="spatial_seller@example.com",
-        hashed_password=hash_password("seller123"),
-        shop_name="Chuỗi Quán Ăn Hà Nội",
-        is_active=True,
-    )
-    db_session.add(seller)
-    db_session.commit()
-    db_session.refresh(seller)
-    return seller
-
-
-def test_postgis_location_column_automatically_populated(
-    db_session: Session, spatial_seller: Seller
-):
+def test_postgis_location_column_automatically_populated(db_session: Session):
     """Kiểm tra cột PostGIS 'location' được PostgreSQL tự động sinh từ lat/lon (Generated Column)."""
     restaurant = Restaurant(
-        seller_id=spatial_seller.id,
         name="Phở Bát Đàn",
         address="49 Bát Đàn, Hà Nội",
         latitude=21.0335,
@@ -46,9 +26,7 @@ def test_postgis_location_column_automatically_populated(
     assert point_text.startswith("POINT(105.8471 21.0335)")
 
 
-def test_find_nearby_restaurants_within_radius(
-    client: TestClient, spatial_seller: Seller
-):
+def test_find_nearby_restaurants_within_radius(client: TestClient):
     """
     Kiểm tra tìm kiếm quán ăn xung quanh vị trí khách hàng:
     - Vị trí khách: Hồ Hoàn Kiếm (lat: 21.0287, lon: 105.8523)
@@ -59,7 +37,7 @@ def test_find_nearby_restaurants_within_radius(
     """
     # Tạo 3 quán
     client.post(
-        f"/api/v1/sellers/{spatial_seller.id}/restaurants",
+        "/api/v1/restaurants",
         json={
             "name": "Phở Bát Đàn",
             "address": "49 Bát Đàn, Hoàn Kiếm, Hà Nội",
@@ -68,7 +46,7 @@ def test_find_nearby_restaurants_within_radius(
         },
     )
     client.post(
-        f"/api/v1/sellers/{spatial_seller.id}/restaurants",
+        "/api/v1/restaurants",
         json={
             "name": "Bún Chả Hương Liên",
             "address": "24 Lê Văn Hưu, Hai Bà Trưng, Hà Nội",
@@ -77,7 +55,7 @@ def test_find_nearby_restaurants_within_radius(
         },
     )
     client.post(
-        f"/api/v1/sellers/{spatial_seller.id}/restaurants",
+        "/api/v1/restaurants",
         json={
             "name": "Bánh Đa Cua Bể Hải Phòng",
             "address": "Trần Phú, Ngô Quyền, Hải Phòng",
@@ -124,12 +102,10 @@ def test_find_nearby_restaurants_empty_when_out_of_range(client: TestClient):
     assert response.json() == []
 
 
-def test_calculate_distance_to_specific_restaurant(
-    client: TestClient, spatial_seller: Seller
-):
+def test_calculate_distance_to_specific_restaurant(client: TestClient):
     """Kiểm tra tính khoảng cách từ toạ độ người dùng đến một quán ăn cụ thể."""
     res_create = client.post(
-        f"/api/v1/sellers/{spatial_seller.id}/restaurants",
+        "/api/v1/restaurants",
         json={
             "name": "Phở Bát Đàn",
             "address": "49 Bát Đàn, Hoàn Kiếm, Hà Nội",
@@ -156,12 +132,10 @@ def test_calculate_distance_to_specific_restaurant(
     assert 0.70 <= data["distance_km"] <= 0.85
 
 
-def test_nearby_restaurants_include_hours(
-    client: TestClient, spatial_seller: Seller
-):
+def test_nearby_restaurants_include_hours(client: TestClient):
     """Kiểm tra API tìm quán gần đây trả về chính xác trường open_time và close_time."""
     client.post(
-        f"/api/v1/sellers/{spatial_seller.id}/restaurants",
+        "/api/v1/restaurants",
         json={
             "name": "Bún Ốc Phố Cổ",
             "address": "11 Hàng Bạc, Hà Nội",

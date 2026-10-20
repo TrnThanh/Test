@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from server.app.models.user import User
-from server.app.models.seller import Seller
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
 from server.app.models.option_user import OptionUser
@@ -26,23 +25,8 @@ def test_user(db_session: Session) -> User:
 
 
 @pytest.fixture
-def test_seller(db_session: Session) -> Seller:
-    seller = Seller(
-        email="opt_test_seller@example.com",
-        hashed_password=hash_password("123456"),
-        shop_name="Quán Test Option",
-        is_active=True,
-    )
-    db_session.add(seller)
-    db_session.commit()
-    db_session.refresh(seller)
-    return seller
-
-
-@pytest.fixture
-def test_restaurant(db_session: Session, test_seller: Seller) -> Restaurant:
+def test_restaurant(db_session: Session) -> Restaurant:
     restaurant = Restaurant(
-        seller_id=test_seller.id,
         name="Nhà Hàng Test Option",
         address="123 Đường Test, Quận 1, TP.HCM",
         latitude=10.7769,

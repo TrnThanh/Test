@@ -9,26 +9,16 @@ from server.app.schemas.category import CategoryCreate, CategoryUpdate, Category
 
 
 class CategoryService:
-    @staticmethod
-    def _verify_restaurant_ownership(db: Session, restaurant_id: int, seller_id: int) -> Restaurant:
+    @classmethod
+    def create_category(
+        cls, db: Session, restaurant_id: int, data: CategoryCreate
+    ) -> CategoryResponse:
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Không tìm thấy quán ăn với ID này",
             )
-        if restaurant.seller_id != seller_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không có quyền quản lý danh mục của quán ăn này",
-            )
-        return restaurant
-
-    @classmethod
-    def create_category(
-        cls, db: Session, seller_id: int, restaurant_id: int, data: CategoryCreate
-    ) -> CategoryResponse:
-        cls._verify_restaurant_ownership(db, restaurant_id, seller_id)
 
         # Kiểm tra trùng tên danh mục trong quán
         existing = db.execute(
@@ -95,7 +85,7 @@ class CategoryService:
 
     @classmethod
     def update_category(
-        cls, db: Session, seller_id: int, category_id: int, data: CategoryUpdate
+        cls, db: Session, category_id: int, data: CategoryUpdate
     ) -> CategoryResponse:
         cat = db.get(Category, category_id)
         if not cat:
@@ -103,7 +93,6 @@ class CategoryService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Không tìm thấy danh mục món ăn",
             )
-        cls._verify_restaurant_ownership(db, cat.restaurant_id, seller_id)
 
         update_dict = data.model_dump(exclude_unset=True)
         if "name" in update_dict and update_dict["name"] is not None:
@@ -135,14 +124,13 @@ class CategoryService:
         return res
 
     @classmethod
-    def delete_category(cls, db: Session, seller_id: int, category_id: int) -> None:
+    def delete_category(cls, db: Session, category_id: int) -> None:
         cat = db.get(Category, category_id)
         if not cat:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Không tìm thấy danh mục món ăn",
             )
-        cls._verify_restaurant_ownership(db, cat.restaurant_id, seller_id)
 
         db.delete(cat)
         db.commit()

@@ -14,23 +14,21 @@ router = APIRouter()
     "/restaurants/{restaurant_id}/dishes",
     response_model=DishResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Tạo món ăn mới cho quán (Dành cho Seller)",
+    summary="Tạo món ăn mới cho quán",
 )
 def create_dish(
     restaurant_id: int = Path(..., description="ID của quán ăn"),
-    seller_id: int = Query(..., description="ID của Seller sở hữu quán"),
     dish_in: DishCreate = ...,
     db: Session = Depends(get_db),
 ):
     """
-    Seller tạo món ăn mới cho quán ăn của mình:
+    Tạo món ăn mới cho quán ăn:
     - Bắt buộc: `name`, `price >= 0`.
-    - Tuỳ chọn: `category_id` (ID nhóm danh mục), `category` (nhóm món), `meal_type`, `tags`.
+    - Tuỳ chọn: `category_id` (ID nhóm danh mục), `category` (nhóm món), `meal_type_id`, `meal_type`, `tags`, `ingredients`.
     """
     dish = DishService.create_dish(
         db=db,
         restaurant_id=restaurant_id,
-        seller_id=seller_id,
         data=dish_in,
     )
     return DishService.to_dish_response(dish)
@@ -69,7 +67,6 @@ def get_restaurant_dishes(
     return [DishService.to_dish_response(d) for d in dishes]
 
 
-
 @router.get(
     "/restaurants/{restaurant_id}/dish-categories",
     response_model=List[str],
@@ -103,36 +100,32 @@ def get_dish_detail(
 @router.put(
     "/dishes/{dish_id}",
     response_model=DishResponse,
-    summary="Cập nhật món ăn (Dành cho Seller)",
+    summary="Cập nhật món ăn",
 )
 def update_dish(
     dish_id: int = Path(..., description="ID món ăn cần sửa"),
-    seller_id: int = Query(..., description="ID của Seller sở hữu quán"),
     dish_in: DishUpdate = ...,
     db: Session = Depends(get_db),
 ):
-    """Cập nhật thông tin món ăn (kiểm tra quyền sở hữu)."""
+    """Cập nhật thông tin món ăn."""
     dish = DishService.update_dish(
         db=db,
         dish_id=dish_id,
-        seller_id=seller_id,
         data=dish_in,
     )
     return DishService.to_dish_response(dish)
 
 
-
 @router.delete(
     "/dishes/{dish_id}",
-    summary="Xoá món ăn (Dành cho Seller)",
+    summary="Xoá món ăn",
 )
 def delete_dish(
     dish_id: int = Path(..., description="ID món ăn cần xoá"),
-    seller_id: int = Query(..., description="ID của Seller sở hữu quán"),
     db: Session = Depends(get_db),
 ):
     """Xoá một món ăn khỏi thực đơn quán."""
-    DishService.delete_dish(db=db, dish_id=dish_id, seller_id=seller_id)
+    DishService.delete_dish(db=db, dish_id=dish_id)
     return {"message": f"Món ăn với ID {dish_id} đã được xoá thành công."}
 
 
@@ -141,41 +134,58 @@ def delete_dish(
     "/users/{user_id}/favourites/{dish_id}",
     response_model=FavouriteDishResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Thêm món ăn vào danh sách yêu thích của người dùng",
+    summary="Thực khách lưu món ăn vào danh sách yêu thích",
 )
-def add_favourite(
+def add_dish_to_favourites(
     user_id: int = Path(..., description="ID người dùng"),
     dish_id: int = Path(..., description="ID món ăn yêu thích"),
     db: Session = Depends(get_db),
 ):
-    """Lưu món ăn yêu thích (idempotent, không còn trường tag)."""
-    return DishService.add_favourite_dish(db=db, user_id=user_id, dish_id=dish_id)
+    """Lưu một món ăn vào danh sách yêu thích của người dùng (idempotent)."""
+    fav = DishService.add_to_favourites(db=db, user_id=user_id, dish_id=dish_id)
+    return FavouriteDishResponse(
+        id=fav.id,
+        user_id=fav.user_id,
+        dish_id=fav.dish_id,
+        created_at=fav.created_at,
+        dish=DishService.to_dish_response(fav.dish) if fav.dish else None,
+    )
 
 
 @router.delete(
     "/users/{user_id}/favourites/{dish_id}",
-    summary="Bỏ yêu thích món ăn",
+    summary="Thực khách bỏ lưu món ăn khỏi danh sách yêu thích",
 )
-def remove_favourite(
+def remove_dish_from_favourites(
     user_id: int = Path(..., description="ID người dùng"),
     dish_id: int = Path(..., description="ID món ăn cần bỏ yêu thích"),
     db: Session = Depends(get_db),
 ):
-    """Xoá món ăn khỏi danh sách yêu thích của người dùng."""
-    DishService.remove_favourite_dish(db=db, user_id=user_id, dish_id=dish_id)
-    return {"message": "Đã xoá món ăn khỏi danh sách yêu thích thành công."}
+    """Bỏ một món ăn khỏi danh sách yêu thích."""
+    DishService.remove_from_favourites(db=db, user_id=user_id, dish_id=dish_id)
+    return {"message": f"Đã bỏ món ăn ID {dish_id} khỏi danh sách yêu thích."}
 
 
 @router.get(
     "/users/{user_id}/favourites",
     response_model=List[FavouriteDishResponse],
-    summary="Lấy danh sách món ăn yêu thích của người dùng",
+    summary="Lấy danh sách món ăn yêu thích của thực khách",
 )
-def get_user_favourites(
+def get_user_favourite_dishes(
     user_id: int = Path(..., description="ID người dùng"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """Lấy toàn bộ món ăn mà người dùng đã nhấn yêu thích kèm chi tiết món."""
-    return DishService.get_user_favourite_dishes(db=db, user_id=user_id, skip=skip, limit=limit)
+    """Xem danh sách các món ăn yêu thích của người dùng kèm thông tin chi tiết món."""
+    favs = DishService.get_user_favourites(db=db, user_id=user_id, skip=skip, limit=limit)
+    return [
+        FavouriteDishResponse(
+            id=f.id,
+            user_id=f.user_id,
+            dish_id=f.dish_id,
+            created_at=f.created_at,
+            dish=DishService.to_dish_response(f.dish) if f.dish else None,
+        )
+        for f in favs
+    ]

@@ -8,7 +8,6 @@ class Restaurant {
   final String? closeTime;
   final double latitude;
   final double longitude;
-  final int sellerId;
   final bool isActive;
   final double? distanceMeters;
   final double? distanceKm;
@@ -23,8 +22,7 @@ class Restaurant {
     this.closeTime,
     required this.latitude,
     required this.longitude,
-    required this.sellerId,
-    required this.isActive,
+    this.isActive = true,
     this.distanceMeters,
     this.distanceKm,
   });
@@ -51,7 +49,6 @@ class Restaurant {
       closeTime: json['close_time'] as String?,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
-      sellerId: json['seller_id'] as int? ?? 1,
       isActive: json['is_active'] as bool? ?? true,
       distanceMeters: distM,
       distanceKm: distKm,

@@ -1,6 +1,5 @@
 """Pydantic schemas package."""
 from server.app.schemas.user import UserRegister, UserLogin, UserResponse
-from server.app.schemas.seller import SellerRegister, SellerLogin, SellerResponse
 from server.app.schemas.admin import AdminLogin, AdminResponse
 from server.app.schemas.common import LoginRequest, RoleLoginResponse
 from server.app.schemas.map import PlaceItem, MapSearchResponse, MapReverseResponse
@@ -16,9 +15,6 @@ __all__ = [
     "UserRegister",
     "UserLogin",
     "UserResponse",
-    "SellerRegister",
-    "SellerLogin",
-    "SellerResponse",
     "AdminLogin",
     "AdminResponse",
     "LoginRequest",

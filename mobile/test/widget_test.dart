@@ -16,7 +16,6 @@ class FakeApiService extends ApiService {
         description: 'Phở bò tái lăn gia truyền',
         latitude: 21.0185,
         longitude: 105.8572,
-        sellerId: 1,
         openTime: '06:00',
         closeTime: '22:00',
         isActive: true,
@@ -29,7 +28,6 @@ class FakeApiService extends ApiService {
         description: 'Bún chả truyền thống phố cổ',
         latitude: 21.0325,
         longitude: 105.8492,
-        sellerId: 1,
         openTime: '08:00',
         closeTime: '21:00',
         isActive: true,
@@ -50,7 +48,6 @@ class FakeApiService extends ApiService {
         address: '13 Lò Đúc, Hai Bà Trưng, Hà Nội',
         latitude: 21.0185,
         longitude: 105.8572,
-        sellerId: 1,
         openTime: '06:00',
         closeTime: '22:00',
         isActive: true,
@@ -133,8 +130,6 @@ void main() {
     await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
     expect(find.text('Đăng Nhập Khách Hàng'), findsOneWidget);
-    expect(find.text('Thực khách (User)'), findsOneWidget);
-    expect(find.text('Chủ quán (Seller)'), findsOneWidget);
     expect(find.text('Email *'), findsOneWidget);
     expect(find.text('Mật khẩu *'), findsOneWidget);
   });
@@ -172,7 +167,7 @@ void main() {
     expect(find.text('Đăng Nhập Khách Hàng'), findsOneWidget);
   });
 
-  testWidgets('Kiểm thử chuyển đổi vai trò Thực khách và Chủ quán trên màn hình Đăng ký', (WidgetTester tester) async {
+  testWidgets('Kiểm thử màn hình Đăng ký Thực khách', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
     await tester.pumpWidget(Ptc1App(apiService: fakeApi));
@@ -186,13 +181,6 @@ void main() {
     await tester.tap(find.text('Đăng ký'));
     await tester.pumpAndSettle();
     expect(find.text('Họ và tên'), findsOneWidget);
-
-    // Chuyển vai trò sang Chủ quán (Seller)
-    await tester.tap(find.text('Chủ quán (Seller)'));
-    await tester.pumpAndSettle();
-
-    // Kiểm tra xuất hiện các trường của Seller
-    expect(find.text('Tên cửa hàng/Shop *'), findsOneWidget);
-    expect(find.text('Số điện thoại'), findsOneWidget);
+    expect(find.text('Đăng ký ngay'), findsOneWidget);
   });
 }

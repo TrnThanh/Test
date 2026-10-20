@@ -1,18 +1,17 @@
 from datetime import datetime, timezone, time
 from typing import Any, Optional, List, TYPE_CHECKING
-from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Index, CheckConstraint, Computed, Time
+from sqlalchemy import String, Float, Boolean, DateTime, Index, CheckConstraint, Computed, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geography
 from server.app.db.base import Base
 
 if TYPE_CHECKING:
-    from server.app.models.seller import Seller
     from server.app.models.dish import Dish
     from server.app.models.category import Category
 
 
 class Restaurant(Base):
-    """Bảng quán ăn (Restaurant) thuộc sở hữu của Seller với cột không gian PostGIS."""
+    """Bảng quán ăn (Restaurant) với cột không gian PostGIS."""
     __tablename__ = "restaurants"
     __table_args__ = (
         CheckConstraint("latitude >= -90.0 AND latitude <= 90.0", name="ck_restaurant_latitude"),
@@ -21,9 +20,6 @@ class Restaurant(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    seller_id: Mapped[int] = mapped_column(
-        ForeignKey("sellers.id", ondelete="CASCADE"), index=True, nullable=False
-    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str] = mapped_column(String(500), nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
@@ -50,11 +46,9 @@ class Restaurant(Base):
         deferred=True,
     )
 
-    seller: Mapped["Seller"] = relationship("Seller", back_populates="restaurants")
     categories: Mapped[List["Category"]] = relationship(
         "Category", back_populates="restaurant", cascade="all, delete-orphan"
     )
     dishes: Mapped[List["Dish"]] = relationship(
         "Dish", back_populates="restaurant", cascade="all, delete-orphan"
     )
-

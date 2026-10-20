@@ -5,8 +5,8 @@ import type {
   Restaurant,
   Category,
   Dish,
+  MealType,
   SystemStats,
-  AdminSeller,
   AdminUser,
 } from '../types';
 import { api } from '../services/api';
@@ -45,6 +45,34 @@ const editLon = ref(105.8542);
 const editIsActive = ref(true);
 const editSaving = ref(false);
 
+// Create Restaurant Modal State
+const showCreateRestaurantModal = ref(false);
+const newRestName = ref('');
+const newRestAddress = ref('');
+const newRestPhone = ref('');
+const newRestDesc = ref('');
+const newRestOpenTime = ref('08:00');
+const newRestCloseTime = ref('22:00');
+const newRestLat = ref(21.0285);
+const newRestLon = ref(105.8542);
+const newRestSaving = ref(false);
+
+// Create Dish Modal State
+const showCreateDishModal = ref(false);
+const newDishName = ref('');
+const newDishPrice = ref(35000);
+const newDishDesc = ref('');
+const newDishCategoryId = ref<number | null>(null);
+const newDishMealType = ref<MealType>('all_day');
+const newDishIngredients = ref('');
+const newDishSaving = ref(false);
+
+// Create Category Modal State
+const showCreateCategoryModal = ref(false);
+const newCatName = ref('');
+const newCatDesc = ref('');
+const newCatSaving = ref(false);
+
 // Menus Tab State
 const selectedMenuRestaurantId = ref<number | null>(null);
 const menuCategories = ref<Category[]>([]);
@@ -52,8 +80,7 @@ const menuDishes = ref<Dish[]>([]);
 const menuLoading = ref(false);
 
 // Accounts Tab State
-const accountSubTab = ref<'sellers' | 'users'>('sellers');
-const sellers = ref<AdminSeller[]>([]);
+
 const users = ref<AdminUser[]>([]);
 const accountsLoading = ref(false);
 
@@ -202,16 +229,161 @@ function selectRestaurantForMenu(restId: number) {
 async function loadAccounts() {
   accountsLoading.value = true;
   try {
-    const [sList, uList] = await Promise.all([
-      api.getAdminSellers(),
-      api.getAdminUsers(),
-    ]);
-    sellers.value = sList;
+    const uList = await api.getAdminUsers();
     users.value = uList;
   } catch (err: any) {
     showError(err.message || 'Không thể nạp danh sách tài khoản');
   } finally {
     accountsLoading.value = false;
+  }
+}
+
+
+function openCreateRestaurantModal() {
+  newRestName.value = '';
+  newRestAddress.value = '';
+  newRestPhone.value = '';
+  newRestDesc.value = '';
+  newRestOpenTime.value = '08:00';
+  newRestCloseTime.value = '22:00';
+  newRestLat.value = 21.0285;
+  newRestLon.value = 105.8542;
+  showCreateRestaurantModal.value = true;
+}
+
+async function handleCreateRestaurant() {
+  if (!newRestName.value.trim() || !newRestAddress.value.trim()) {
+    showError('Vui lòng nhập đầy đủ tên quán và địa chỉ');
+    return;
+  }
+  newRestSaving.value = true;
+  try {
+    const created = await api.createRestaurantAsAdmin({
+      name: newRestName.value.trim(),
+      address: newRestAddress.value.trim(),
+      phone: newRestPhone.value.trim() || undefined,
+      description: newRestDesc.value.trim() || undefined,
+      open_time: newRestOpenTime.value || null,
+      close_time: newRestCloseTime.value || null,
+      latitude: Number(newRestLat.value),
+      longitude: Number(newRestLon.value),
+    });
+    restaurants.value.unshift(created);
+    selectedMenuRestaurantId.value = created.id;
+    showNotice(`Đã thêm quán ăn mới "${created.name}" thành công!`);
+    showCreateRestaurantModal.value = false;
+    loadStats();
+  } catch (err: any) {
+    showError(err.message || 'Không thể tạo mới quán ăn');
+  } finally {
+    newRestSaving.value = false;
+  }
+}
+
+function openCreateDishModal() {
+  if (!selectedMenuRestaurantId.value) {
+    showError('Vui lòng chọn một quán ăn trước');
+    return;
+  }
+  newDishName.value = '';
+  newDishPrice.value = 35000;
+  newDishDesc.value = '';
+  newDishCategoryId.value = menuCategories.value.length > 0 ? menuCategories.value[0].id : null;
+  newDishMealType.value = 'all_day';
+  newDishIngredients.value = '';
+  showCreateDishModal.value = true;
+}
+
+async function handleCreateDish() {
+  if (!selectedMenuRestaurantId.value) return;
+  if (!newDishName.value.trim()) {
+    showError('Tên món ăn không được để trống');
+    return;
+  }
+  if (newDishPrice.value < 0) {
+    showError('Đơn giá món ăn không được âm');
+    return;
+  }
+  newDishSaving.value = true;
+  try {
+    const ingList = newDishIngredients.value
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    const created = await api.createDish(selectedMenuRestaurantId.value, {
+      name: newDishName.value.trim(),
+      price: Number(newDishPrice.value),
+      description: newDishDesc.value.trim() || undefined,
+      category_id: newDishCategoryId.value || undefined,
+      meal_type: newDishMealType.value,
+      ingredients: ingList,
+      is_available: true,
+    });
+    menuDishes.value.unshift(created);
+    showNotice(`Đã thêm món ăn "${created.name}" vào thực đơn thành công!`);
+    showCreateDishModal.value = false;
+    loadStats();
+  } catch (err: any) {
+    showError(err.message || 'Không thể tạo món ăn mới');
+  } finally {
+    newDishSaving.value = false;
+  }
+}
+
+async function deleteDishItem(dish: Dish) {
+  if (!confirm(`Bạn có chắc chắn muốn xóa món "${dish.name}" khỏi thực đơn?`)) return;
+  try {
+    await api.deleteDish(dish.id);
+    menuDishes.value = menuDishes.value.filter((d) => d.id !== dish.id);
+    showNotice(`Đã xóa món "${dish.name}" khỏi quán.`);
+    loadStats();
+  } catch (err: any) {
+    showError(err.message || 'Không thể xóa món ăn');
+  }
+}
+
+function openCreateCategoryModal() {
+  if (!selectedMenuRestaurantId.value) {
+    showError('Vui lòng chọn một quán ăn trước');
+    return;
+  }
+  newCatName.value = '';
+  newCatDesc.value = '';
+  showCreateCategoryModal.value = true;
+}
+
+async function handleCreateCategory() {
+  if (!selectedMenuRestaurantId.value) return;
+  if (!newCatName.value.trim()) {
+    showError('Tên danh mục không được để trống');
+    return;
+  }
+  newCatSaving.value = true;
+  try {
+    const created = await api.createCategory(selectedMenuRestaurantId.value, {
+      name: newCatName.value.trim(),
+      description: newCatDesc.value.trim() || undefined,
+    });
+    menuCategories.value.push(created);
+    showNotice(`Đã tạo danh mục "${created.name}" thành công!`);
+    showCreateCategoryModal.value = false;
+  } catch (err: any) {
+    showError(err.message || 'Không thể tạo danh mục');
+  } finally {
+    newCatSaving.value = false;
+  }
+}
+
+async function deleteCategoryItem(cat: Category) {
+  if (!confirm(`Bạn có chắc muốn xóa danh mục "${cat.name}"? Các món thuộc danh mục này sẽ chuyển về Chưa phân loại.`)) return;
+  try {
+    await api.deleteCategory(cat.id);
+    menuCategories.value = menuCategories.value.filter((c) => c.id !== cat.id);
+    showNotice(`Đã xóa danh mục "${cat.name}".`);
+    loadMenuData();
+  } catch (err: any) {
+    showError(err.message || 'Không thể xóa danh mục');
   }
 }
 
@@ -356,15 +528,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="kpi-card">
-            <div class="kpi-body">
-              <span class="kpi-value">{{ stats?.total_sellers ?? sellers.length }}</span>
-              <span class="kpi-label">Chủ Quán (Sellers)</span>
-            </div>
-            <div class="kpi-footer">
-              <span class="kpi-sub">Đối tác kinh doanh ẩm thực</span>
-            </div>
-          </div>
+          
 
           <div class="kpi-card">
             <div class="kpi-body">
@@ -412,7 +576,7 @@ onMounted(() => {
                 Xem thực đơn & danh mục
               </button>
               <button type="button" class="btn btn-secondary" @click="currentTab = 'accounts'; loadAccounts()">
-                Xem danh sách Sellers & Users
+                Xem danh sách Thực Khách (Users)
               </button>
             </div>
           </div>
@@ -428,9 +592,14 @@ onMounted(() => {
             <h2>Quản Lý Cơ Sở Quán Ăn (Restaurants)</h2>
             <p class="text-muted">Giám sát toạ độ địa lý, thông tin liên hệ và trạng thái hoạt động của từng quán</p>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" :disabled="restaurantsLoading" @click="loadRestaurants">
-            {{ restaurantsLoading ? 'Đang tải...' : 'Làm Mới Danh Sách' }}
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-primary btn-sm" @click="openCreateRestaurantModal">
+              + Thêm Quán Mới
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="restaurantsLoading" @click="loadRestaurants">
+              {{ restaurantsLoading ? 'Đang tải...' : 'Làm Mới' }}
+            </button>
+          </div>
         </div>
 
         <!-- Filter bar -->
@@ -467,7 +636,6 @@ onMounted(() => {
               <tr>
                 <th style="width: 60px;">ID</th>
                 <th>Tên Quán Ăn</th>
-                <th>Chủ Quán</th>
                 <th>Địa Chỉ</th>
                 <th>Giờ Mở Cửa</th>
                 <th>Toạ Độ PostGIS</th>
@@ -482,10 +650,7 @@ onMounted(() => {
                   <strong>{{ r.name }}</strong>
                   <span v-if="r.phone" class="sub-cell">SĐT: {{ r.phone }}</span>
                 </td>
-                <td>
-                  <span class="badge badge-neutral">Seller #{{ r.seller_id }}</span>
-                </td>
-                <td class="addr-cell">{{ r.address || '—' }}</td>
+                                <td class="addr-cell">{{ r.address || '—' }}</td>
                 <td>
                   <span v-if="r.open_time && r.close_time">{{ r.open_time }} – {{ r.close_time }}</span>
                   <span v-else class="text-muted">—</span>
@@ -549,18 +714,36 @@ onMounted(() => {
             <h2>Kiểm Duyệt Thực Đơn & Nhóm Món (Menus & Dishes)</h2>
             <p class="text-muted">Chọn một quán ăn để duyệt nhóm danh mục và danh sách món ăn đang phục vụ</p>
           </div>
-          <div class="rest-selector-box">
-            <label>Chọn Quán:</label>
-            <select
-              v-model="selectedMenuRestaurantId"
-              class="input"
-              style="min-width: 260px;"
-              @change="loadMenuData"
+          <div class="rest-selector-box" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label>Chọn Quán:</label>
+              <select
+                v-model="selectedMenuRestaurantId"
+                class="input"
+                style="min-width: 240px;"
+                @change="loadMenuData"
+              >
+                <option v-for="r in restaurants" :key="r.id" :value="r.id">
+                  #{{ r.id }} - {{ r.name }}
+                </option>
+              </select>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              :disabled="!selectedMenuRestaurantId"
+              @click="openCreateDishModal"
             >
-              <option v-for="r in restaurants" :key="r.id" :value="r.id">
-                #{{ r.id }} - {{ r.name }}
-              </option>
-            </select>
+              + Thêm Món Ăn Mới
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              :disabled="!selectedMenuRestaurantId"
+              @click="openCreateCategoryModal"
+            >
+              + Thêm Danh Mục
+            </button>
           </div>
         </div>
 
@@ -579,9 +762,17 @@ onMounted(() => {
               Quán chưa tạo nhóm danh mục nào.
             </div>
             <div v-else class="chips-container">
-              <span v-for="c in menuCategories" :key="c.id" class="category-chip">
+              <span v-for="c in menuCategories" :key="c.id" class="category-chip" style="display: inline-flex; align-items: center; gap: 6px;">
                 <strong>{{ c.name }}</strong>
                 <small v-if="c.description">({{ c.description }})</small>
+                <button
+                  type="button"
+                  style="border: none; background: transparent; cursor: pointer; color: #ef4444; font-weight: bold; padding: 0 4px;"
+                  title="Xóa danh mục này"
+                  @click.stop="deleteCategoryItem(c)"
+                >
+                  &times;
+                </button>
               </span>
             </div>
           </div>
@@ -606,6 +797,7 @@ onMounted(() => {
                     <th>Nhóm Danh Mục</th>
                     <th>Thành Phần</th>
                     <th>Tình Trạng</th>
+                    <th style="width: 100px; text-align: right;">Hành Động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -631,6 +823,16 @@ onMounted(() => {
                         {{ d.is_available ? 'Còn món' : 'Hết món' }}
                       </span>
                     </td>
+                    <td style="text-align: right;">
+                      <button
+                        type="button"
+                        class="btn-action btn-action-danger"
+                        title="Xóa món này khỏi quán"
+                        @click="deleteDishItem(d)"
+                      >
+                        Xóa
+                      </button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -646,68 +848,14 @@ onMounted(() => {
         <div class="pane-header">
           <div>
             <h2>Quản Lý Tài Khoản Đối Tác & Người Dùng</h2>
-            <p class="text-muted">Danh sách các đối tác Chủ Quán (Sellers) và Thực Khách (Users) trên hệ thống</p>
+            <p class="text-muted">Danh sách các tài khoản Thực Khách (Users) trên hệ thống</p>
           </div>
-          <div class="subtab-buttons">
-            <button
-              type="button"
-              class="btn btn-sm"
-              :class="accountSubTab === 'sellers' ? 'btn-primary' : 'btn-secondary'"
-              @click="accountSubTab = 'sellers'"
-            >
-              Chủ Quán (Sellers: {{ sellers.length }})
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm"
-              :class="accountSubTab === 'users' ? 'btn-primary' : 'btn-secondary'"
-              @click="accountSubTab = 'users'"
-            >
-              Thực Khách (Users: {{ users.length }})
-            </button>
           </div>
-        </div>
-
         <div v-if="accountsLoading" class="state-box">
           <div class="spinner"></div>
           <p>Đang nạp danh sách tài khoản...</p>
         </div>
 
-        <!-- Sellers List -->
-        <div v-else-if="accountSubTab === 'sellers'" class="table-container">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th style="width: 60px;">ID</th>
-                <th>Tên Cửa Hàng (Shop)</th>
-                <th>Email Đăng Nhập</th>
-                <th>Họ Và Tên</th>
-                <th>Số Điện Thoại</th>
-                <th>Số Quán Sở Hữu</th>
-                <th>Trạng Thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="s in sellers" :key="s.id">
-                <td>#{{ s.id }}</td>
-                <td><strong>{{ s.shop_name }}</strong></td>
-                <td><code>{{ s.email }}</code></td>
-                <td>{{ s.full_name || '—' }}</td>
-                <td>{{ s.phone || '—' }}</td>
-                <td>
-                  <span class="badge badge-primary">{{ s.restaurant_count }} quán</span>
-                </td>
-                <td>
-                  <span class="badge" :class="s.is_active ? 'badge-primary' : 'badge-danger'">
-                    {{ s.is_active ? 'Hoạt động' : 'Khoá' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Users List -->
         <div v-else class="table-container">
           <table class="admin-table">
             <thead>
@@ -808,6 +956,169 @@ onMounted(() => {
         </form>
       </div>
     </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL: TẠO MỚI QUÁN ĂN (CREATE RESTAURANT)     -->
+    <!-- ============================================== -->
+    <div v-if="showCreateRestaurantModal" class="modal-backdrop" @click.self="showCreateRestaurantModal = false">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Thêm Quán Ăn Mới Vào Hệ Thống</h3>
+          <button type="button" class="close-btn" @click="showCreateRestaurantModal = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="handleCreateRestaurant" class="modal-form">
+          <div class="form-group">
+            <label>Tên Quán Ăn *</label>
+            <input v-model="newRestName" type="text" class="input" placeholder="Ví dụ: Phở Bò Gia Truyền PTC1" required />
+          </div>
+
+          <div class="form-group">
+            <label>Địa Chỉ Cụ Thể *</label>
+            <input v-model="newRestAddress" type="text" class="input" placeholder="Số nhà, phố, quận, TP..." required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Số Điện Thoại</label>
+              <input v-model="newRestPhone" type="text" class="input" placeholder="0912345678" />
+            </div>
+            <div class="form-group">
+              <label>Vĩ Độ (Latitude)</label>
+              <input v-model.number="newRestLat" type="number" step="any" class="input" required />
+            </div>
+            <div class="form-group">
+              <label>Kinh Độ (Longitude)</label>
+              <input v-model.number="newRestLon" type="number" step="any" class="input" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Giờ Mở Cửa (HH:MM)</label>
+              <input v-model="newRestOpenTime" type="time" class="input" />
+            </div>
+            <div class="form-group">
+              <label>Giờ Đóng Cửa (HH:MM)</label>
+              <input v-model="newRestCloseTime" type="time" class="input" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Mô Tả Giới Thiệu Quán</label>
+            <textarea v-model="newRestDesc" class="input" rows="2" placeholder="Đặc sản, phong cách phục vụ..."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" @click="showCreateRestaurantModal = false">
+              Hủy Bỏ
+            </button>
+            <button type="submit" class="btn btn-primary" :disabled="newRestSaving">
+              {{ newRestSaving ? 'Đang tạo...' : 'Tạo Quán Mới' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL: THÊM MÓN ĂN MỚI (CREATE DISH)           -->
+    <!-- ============================================== -->
+    <div v-if="showCreateDishModal" class="modal-backdrop" @click.self="showCreateDishModal = false">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Thêm Món Ăn Mới Vào Quán</h3>
+          <button type="button" class="close-btn" @click="showCreateDishModal = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="handleCreateDish" class="modal-form">
+          <div class="form-group">
+            <label>Tên Món Ăn *</label>
+            <input v-model="newDishName" type="text" class="input" placeholder="Ví dụ: Cơm tấm sườn bì chả" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Giá Tiền (VNĐ) *</label>
+              <input v-model.number="newDishPrice" type="number" min="0" step="1000" class="input" required />
+            </div>
+            <div class="form-group">
+              <label>Bữa Ăn Phục Vụ</label>
+              <select v-model="newDishMealType" class="input">
+                <option value="all_day">Cả ngày (all_day)</option>
+                <option value="breakfast">Bữa sáng (breakfast)</option>
+                <option value="lunch">Bữa trưa (lunch)</option>
+                <option value="dinner">Bữa tối (dinner)</option>
+                <option value="snack">Ăn vặt / Xế (snack)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Nhóm Danh Mục</label>
+            <select v-model="newDishCategoryId" class="input">
+              <option :value="null">-- Không phân nhóm / Chung --</option>
+              <option v-for="c in menuCategories" :key="c.id" :value="c.id">
+                {{ c.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Nguyên Liệu / Thành Phần (phân tách bằng dấu phẩy)</label>
+            <input v-model="newDishIngredients" type="text" class="input" placeholder="Gạo tấm, sườn nướng, chả trứng, nước mắm..." />
+          </div>
+
+          <div class="form-group">
+            <label>Mô Tả Chi Tiết Món</label>
+            <textarea v-model="newDishDesc" class="input" rows="2" placeholder="Hương vị, định lượng, gợi ý ăn kèm..."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" @click="showCreateDishModal = false">
+              Hủy Bỏ
+            </button>
+            <button type="submit" class="btn btn-primary" :disabled="newDishSaving">
+              {{ newDishSaving ? 'Đang thêm...' : 'Thêm Món Ăn' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL: THÊM DANH MỤC MỚI (CREATE CATEGORY)     -->
+    <!-- ============================================== -->
+    <div v-if="showCreateCategoryModal" class="modal-backdrop" @click.self="showCreateCategoryModal = false">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Thêm Danh Mục Món Ăn Mới</h3>
+          <button type="button" class="close-btn" @click="showCreateCategoryModal = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="handleCreateCategory" class="modal-form">
+          <div class="form-group">
+            <label>Tên Danh Mục *</label>
+            <input v-model="newCatName" type="text" class="input" placeholder="Ví dụ: Món Nướng, Đồ Uống, Khai Vị..." required />
+          </div>
+
+          <div class="form-group">
+            <label>Mô Tả Nhóm Món</label>
+            <textarea v-model="newCatDesc" class="input" rows="2" placeholder="Mô tả nhóm danh mục này..."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" @click="showCreateCategoryModal = false">
+              Hủy Bỏ
+            </button>
+            <button type="submit" class="btn btn-primary" :disabled="newCatSaving">
+              {{ newCatSaving ? 'Đang tạo...' : 'Tạo Danh Mục' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </template>
 

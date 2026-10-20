@@ -80,20 +80,9 @@ def test_create_dish_with_ingredients_and_meal_type_id(
     db_session: Session,
 ):
     """Kiểm tra tạo món ăn có trường ingredients và liên kết meal_type_id."""
-    # 1. Đăng ký seller và tạo quán
-    seller_resp = client.post(
-        "/api/v1/auth/seller/register",
-        json={
-            "email": "seller_meal@example.com",
-            "password": "Password123",
-            "shop_name": "Quán Bún Bò Huế",
-        },
-    )
-    assert seller_resp.status_code == 201
-    seller_id = seller_resp.json()["id"]
-
+    # 1. Tạo quán ăn
     res_resp = client.post(
-        f"/api/v1/sellers/{seller_id}/restaurants",
+        "/api/v1/restaurants",
         json={
             "name": "Bún Bò Huế O Oanh",
             "address": "123 Lê Lợi, Huế",
@@ -119,7 +108,6 @@ def test_create_dish_with_ingredients_and_meal_type_id(
     }
     dish_resp = client.post(
         f"/api/v1/restaurants/{restaurant_id}/dishes",
-        params={"seller_id": seller_id},
         json=dish_payload,
     )
     assert dish_resp.status_code == 201

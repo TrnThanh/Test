@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from server.app.api.v1.endpoints import (
     auth_user,
-    auth_seller,
     auth_admin,
     admin,
     map,
@@ -22,17 +21,10 @@ api_router.include_router(
     tags=["Admin Operations"],
 )
 
-
 api_router.include_router(
     auth_user.router,
     prefix="/auth/user",
     tags=["User Authentication"],
-)
-
-api_router.include_router(
-    auth_seller.router,
-    prefix="/auth/seller",
-    tags=["Seller Authentication"],
 )
 
 api_router.include_router(

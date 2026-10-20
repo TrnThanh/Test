@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 
 from server.app.core.security import hash_password, verify_password
 from server.app.models.admin import Admin
-from server.app.models.seller import Seller
 from server.app.models.user import User
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
@@ -51,7 +50,6 @@ class AdminService:
         inactive_restaurants = total_restaurants - active_restaurants
         total_dishes = db.scalar(select(func.count(Dish.id))) or 0
         total_categories = db.scalar(select(func.count(Category.id))) or 0
-        total_sellers = db.scalar(select(func.count(Seller.id))) or 0
         total_users = db.scalar(select(func.count(User.id))) or 0
 
         return {
@@ -60,28 +58,8 @@ class AdminService:
             "inactive_restaurants": inactive_restaurants,
             "total_dishes": total_dishes,
             "total_categories": total_categories,
-            "total_sellers": total_sellers,
             "total_users": total_users,
         }
-
-    @staticmethod
-    def get_all_sellers(db: Session) -> List[Dict[str, Any]]:
-        """Lấy danh sách toàn bộ đối tác Chủ Quán (Seller) kèm số quán sở hữu."""
-        sellers = db.scalars(select(Seller).order_by(Seller.id.desc())).all()
-        result = []
-        for s in sellers:
-            r_count = db.scalar(select(func.count(Restaurant.id)).where(Restaurant.seller_id == s.id)) or 0
-            result.append({
-                "id": s.id,
-                "email": s.email,
-                "full_name": s.full_name,
-                "shop_name": s.shop_name,
-                "phone": s.phone,
-                "is_active": s.is_active,
-                "restaurant_count": r_count,
-                "created_at": s.created_at,
-            })
-        return result
 
     @staticmethod
     def get_all_users(db: Session) -> List[User]:
@@ -108,4 +86,3 @@ class AdminService:
         db.delete(restaurant)
         db.commit()
         return True
-

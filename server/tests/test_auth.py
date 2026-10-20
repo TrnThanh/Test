@@ -80,73 +80,22 @@ def test_login_user_wrong_password(client: TestClient) -> None:
 
 
 # ==============================================================================
-# 2. SELLER AUTHENTICATION TESTS (Bảng: sellers)
+# 2. SELLER AUTHENTICATION REMOVAL VERIFICATION
 # ==============================================================================
 
-def test_register_seller_success(client: TestClient) -> None:
-    response = client.post(
+def test_seller_auth_endpoints_removed(client: TestClient) -> None:
+    """Xác nhận các route xác thực người bán đã bị loại bỏ hoàn toàn (404 Not Found)."""
+    resp_register = client.post(
         "/api/v1/auth/seller/register",
-        json={
-            "email": "seller@example.com",
-            "password": "SellerPassword123",
-            "full_name": "Tran Van Seller",
-            "shop_name": "Cua Hang Cong Nghe",
-            "phone": "0987654321",
-        },
+        json={"email": "seller@example.com", "password": "123"},
     )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["email"] == "seller@example.com"
-    assert data["shop_name"] == "Cua Hang Cong Nghe"
-    assert data["phone"] == "0987654321"
-    assert "id" in data
+    assert resp_register.status_code == 404
 
-
-def test_register_seller_duplicate_email(client: TestClient) -> None:
-    payload = {
-        "email": "dup_seller@example.com",
-        "password": "password123",
-        "shop_name": "Shop A",
-    }
-    resp1 = client.post("/api/v1/auth/seller/register", json=payload)
-    assert resp1.status_code == 201
-
-    resp2 = client.post("/api/v1/auth/seller/register", json=payload)
-    assert resp2.status_code == 400
-    assert "Email already registered" in resp2.json()["detail"]
-
-
-def test_login_seller_success(client: TestClient) -> None:
-    client.post(
-        "/api/v1/auth/seller/register",
-        json={
-            "email": "login_seller@example.com",
-            "password": "SellerPass456",
-            "shop_name": "Shop X",
-        },
-    )
-    response = client.post(
+    resp_login = client.post(
         "/api/v1/auth/seller/login",
-        json={
-            "email": "login_seller@example.com",
-            "password": "SellerPass456",
-        },
+        json={"email": "seller@example.com", "password": "123"},
     )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["role"] == "seller"
-    assert data["data"]["shop_name"] == "Shop X"
-
-
-def test_login_seller_wrong_password(client: TestClient) -> None:
-    response = client.post(
-        "/api/v1/auth/seller/login",
-        json={
-            "email": "nonexistent_seller@example.com",
-            "password": "WrongPassword",
-        },
-    )
-    assert response.status_code == 401
+    assert resp_login.status_code == 404
 
 
 # ==============================================================================
