@@ -27,21 +27,14 @@ class DishService:
         cls,
         db: Session,
         restaurant_id: int,
-        seller_id: int,
         data: DishCreate,
     ) -> Dish:
-        """Tạo món ăn mới thuộc quán, kiểm tra chặt chẽ quyền sở hữu của Seller và tính hợp lệ của Category."""
+        """Tạo món ăn mới thuộc quán, kiểm tra tính hợp lệ của Category."""
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy quán ăn với ID {restaurant_id}.",
-            )
-
-        if restaurant.seller_id != seller_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không có quyền thêm món cho quán ăn của người khác.",
             )
 
         category_str = data.category.strip() if data.category else None
@@ -62,32 +55,37 @@ class DishService:
 
         meal_type_val = data.meal_type
         if data.meal_type_id is not None:
-            mt = db.get(MealType, data.meal_type_id)
-            if not mt:
+            meal_type_obj = db.get(MealType, data.meal_type_id)
+            if not meal_type_obj:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Không tìm thấy loại bữa ăn với ID {data.meal_type_id}.",
                 )
-            if mt.code in ["breakfast", "lunch", "dinner", "snack", "all_day"]:
-                meal_type_val = mt.code
+            if (meal_type_val == "all_day" or not meal_type_val) and meal_type_obj.code in ["breakfast", "lunch", "dinner", "snack", "all_day"]:
+                meal_type_val = meal_type_obj.code
+
+        tags_raw = getattr(data, "tags", None)
+        cleaned_tags = [t.strip() for t in tags_raw if t.strip()] if tags_raw else []
+        ingredients_raw = getattr(data, "ingredients", None)
+        cleaned_ingredients = [i.strip() for i in ingredients_raw if i.strip()] if ingredients_raw else []
 
         dish = Dish(
             restaurant_id=restaurant_id,
-            name=data.name.strip(),
-            price=data.price,
-            description=data.description.strip() if data.description else None,
-            image_url=data.image_url.strip() if data.image_url else None,
             category_id=data.category_id,
             category=category_str,
             meal_type_id=data.meal_type_id,
             meal_type=meal_type_val,
-            ingredients=data.ingredients,
+            ingredients=cleaned_ingredients,
+            name=data.name.strip(),
+            price=data.price,
+            description=data.description.strip() if data.description else None,
+            image_url=data.image_url.strip() if data.image_url else None,
             is_available=data.is_available,
         )
         db.add(dish)
         db.commit()
         db.refresh(dish)
-        return dish
+        return cls.get_dish_by_id(db, dish.id)
 
     @staticmethod
     def get_dishes_by_restaurant(
@@ -102,7 +100,7 @@ class DishService:
         skip: int = 0,
         limit: int = 100,
     ) -> List[Dish]:
-        """Lấy danh sách thực đơn của quán ăn kèm bộ lọc linh hoạt (category_id, category, meal_type_id, meal_type, ingredient)."""
+        """Lấy danh sách các món ăn của một quán theo bộ lọc."""
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
@@ -152,22 +150,14 @@ class DishService:
         cls,
         db: Session,
         dish_id: int,
-        seller_id: int,
         data: DishUpdate,
     ) -> Dish:
-        """Cập nhật món ăn, kiểm tra chặt chẽ quyền sở hữu của Seller qua Restaurant."""
+        """Cập nhật món ăn."""
         dish = db.get(Dish, dish_id)
         if not dish:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy món ăn với ID {dish_id}.",
-            )
-
-        restaurant = db.get(Restaurant, dish.restaurant_id)
-        if not restaurant or restaurant.seller_id != seller_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không có quyền chỉnh sửa món ăn của quán khác.",
             )
 
         update_data = data.model_dump(exclude_unset=True)
@@ -215,28 +205,19 @@ class DishService:
 
         db.commit()
         db.refresh(dish)
-        return dish
-
+        return cls.get_dish_by_id(db, dish.id)
 
     @staticmethod
     def delete_dish(
         db: Session,
         dish_id: int,
-        seller_id: int,
     ) -> bool:
-        """Xoá một món ăn, kiểm tra quyền sở hữu."""
+        """Xoá một món ăn."""
         dish = db.get(Dish, dish_id)
         if not dish:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy món ăn với ID {dish_id}.",
-            )
-
-        restaurant = db.get(Restaurant, dish.restaurant_id)
-        if not restaurant or restaurant.seller_id != seller_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không có quyền xoá món ăn của quán khác.",
             )
 
         db.delete(dish)
@@ -248,7 +229,13 @@ class DishService:
         db: Session,
         restaurant_id: int,
     ) -> List[str]:
-        """Lấy danh sách các nhóm món (category) duy nhất của một quán ăn phục vụ gợi ý / autocomplete."""
+        """Lấy danh sách các nhóm món (category) duy nhất của một quán ăn."""
+        restaurant = db.get(Restaurant, restaurant_id)
+        if not restaurant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Không tìm thấy quán ăn với ID {restaurant_id}.",
+            )
         stmt = (
             select(distinct(Dish.category))
             .where(Dish.restaurant_id == restaurant_id, Dish.category.is_not(None))
@@ -256,21 +243,19 @@ class DishService:
         )
         return [c for c in db.scalars(stmt).all() if c]
 
-    # --- FAVOURITE DISHES (Junction table thuần tuý không còn cột tag) ---
+    # --- FAVOURITE DISHES (Dành cho User) ---
     @staticmethod
-    def add_favourite_dish(
+    def add_to_favourites(
         db: Session,
         user_id: int,
         dish_id: int,
     ) -> FavouriteDish:
-        """Thêm món ăn vào danh sách yêu thích của người dùng (Idempotent)."""
         user = db.get(User, user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy người dùng với ID {user_id}.",
             )
-
         dish = db.get(Dish, dish_id)
         if not dish:
             raise HTTPException(
@@ -282,44 +267,59 @@ class DishService:
             FavouriteDish.user_id == user_id,
             FavouriteDish.dish_id == dish_id,
         )
-        fav = db.scalar(stmt)
-        if fav:
-            return fav
+        existing = db.scalar(stmt)
+        if existing:
+            return existing
 
-        fav = FavouriteDish(user_id=user_id, dish_id=dish_id)
+        fav = FavouriteDish(
+            user_id=user_id,
+            dish_id=dish_id,
+        )
         db.add(fav)
         db.commit()
         db.refresh(fav)
         return fav
 
     @staticmethod
-    def remove_favourite_dish(
+    def remove_from_favourites(
         db: Session,
         user_id: int,
         dish_id: int,
     ) -> bool:
-        """Xoá món ăn khỏi danh sách yêu thích của người dùng."""
         stmt = select(FavouriteDish).where(
             FavouriteDish.user_id == user_id,
             FavouriteDish.dish_id == dish_id,
         )
         fav = db.scalar(stmt)
-        if fav:
-            db.delete(fav)
-            db.commit()
+        if not fav:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Món ăn ID {dish_id} không nằm trong danh sách yêu thích của bạn.",
+            )
+        db.delete(fav)
+        db.commit()
         return True
 
     @staticmethod
-    def get_user_favourite_dishes(
+    def get_user_favourites(
         db: Session,
         user_id: int,
         skip: int = 0,
         limit: int = 50,
     ) -> List[FavouriteDish]:
-        """Lấy danh sách các món ăn yêu thích của người dùng kèm chi tiết món."""
+        user = db.get(User, user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Không tìm thấy người dùng với ID {user_id}.",
+            )
         stmt = (
             select(FavouriteDish)
-            .options(joinedload(FavouriteDish.dish))
+            .options(
+                joinedload(FavouriteDish.dish).joinedload(Dish.category_rel),
+                joinedload(FavouriteDish.dish).joinedload(Dish.meal_type_rel),
+                joinedload(FavouriteDish.dish).joinedload(Dish.restaurant),
+            )
             .where(FavouriteDish.user_id == user_id)
             .order_by(FavouriteDish.id.desc())
             .offset(skip)

@@ -13,18 +13,16 @@ router = APIRouter()
     "/restaurants/{restaurant_id}/categories",
     response_model=CategoryResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Tạo nhóm danh mục món ăn mới (Dành cho Seller)",
+    summary="Tạo nhóm danh mục món ăn mới",
 )
 def create_category(
     restaurant_id: int = Path(..., description="ID quán ăn"),
-    seller_id: int = Query(..., description="ID Seller sở hữu quán"),
     category_in: CategoryCreate = ...,
     db: Session = Depends(get_db),
 ):
-    """Seller tạo nhóm danh mục cho quán của mình."""
+    """Tạo nhóm danh mục cho quán ăn."""
     return CategoryService.create_category(
         db=db,
-        seller_id=seller_id,
         restaurant_id=restaurant_id,
         data=category_in,
     )
@@ -64,18 +62,16 @@ def get_category_detail(
 @router.put(
     "/categories/{category_id}",
     response_model=CategoryResponse,
-    summary="Cập nhật danh mục món ăn (Dành cho Seller)",
+    summary="Cập nhật danh mục món ăn",
 )
 def update_category(
     category_id: int = Path(..., description="ID danh mục cần cập nhật"),
-    seller_id: int = Query(..., description="ID Seller sở hữu quán"),
     category_in: CategoryUpdate = ...,
     db: Session = Depends(get_db),
 ):
-    """Seller chỉnh sửa tên, mô tả, thứ tự hiển thị danh mục."""
+    """Chỉnh sửa tên, mô tả, thứ tự hiển thị danh mục."""
     return CategoryService.update_category(
         db=db,
-        seller_id=seller_id,
         category_id=category_id,
         data=category_in,
     )
@@ -83,17 +79,15 @@ def update_category(
 
 @router.delete(
     "/categories/{category_id}",
-    summary="Xoá danh mục món ăn (Dành cho Seller)",
+    summary="Xoá danh mục món ăn",
 )
 def delete_category(
     category_id: int = Path(..., description="ID danh mục cần xoá"),
-    seller_id: int = Query(..., description="ID Seller sở hữu quán"),
     db: Session = Depends(get_db),
 ):
     """Xoá danh mục món ăn (các món ăn thuộc danh mục sẽ chuyển thành không phân loại)."""
     CategoryService.delete_category(
         db=db,
-        seller_id=seller_id,
         category_id=category_id,
     )
     return {"message": f"Danh mục {category_id} đã được xoá thành công. Các món ăn liên quan đã được chuyển thành chưa phân loại."}

@@ -2,14 +2,19 @@ from fastapi.testclient import TestClient
 
 
 def test_admin_stats(client: TestClient) -> None:
-    # First register a user and a seller to ensure stats > 0
+    # First register a user to ensure stats > 0
     client.post(
         "/api/v1/auth/user/register",
         json={"email": "admin_test_user@example.com", "password": "pass123"},
     )
     client.post(
-        "/api/v1/auth/seller/register",
-        json={"email": "admin_test_seller@example.com", "password": "pass123", "shop_name": "Shop Admin Test"},
+        "/api/v1/restaurants",
+        json={
+            "name": "Quán Mẫu Cho Stats",
+            "address": "123 Đường Mẫu, Hà Nội",
+            "latitude": 21.0285,
+            "longitude": 105.8542,
+        },
     )
 
     resp = client.get("/api/v1/admin/stats")
@@ -17,17 +22,16 @@ def test_admin_stats(client: TestClient) -> None:
     data = resp.json()
     assert "total_restaurants" in data
     assert "active_restaurants" in data
-    assert "total_sellers" in data
     assert "total_users" in data
+    assert "total_sellers" not in data
     assert data["total_users"] >= 1
-    assert data["total_sellers"] >= 1
+    assert data["total_restaurants"] >= 1
 
 
-def test_admin_sellers_and_users_lists(client: TestClient) -> None:
+def test_admin_users_list_and_sellers_removed(client: TestClient) -> None:
+    # sellers endpoint was removed -> 404
     resp_sellers = client.get("/api/v1/admin/sellers")
-    assert resp_sellers.status_code == 200
-    sellers = resp_sellers.json()
-    assert isinstance(sellers, list)
+    assert resp_sellers.status_code == 404
 
     resp_users = client.get("/api/v1/admin/users")
     assert resp_users.status_code == 200
@@ -36,17 +40,9 @@ def test_admin_sellers_and_users_lists(client: TestClient) -> None:
 
 
 def test_admin_restaurant_management(client: TestClient) -> None:
-    # 1. Register seller
-    seller_resp = client.post(
-        "/api/v1/auth/seller/register",
-        json={"email": "seller_mgr@example.com", "password": "SellerPassword123", "shop_name": "Shop Manager"},
-    )
-    assert seller_resp.status_code == 201
-    seller_id = seller_resp.json()["id"]
-
-    # 2. Create restaurant
+    # 1. Admin creates restaurant
     rest_resp = client.post(
-        f"/api/v1/sellers/{seller_id}/restaurants",
+        "/api/v1/admin/restaurants",
         json={
             "name": "Quán Quản Trị Test",
             "address": "123 Đường Quản Trị, Hà Nội",
@@ -59,7 +55,7 @@ def test_admin_restaurant_management(client: TestClient) -> None:
     rest_id = rest_resp.json()["id"]
     assert rest_resp.json()["is_active"] is True
 
-    # 3. Admin toggle status
+    # 2. Admin toggle status
     patch_resp = client.patch(
         f"/api/v1/admin/restaurants/{rest_id}/status",
         json={"is_active": False},
@@ -67,7 +63,7 @@ def test_admin_restaurant_management(client: TestClient) -> None:
     assert patch_resp.status_code == 200
     assert patch_resp.json()["is_active"] is False
 
-    # 4. Admin update restaurant details
+    # 3. Admin update restaurant details
     put_resp = client.put(
         f"/api/v1/admin/restaurants/{rest_id}",
         json={"name": "Quán Quản Trị Đã Cập Nhật", "is_active": True},
@@ -76,11 +72,11 @@ def test_admin_restaurant_management(client: TestClient) -> None:
     assert put_resp.json()["name"] == "Quán Quản Trị Đã Cập Nhật"
     assert put_resp.json()["is_active"] is True
 
-    # 5. Admin delete restaurant
+    # 4. Admin delete restaurant
     del_resp = client.delete(f"/api/v1/admin/restaurants/{rest_id}")
     assert del_resp.status_code == 200
     assert del_resp.json()["restaurant_id"] == rest_id
 
-    # 6. Verify deleted
+    # 5. Verify deleted
     get_resp = client.get(f"/api/v1/restaurants/{rest_id}")
     assert get_resp.status_code == 404

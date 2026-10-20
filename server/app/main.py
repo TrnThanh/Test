@@ -24,6 +24,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+            conn.execute(text("ALTER TABLE IF EXISTS restaurants DROP COLUMN IF EXISTS seller_id CASCADE;"))
+            conn.execute(text("DROP TABLE IF EXISTS sellers CASCADE;"))
             conn.execute(text("ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS open_time TIME;"))
             conn.execute(text("ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS close_time TIME;"))
         Base.metadata.create_all(bind=engine)
@@ -44,10 +46,6 @@ openapi_tags = [
         "description": "API đăng ký và đăng nhập dành cho khách hàng / người dùng thông thường.",
     },
     {
-        "name": "Seller Authentication",
-        "description": "API đăng ký và đăng nhập dành cho người bán hàng (quản lý shop, thông tin liên hệ).",
-    },
-    {
         "name": "Admin Authentication",
         "description": "API đăng nhập dành cho quản trị viên hệ thống (mặc định: admin@example.com / admin123).",
     },
@@ -59,35 +57,35 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
-        description=(
-            "### Mẫu FastAPI Backend Template\n\n"
-            "- **Cơ sở dữ liệu:** PostgreSQL 14 (qua SQLAlchemy 2.0 & Psycopg 3 driver)\n"
-            "- **Phân quyền theo bảng riêng biệt:** Users, Sellers, Admins\n"
-            "- **Swagger UI:** Bấm nút **'Try it out'** ở bất kỳ API nào bên dưới để test trực tiếp!\n"
-        ),
-        docs_url="/docs",
-        redoc_url="/redoc",
+        description="""
+# Hệ thống PTC1 API Platform
+Backend FastAPI chuẩn hoá phục vụ ứng dụng tìm kiếm quán ăn, thực đơn món ăn đa chiều,
+dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không gian PostGIS.
+        """,
         openapi_tags=openapi_tags,
         lifespan=lifespan,
     )
 
+    # Cấu hình CORS để Web Frontend (Vue 3 / Vite) và Mobile App (Flutter) giao tiếp thông suốt
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(api_router, prefix="/api/v1")
 
-    @app.get("/", include_in_schema=False)
+    @app.get("/", tags=["Health Check"])
     def root():
         return {
-            "message": f"Chào mừng bạn đến với {settings.APP_NAME}",
+            "app": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "status": "online",
             "docs": "/docs",
-            "swagger_docs": "/docs",
             "redoc": "/redoc",
+            "docs_url": "/docs",
         }
 
     return app

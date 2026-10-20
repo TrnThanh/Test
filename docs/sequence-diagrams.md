@@ -8,7 +8,6 @@ Tài liệu này mô tả chi tiết các luồng xử lý tuần tự (Sequence
 
 ### 1.1. Các Tác nhân (Actors)
 - 👤 **Khách hàng (User):** Người dùng dịch vụ, thực hiện đăng ký, đăng nhập tài khoản, tra cứu quán ăn.
-- 🏪 **Người bán (Seller):** Chủ cửa hàng/quán ăn, thực hiện đăng ký gian hàng và quản lý danh sách quán ăn của mình.
 - 🌐 **Khách vãng lai (Guest):** Người dùng chưa đăng nhập, được phép duyệt tìm kiếm quán ăn và tra cứu vị trí địa lý.
 - 🗺️ **Hệ thống bản đồ ngoài (OpenStreetMap Nominatim):** Dịch vụ bên thứ ba cung cấp dữ liệu bản đồ và tọa độ địa lý.
 
@@ -82,11 +81,11 @@ sequenceDiagram
 
 ---
 
-## 3. Luồng 2: Seller Tạo mới Quán ăn & Tự động sinh tọa độ PostGIS
+## 3. Luồng 2: Quản trị viên Tạo mới Quán ăn & Tự động sinh tọa độ PostGIS
 
 Áp dụng cho module: `server/app/api/v1/endpoints/restaurants.py` & `server/app/services/restaurant_service.py`.
 
-![Sơ đồ Tuần tự Seller Tạo Quán ăn](seq-restaurant-create.png)
+![Sơ đồ Tuần tự Quản trị viên Tạo Quán ăn](seq-restaurant-create.png)
 
 <details>
 <summary><b>Xem mã nguồn Mermaid</b></summary>
@@ -94,36 +93,34 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Seller as Người bán (Seller)
+    actor Admin as Quản trị viên (Admin)
     participant API as Router (restaurants.py)
     participant Svc as RestaurantService (restaurant_service.py)
     participant DB as PostgreSQL + PostGIS (restaurants table)
 
-    Seller->>API: POST /api/v1/sellers/{id}/restaurants {name, address, lat, lon, phone}
+    Admin->>API: POST /api/v1/restaurants {name, address, lat, lon, phone, open_time, close_time}
     activate API
-    API->>Svc: create_restaurant(db, seller_id, payload)
+    API->>Svc: create_restaurant(db, payload)
     activate Svc
-    Svc->>DB: db.get(Seller, seller_id)
-    DB-->>Svc: Seller record (xác thực chủ quán hợp lệ)
-    Svc->>DB: INSERT INTO restaurants (seller_id, name, latitude, longitude...)
+    Svc->>DB: INSERT INTO restaurants (name, address, latitude, longitude, ...)
     activate DB
     Note right of DB: PostGIS tự động tính toán cột computed:<br/>location = ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography
     DB-->>Svc: db.commit() + db.refresh() -> Restaurant (id, location)
     deactivate DB
     Svc-->>API: Restaurant entity
     deactivate Svc
-    API-->>Seller: HTTP 201 Created (RestaurantResponse)
+    API-->>Admin: HTTP 201 Created (RestaurantResponse)
     deactivate API
 ```
 </details>
 
 ### Diễn giải chi tiết:
-1. Người bán gửi thông tin quán kèm tọa độ WGS84 (`latitude`, `longitude`).
+1. Quản trị viên gửi thông tin quán kèm tọa độ WGS84 (`latitude`, `longitude`).
 2. Router kiểm tra ràng buộc kiểu dữ liệu qua Pydantic schema `RestaurantCreate`.
-3. `RestaurantService` kiểm tra `seller_id` có tồn tại trong bảng `sellers` không. Nếu không có -> Trả về `404 Not Found`.
+3. `RestaurantService` khởi tạo bản ghi `Restaurant` trực tiếp.
 4. Khi insert vào bảng `restaurants`, engine PostgreSQL + PostGIS tự động kích hoạt biểu thức tính toán lưu trữ:
    $$location = \text{ST\_SetSRID}(\text{ST\_MakePoint}(longitude, latitude), 4326)::\text{geography}$$
-5. Quán ăn được tạo thành công với khóa ngoại gắn liền với Seller, trả về HTTP 201 Created.
+5. Quán ăn được tạo thành công, trả về HTTP 201 Created.
 
 ---
 
@@ -211,11 +208,11 @@ sequenceDiagram
 
 ---
 
-## 6. Luồng 5: Seller Tạo Món Ăn Mới (Dishes) & Xác Thực Danh Mục, Bữa Ăn, Quyền Sở Hữu
+## 6. Luồng 5: Quản trị viên Tạo Món Ăn Mới (Dishes) & Xác Thực Danh Mục, Bữa Ăn
 
 Áp dụng cho module: `server/app/api/v1/endpoints/dishes.py` & `server/app/services/dish_service.py`.
 
-![Sơ đồ Tuần tự Seller Tạo Món Ăn](seq-dish-create.png)
+![Sơ đồ Tuần tự Quản trị viên Tạo Món Ăn](seq-dish-create.png)
 
 <details>
 <summary><b>Xem mã nguồn Mermaid</b></summary>
@@ -223,24 +220,21 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Seller as Người bán (Seller)
+    actor Admin as Quản trị viên (Admin)
     participant API as Dish Router (dishes.py)
     participant Svc as DishService (dish_service.py)
     participant DB as PostgreSQL (dishes, restaurants, categories, meal_types)
 
-    Seller->>API: POST /api/v1/restaurants/{id}/dishes?seller_id={seller_id} {name, price, tag, tags, ingredients, category_id, meal_type_id}
+    Admin->>API: POST /api/v1/restaurants/{id}/dishes {name, price, tag, tags, ingredients, category_id, meal_type_id}
     activate API
-    API->>Svc: create_dish(db, restaurant_id, seller_id, data)
+    API->>Svc: create_dish(db, restaurant_id, data)
     activate Svc
     
     Svc->>DB: db.get(Restaurant, restaurant_id)
     DB-->>Svc: Restaurant entity
     alt Quán không tồn tại
         Svc-->>API: HTTPException 404 (Không tìm thấy quán ăn)
-        API-->>Seller: HTTP 404 Not Found
-    else Không phải chủ quán (restaurant.seller_id != seller_id)
-        Svc-->>API: HTTPException 403 (Bạn không có quyền thêm món ăn vào quán này)
-        API-->>Seller: HTTP 403 Forbidden
+        API-->>Admin: HTTP 404 Not Found
     end
 
     opt Có truyền category_id
@@ -248,7 +242,7 @@ sequenceDiagram
         DB-->>Svc: Category entity
         alt category.restaurant_id != restaurant_id
             Svc-->>API: HTTPException 400 (Danh mục không thuộc về quán ăn này)
-            API-->>Seller: HTTP 400 Bad Request
+            API-->>Admin: HTTP 400 Bad Request
         end
     end
 
@@ -257,13 +251,13 @@ sequenceDiagram
         DB-->>Svc: MealType entity
         alt meal_type không tồn tại
             Svc-->>API: HTTPException 404 (Không tìm thấy loại bữa ăn)
-            API-->>Seller: HTTP 404 Not Found
+            API-->>Admin: HTTP 404 Not Found
         end
     end
 
-    Note over Svc: Chuẩn hóa dữ liệu:<br/>- Tự động bổ sung `tag` đơn vào mảng `tags`<br/>- Chuẩn hóa mảng `ingredients`<br/>- Gán mặc định meal_type='all_day' nếu chưa có
+    Note over Svc: Chuẩn hóa dữ liệu:<br/>- Chuẩn hóa mảng `ingredients`<br/>- Gán mặc định meal_type='all_day' nếu chưa có
 
-    Svc->>DB: INSERT INTO dishes (restaurant_id, name, price, tag, tags, ingredients, ...)
+    Svc->>DB: INSERT INTO dishes (restaurant_id, name, price, ingredients, ...)
     activate DB
     DB-->>Svc: db.commit() + db.refresh() -> Dish (id, created_at)
     deactivate DB
@@ -271,22 +265,20 @@ sequenceDiagram
     Svc->>Svc: to_dish_response(dish) (nạp quan hệ category_rel, meal_type_rel)
     Svc-->>API: DishResponse
     deactivate Svc
-    API-->>Seller: HTTP 201 Created (DishResponse)
+    API-->>Admin: HTTP 201 Created (DishResponse)
     deactivate API
 ```
 </details>
 
 ### Diễn giải chi tiết:
-1. Seller gửi yêu cầu tạo món ăn kèm các thông số: tên, giá tiền, tag đặc trưng, danh sách tags phụ, mảng nguyên liệu (`ingredients`), mã danh mục (`category_id`), và mã loại bữa ăn (`meal_type_id`).
-2. Tầng Controller Pydantic xác thực dữ liệu: `price >= 0`, `meal_type` thuộc các giá trị enum hợp lệ.
+1. Quản trị viên gửi yêu cầu tạo món ăn kèm các thông số: tên, giá tiền, mảng nguyên liệu (`ingredients`), mã danh mục (`category_id`), và mã loại bữa ăn (`meal_type_id`).
+2. Tầng Controller Pydantic xác thực dữ liệu: `price >= 0`, `meal_type` thuộc các giá trị hợp lệ.
 3. `DishService` thực hiện kiểm tra đa tầng:
    - Kiểm tra quán ăn tồn tại trong DB.
-   - Xác thực quyền sở hữu: đảm bảo `restaurant.seller_id == seller_id`.
    - Nếu có `category_id`: kiểm tra danh mục tồn tại và bắt buộc phải thuộc cùng quán ăn (`category.restaurant_id == restaurant_id`) để tránh gán nhầm danh mục của quán khác.
    - Nếu có `meal_type_id`: kiểm tra loại bữa ăn hợp lệ.
-4. Xử lý đồng bộ dữ liệu: chuỗi `tag` đơn lẻ được tự động chèn vào mảng `tags` nếu chưa có.
-5. Thực thi lệnh INSERT vào bảng `dishes`, kích hoạt cập nhật các chỉ mục B-Tree và GIN (`ix_dishes_tags_gin`, `ix_dishes_ingredients_gin`).
-6. Trả về `DishResponse` với HTTP 201 Created.
+4. Thực thi lệnh INSERT vào bảng `dishes`.
+5. Trả về `DishResponse` với HTTP 201 Created.
 
 ---
 

@@ -6,11 +6,10 @@ from server.app.db.session import get_db
 from server.app.models.restaurant import Restaurant
 from server.app.schemas.admin import (
     SystemStatsResponse,
-    AdminSellerItem,
     AdminUserItem,
     RestaurantStatusUpdate,
 )
-from server.app.schemas.restaurant import RestaurantResponse, RestaurantUpdate
+from server.app.schemas.restaurant import RestaurantCreate, RestaurantResponse, RestaurantUpdate
 from server.app.services.admin_service import AdminService
 from server.app.services.restaurant_service import RestaurantService
 
@@ -34,26 +33,29 @@ def get_all_restaurants_for_admin(
     )
 
 
+@router.post(
+    "/restaurants",
+    response_model=RestaurantResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Admin tạo quán ăn mới",
+)
+def create_restaurant_as_admin(
+    payload: RestaurantCreate,
+    db: Session = Depends(get_db),
+) -> RestaurantResponse:
+    """Quản trị viên tạo quán ăn mới trong hệ thống."""
+    return RestaurantService.create_restaurant(db=db, data=payload)
+
+
 @router.get(
     "/stats",
-
     response_model=SystemStatsResponse,
     summary="Thống kê tổng quan toàn hệ thống (Dành cho Admin Dashboard)",
 )
 def get_system_stats(db: Session = Depends(get_db)) -> SystemStatsResponse:
-    """Trả về số lượng tổng hợp cơ sở dữ liệu: quán ăn, món ăn, danh mục, seller, user."""
+    """Trả về số lượng tổng hợp cơ sở dữ liệu: quán ăn, món ăn, danh mục, user."""
     stats = AdminService.get_system_stats(db=db)
     return SystemStatsResponse(**stats)
-
-
-@router.get(
-    "/sellers",
-    response_model=List[AdminSellerItem],
-    summary="Lấy danh sách toàn bộ đối tác Chủ Quán (Dành cho Admin)",
-)
-def get_all_sellers(db: Session = Depends(get_db)) -> List[AdminSellerItem]:
-    """Danh sách tất cả các tài khoản Seller trên hệ thống kèm số lượng quán."""
-    return AdminService.get_all_sellers(db=db)
 
 
 @router.get(

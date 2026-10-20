@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from server.app.models.seller import Seller
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
 from server.app.models.weather import Weather
@@ -12,19 +11,8 @@ from server.app.models.weather_category import WeatherCategory
 
 @pytest.fixture
 def sample_data(db_session: Session):
-    """Fixture tạo dữ liệu mẫu: 1 Seller, 1 Restaurant, 2 Categories, 2 Weathers."""
-    seller = Seller(
-        email="seller_wc@test.com",
-        hashed_password="hashedpassword123",
-        full_name="Seller WC",
-        shop_name="WC Shop",
-        phone="0911222333",
-    )
-    db_session.add(seller)
-    db_session.flush()
-
+    """Fixture tạo dữ liệu mẫu: 1 Restaurant, 2 Categories, 2 Weathers."""
     restaurant = Restaurant(
-        seller_id=seller.id,
         name="Quán Nướng & Lẩu WC",
         address="123 Phố Nướng, Hà Nội",
         latitude=21.0285,
@@ -79,7 +67,6 @@ def sample_data(db_session: Session):
 
     db_session.commit()
     return {
-        "seller": seller,
         "restaurant": restaurant,
         "cat1": cat1,
         "cat2": cat2,

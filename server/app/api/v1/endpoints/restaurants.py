@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Path, status
 from sqlalchemy.orm import Session
 
 from server.app.db.session import get_db
@@ -16,97 +16,54 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------
-# Endpoints dành cho Seller quản lý quán ăn của mình
+# Endpoints Quản lý Quán ăn (CRUD Operations)
 # ---------------------------------------------------------
 
 @router.post(
-    "/sellers/{seller_id}/restaurants",
+    "/restaurants",
     response_model=RestaurantResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Seller tạo quán ăn mới",
-    tags=["Seller Restaurants Management"],
+    summary="Tạo quán ăn mới",
+    tags=["Restaurants Management"],
 )
-def create_restaurant_for_seller(
-    seller_id: int,
+def create_restaurant(
     payload: RestaurantCreate,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """Tạo mới một quán ăn thuộc sở hữu của người bán (Seller)."""
-    return RestaurantService.create_restaurant(db=db, seller_id=seller_id, data=payload)
-
-
-@router.get(
-    "/sellers/{seller_id}/restaurants",
-    response_model=List[RestaurantResponse],
-    summary="Lấy danh sách các quán ăn của Seller",
-    tags=["Seller Restaurants Management"],
-)
-def get_restaurants_for_seller(
-    seller_id: int,
-    skip: int = Query(0, ge=0, description="Số lượng bản ghi bỏ qua"),
-    limit: int = Query(50, ge=1, le=100, description="Số lượng bản ghi tối đa"),
-    db: Session = Depends(get_db),
-) -> List[RestaurantResponse]:
-    """Lấy danh sách toàn bộ quán ăn do Seller này sở hữu."""
-    return RestaurantService.get_restaurants_by_seller(
-        db=db, seller_id=seller_id, skip=skip, limit=limit
-    )
-
-
-@router.get(
-    "/sellers/{seller_id}/restaurants/{restaurant_id}",
-    response_model=RestaurantResponse,
-    summary="Seller xem chi tiết một quán ăn của mình",
-    tags=["Seller Restaurants Management"],
-)
-def get_single_restaurant_for_seller(
-    seller_id: int,
-    restaurant_id: int,
-    db: Session = Depends(get_db),
-) -> RestaurantResponse:
-    """Lấy thông tin chi tiết một quán ăn của Seller."""
-    restaurant = RestaurantService.get_restaurant_by_id(db=db, restaurant_id=restaurant_id)
-    if restaurant.seller_id != seller_id:
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền truy cập quán ăn này.",
-        )
-    return restaurant
+    """Tạo mới một quán ăn trong hệ thống."""
+    return RestaurantService.create_restaurant(db=db, data=payload)
 
 
 @router.put(
-    "/sellers/{seller_id}/restaurants/{restaurant_id}",
+    "/restaurants/{restaurant_id}",
     response_model=RestaurantResponse,
-    summary="Seller cập nhật thông tin quán ăn",
-    tags=["Seller Restaurants Management"],
+    summary="Cập nhật thông tin quán ăn",
+    tags=["Restaurants Management"],
 )
-def update_restaurant_for_seller(
-    seller_id: int,
-    restaurant_id: int,
-    payload: RestaurantUpdate,
+def update_restaurant(
+    restaurant_id: int = Path(..., description="ID quán ăn"),
+    payload: RestaurantUpdate = ...,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """Cập nhật thông tin quán ăn (chỉ người bán sở hữu quán mới có quyền cập nhật)."""
+    """Cập nhật thông tin quán ăn (tên, địa chỉ, toạ độ, giờ mở/đóng cửa...)."""
     return RestaurantService.update_restaurant(
-        db=db, restaurant_id=restaurant_id, seller_id=seller_id, data=payload
+        db=db, restaurant_id=restaurant_id, data=payload
     )
 
 
 @router.delete(
-    "/sellers/{seller_id}/restaurants/{restaurant_id}",
+    "/restaurants/{restaurant_id}",
     status_code=status.HTTP_200_OK,
-    summary="Seller xoá quán ăn",
-    tags=["Seller Restaurants Management"],
+    summary="Xoá quán ăn",
+    tags=["Restaurants Management"],
 )
-def delete_restaurant_for_seller(
-    seller_id: int,
-    restaurant_id: int,
+def delete_restaurant(
+    restaurant_id: int = Path(..., description="ID quán ăn"),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Xoá quán ăn (chỉ người bán sở hữu quán mới có quyền xoá)."""
+    """Xoá một quán ăn khỏi hệ thống."""
     RestaurantService.delete_restaurant(
-        db=db, restaurant_id=restaurant_id, seller_id=seller_id
+        db=db, restaurant_id=restaurant_id
     )
     return {"message": "Đã xoá quán ăn thành công.", "restaurant_id": restaurant_id}
 

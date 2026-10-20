@@ -6,8 +6,8 @@ class Env {
   static String get baseUrl {
     if (_override.isNotEmpty) return _override;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000/api/v1'; // Android Emulator loopback
+      return 'http://10.0.2.2:8001/api/v1'; // Android Emulator loopback
     }
-    return 'http://localhost:8000/api/v1'; // Windows Desktop / Web / iOS Simulator
+    return 'http://localhost:8001/api/v1'; // Windows Desktop / Web / iOS Simulator
   }
 }

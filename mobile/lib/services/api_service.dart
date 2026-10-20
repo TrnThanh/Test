@@ -73,135 +73,6 @@ class ApiService {
     _throwError(res);
   }
 
-  Future<RoleLoginResponse> loginSeller(String email, String password) async {
-    final uri = Uri.parse('${Env.baseUrl}/auth/seller/login');
-    final res = await _client.post(
-      uri,
-      headers: _headers(),
-      body: jsonEncode({'email': email, 'password': password}),
-    );
-
-    if (res.statusCode == 200) {
-      return RoleLoginResponse.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
-    }
-    _throwError(res);
-  }
-
-  Future<RoleLoginResponse> registerSeller({
-    required String email,
-    required String password,
-    required String shopName,
-    String? fullName,
-    String? phone,
-  }) async {
-    final uri = Uri.parse('${Env.baseUrl}/auth/seller/register');
-    final res = await _client.post(
-      uri,
-      headers: _headers(),
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        'shop_name': shopName,
-        if (fullName != null && fullName.isNotEmpty) 'full_name': fullName,
-        if (phone != null && phone.isNotEmpty) 'phone': phone,
-      }),
-    );
-
-    if (res.statusCode == 200 || res.statusCode == 201) {
-      return RoleLoginResponse.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
-    }
-    _throwError(res);
-  }
-
-  // --- SELLER CRUD ---
-  Future<List<Restaurant>> getSellerRestaurants(int sellerId) async {
-    final uri = Uri.parse('${Env.baseUrl}/sellers/$sellerId/restaurants');
-    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
-
-    if (res.statusCode == 200) {
-      final List data = jsonDecode(utf8.decode(res.bodyBytes));
-      return data.map((e) => Restaurant.fromJson(e as Map<String, dynamic>)).toList();
-    }
-    throw Exception('Lỗi tải quán của seller: ${res.statusCode}');
-  }
-
-  Future<Restaurant> createSellerRestaurant(
-    int sellerId, {
-    required String name,
-    required double latitude,
-    required double longitude,
-    String? address,
-    String? phone,
-    String? description,
-    String? openTime,
-    String? closeTime,
-  }) async {
-    final uri = Uri.parse('${Env.baseUrl}/sellers/$sellerId/restaurants');
-    final res = await _client.post(
-      uri,
-      headers: _headers(),
-      body: jsonEncode({
-        'name': name,
-        'latitude': latitude,
-        'longitude': longitude,
-        if (address != null) 'address': address,
-        if (phone != null) 'phone': phone,
-        if (description != null) 'description': description,
-        if (openTime != null && openTime.isNotEmpty) 'open_time': openTime,
-        if (closeTime != null && closeTime.isNotEmpty) 'close_time': closeTime,
-      }),
-    );
-
-    if (res.statusCode == 200 || res.statusCode == 201) {
-      return Restaurant.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
-    }
-    _throwError(res);
-  }
-
-  Future<Restaurant> updateSellerRestaurant(
-    int sellerId,
-    int restaurantId, {
-    String? name,
-    double? latitude,
-    double? longitude,
-    String? address,
-    String? phone,
-    String? description,
-    String? openTime,
-    String? closeTime,
-  }) async {
-    final uri = Uri.parse('${Env.baseUrl}/sellers/$sellerId/restaurants/$restaurantId');
-    final res = await _client.put(
-      uri,
-      headers: _headers(),
-      body: jsonEncode({
-        if (name != null) 'name': name,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        if (address != null) 'address': address,
-        if (phone != null) 'phone': phone,
-        if (description != null) 'description': description,
-        if (openTime != null) 'open_time': openTime.isEmpty ? null : openTime,
-        if (closeTime != null) 'close_time': closeTime.isEmpty ? null : closeTime,
-      }),
-    );
-
-    if (res.statusCode == 200) {
-      return Restaurant.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
-    }
-    _throwError(res);
-  }
-
-  Future<void> deleteSellerRestaurant(int sellerId, int restaurantId) async {
-    final uri = Uri.parse('${Env.baseUrl}/sellers/$sellerId/restaurants/$restaurantId');
-    final res = await _client.delete(uri);
-
-    if (res.statusCode == 200 || res.statusCode == 204) {
-      return;
-    }
-    _throwError(res);
-  }
-
   // --- MAP GEOCODING ---
   Future<List<GeocodePlace>> searchMap(String query) async {
     final uri = Uri.parse('${Env.baseUrl}/map/search?q=${Uri.encodeComponent(query)}&limit=5');
@@ -238,13 +109,12 @@ class ApiService {
   }
 
   Future<Category> createCategory(
-    int sellerId,
     int restaurantId,
     String name, {
     String? description,
     int displayOrder = 0,
   }) async {
-    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/categories?seller_id=$sellerId');
+    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/categories');
     final res = await _client.post(
       uri,
       headers: {'Content-Type': 'application/json'},
@@ -260,8 +130,8 @@ class ApiService {
     _throwError(res);
   }
 
-  Future<void> deleteCategory(int sellerId, int categoryId) async {
-    final uri = Uri.parse('${Env.baseUrl}/categories/$categoryId?seller_id=$sellerId');
+  Future<void> deleteCategory(int categoryId) async {
+    final uri = Uri.parse('${Env.baseUrl}/categories/$categoryId');
     final res = await _client.delete(uri);
     if (res.statusCode == 200) return;
     _throwError(res);
@@ -281,8 +151,8 @@ class ApiService {
     return [];
   }
 
-  Future<Dish> createDish(int sellerId, int restaurantId, Map<String, dynamic> data) async {
-    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/dishes?seller_id=$sellerId');
+  Future<Dish> createDish(int restaurantId, Map<String, dynamic> data) async {
+    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/dishes');
     final res = await _client.post(
       uri,
       headers: {'Content-Type': 'application/json'},
@@ -294,8 +164,8 @@ class ApiService {
     _throwError(res);
   }
 
-  Future<void> deleteDish(int sellerId, int dishId) async {
-    final uri = Uri.parse('${Env.baseUrl}/dishes/$dishId?seller_id=$sellerId');
+  Future<void> deleteDish(int dishId) async {
+    final uri = Uri.parse('${Env.baseUrl}/dishes/$dishId');
     final res = await _client.delete(uri);
     if (res.statusCode == 200) return;
     _throwError(res);
@@ -330,7 +200,6 @@ class ApiService {
     final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/by-id/$favId');
     final res = await _client.delete(uri);
     if (res.statusCode == 200 || res.statusCode == 204) return;
-    // Fallback to dish deletion if by-id is not separate
     final fallbackUri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/$favId');
     final res2 = await _client.delete(fallbackUri);
     if (res2.statusCode == 200 || res2.statusCode == 204) return;
@@ -372,7 +241,6 @@ class ApiService {
   }
 
   Never _throwError(http.Response res) {
-
     try {
       final err = jsonDecode(utf8.decode(res.bodyBytes));
       if (err is Map && err['detail'] != null) {

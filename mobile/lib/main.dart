@@ -84,7 +84,7 @@ class _MainShellState extends State<MainShell> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Chào mừng ${user.fullName ?? user.email} (${user.role == "seller" ? "Chủ quán" : "Thực khách"})!'),
+        content: Text('Chào mừng ${user.fullName ?? user.email}!'),
         backgroundColor: Colors.black,
       ),
     );
@@ -862,7 +862,7 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
 }
 
 // ==========================================
-// TAB 4: TÀI KHOẢN (USER / SELLER / AUTH)
+// TAB 4: TÀI KHOẢN (USER AUTH & YÊU THÍCH)
 // ==========================================
 class AccountScreen extends StatefulWidget {
   final ApiService api;
@@ -883,26 +883,17 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
-  // Auth Form State
-  String _selectedRole = 'user'; // 'user' hoặc 'seller'
   bool _isRegister = false;
 
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
-  final _shopNameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
 
   bool _loading = false;
   String? _error;
 
-  // User state: Favourites & Options
   List<FavouriteDish> _favourites = [];
   bool _loadingFavourites = false;
-
-  // Seller state: Restaurants
-  List<Restaurant> _sellerRestaurants = [];
-  bool _loadingSellerRestaurants = false;
 
   @override
   void initState() {
@@ -913,19 +904,14 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   void didUpdateWidget(covariant AccountScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentUser?.id != oldWidget.currentUser?.id ||
-        widget.currentUser?.role != oldWidget.currentUser?.role) {
+    if (widget.currentUser?.id != oldWidget.currentUser?.id) {
       _loadRoleData();
     }
   }
 
   void _loadRoleData() {
     if (widget.currentUser == null) return;
-    if (widget.currentUser!.role == 'seller') {
-      _loadSellerRestaurants();
-    } else {
-      _loadFavourites();
-    }
+    _loadFavourites();
   }
 
   Future<void> _loadFavourites() async {
@@ -946,16 +932,6 @@ class _AccountScreenState extends State<AccountScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadSellerRestaurants() async {
-    if (widget.currentUser == null || widget.currentUser!.role != 'seller') return;
-    setState(() => _loadingSellerRestaurants = true);
-    try {
-      final list = await widget.api.getSellerRestaurants(widget.currentUser!.id);
-      setState(() => _sellerRestaurants = list);
-    } catch (_) {}
-    setState(() => _loadingSellerRestaurants = false);
-  }
-
   Future<void> _handleAuth() async {
     setState(() {
       _loading = true;
@@ -964,28 +940,14 @@ class _AccountScreenState extends State<AccountScreen> {
 
     try {
       RoleLoginResponse res;
-      if (_selectedRole == 'seller') {
-        if (!_isRegister) {
-          res = await widget.api.loginSeller(_emailCtrl.text.trim(), _passwordCtrl.text);
-        } else {
-          res = await widget.api.registerSeller(
-            email: _emailCtrl.text.trim(),
-            password: _passwordCtrl.text,
-            shopName: _shopNameCtrl.text.trim().isEmpty ? 'Quán Mới' : _shopNameCtrl.text.trim(),
-            fullName: _nameCtrl.text.trim(),
-            phone: _phoneCtrl.text.trim(),
-          );
-        }
+      if (!_isRegister) {
+        res = await widget.api.loginUser(_emailCtrl.text.trim(), _passwordCtrl.text);
       } else {
-        if (!_isRegister) {
-          res = await widget.api.loginUser(_emailCtrl.text.trim(), _passwordCtrl.text);
-        } else {
-          res = await widget.api.registerUser(
-            _emailCtrl.text.trim(),
-            _passwordCtrl.text,
-            _nameCtrl.text.trim(),
-          );
-        }
+        res = await widget.api.registerUser(
+          _emailCtrl.text.trim(),
+          _passwordCtrl.text,
+          _nameCtrl.text.trim(),
+        );
       }
 
       widget.onLoginSuccess(res);
@@ -1001,104 +963,14 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  void _openAddRestaurantDialog() {
-    final nameCtrl = TextEditingController();
-    final addrCtrl = TextEditingController(text: '123 Phố Huế, Hà Nội');
-    final phoneCtrl = TextEditingController(text: '0912345678');
-    final descCtrl = TextEditingController();
-    final openCtrl = TextEditingController(text: '08:00');
-    final closeCtrl = TextEditingController(text: '22:00');
-    double lat = 21.0200;
-    double lon = 105.8500;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thêm Quán Ăn Mới'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Tên quán *')),
-              TextField(controller: addrCtrl, decoration: const InputDecoration(labelText: 'Địa chỉ')),
-              TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Số điện thoại')),
-              TextField(controller: openCtrl, decoration: const InputDecoration(labelText: 'Giờ mở cửa (HH:MM)')),
-              TextField(controller: closeCtrl, decoration: const InputDecoration(labelText: 'Giờ đóng cửa (HH:MM)')),
-              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Mô tả')),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx);
-              try {
-                await widget.api.createSellerRestaurant(
-                  widget.currentUser!.id,
-                  name: nameCtrl.text.trim(),
-                  address: addrCtrl.text.trim(),
-                  phone: phoneCtrl.text.trim(),
-                  latitude: lat,
-                  longitude: lon,
-                  openTime: openCtrl.text.trim(),
-                  closeTime: closeCtrl.text.trim(),
-                  description: descCtrl.text.trim(),
-                );
-                _loadSellerRestaurants();
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
-                }
-              }
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openSellerMenuDialog(Restaurant r) {
-    showDialog(
-      context: context,
-      builder: (ctx) => _SellerMenuDialog(
-        sellerId: widget.currentUser!.id,
-        restaurant: r,
-        api: widget.api,
-      ),
-    );
-  }
-
-  Future<void> _deleteRestaurant(Restaurant r) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận xóa quán'),
-        content: Text('Bạn có chắc chắn muốn xóa quán "${r.name}" không?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xóa')),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await widget.api.deleteSellerRestaurant(widget.currentUser!.id, r.id);
-      _loadSellerRestaurants();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.currentUser != null) {
       final user = widget.currentUser!;
-      final isSeller = (user.role == 'seller');
 
       return Scaffold(
         appBar: AppBar(
-          title: Text(isSeller ? 'Bảng Điều Khiển Chủ Quán' : 'Tài Khoản Thực Khách'),
+          title: const Text('Tài Khoản Thực Khách'),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
@@ -1110,7 +982,6 @@ class _AccountScreenState extends State<AccountScreen> {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Profile Card
             Card(
               color: Colors.white,
               shape: RoundedRectangleBorder(
@@ -1134,27 +1005,22 @@ class _AccountScreenState extends State<AccountScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user.fullName ?? (isSeller ? 'Chủ quán' : 'Thực khách'),
+                          Text(user.fullName ?? 'Thực khách',
                               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 2),
                           Text(user.email, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                          if (isSeller && user.shopName != null) ...[
-                            const SizedBox(height: 2),
-                            Text('🏪 Shop: ${user.shopName}',
-                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12)),
-                          ],
                           const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: isSeller ? Colors.deepOrange.shade50 : const Color(0xFFEEEEEE),
+                              color: const Color(0xFFEEEEEE),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: isSeller ? Colors.deepOrange : Colors.black),
+                              border: Border.all(color: Colors.black),
                             ),
-                            child: Text(
-                              isSeller ? 'Chủ Quán (Seller)' : 'Thực Khách (User)',
+                            child: const Text(
+                              'Thực Khách (User)',
                               style: TextStyle(
-                                  color: isSeller ? Colors.deepOrange : Colors.black,
+                                  color: Colors.black,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold),
                             ),
@@ -1167,147 +1033,63 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // SELLER VIEW
-            if (isSeller) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Quán Ăn Của Tôi', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Thêm Quán'),
-                    onPressed: _openAddRestaurantDialog,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Món Ăn Yêu Thích Của Bạn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                if (_loadingFavourites)
+                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_loadingFavourites)
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            else if (_favourites.isEmpty)
+              Card(
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.favorite_border, size: 44, color: Colors.grey),
+                      const SizedBox(height: 8),
+                      Text('Bạn chưa có món ăn yêu thích nào', style: TextStyle(color: Colors.grey[700])),
+                      const SizedBox(height: 4),
+                      Text('Khám phá các quán và bấm tim (❤) để lưu món ngon nhé!',
+                          textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              if (_loadingSellerRestaurants)
-                const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-              else if (_sellerRestaurants.isEmpty)
-                Card(
+                ),
+              )
+            else
+              ..._favourites.map((fav) {
+                final dish = fav.dish;
+                return Card(
                   color: Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        Icon(Icons.storefront, size: 48, color: Colors.grey[400]),
-                        const SizedBox(height: 8),
-                        const Text('Bạn chưa tạo quán ăn nào', style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text('Hãy bấm nút "Thêm Quán" để bắt đầu mở quán nhé!',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                      ],
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFEEEEEE),
+                      child: Icon(Icons.fastfood, color: Colors.black, size: 20),
+                    ),
+                    title: Text(dish?.name ?? 'Món #${fav.dishId}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: dish != null
+                        ? Text('${dish.price.toStringAsFixed(0)} đ • ${dish.mealType}')
+                        : null,
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      tooltip: 'Bỏ thích',
+                      onPressed: () => _removeFavourite(fav.id),
                     ),
                   ),
-                )
-              else
-                ..._sellerRestaurants.map((r) => Card(
-                      color: Colors.white,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey[200]!),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(r.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            Text(r.address ?? 'Chưa rõ địa chỉ', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                            if (r.openTime != null && r.closeTime != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text('🕒 Mở cửa: ${r.openTime} – ${r.closeTime}',
-                                    style: TextStyle(color: Colors.grey[700], fontSize: 12)),
-                              ),
-                            const Divider(height: 18),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                OutlinedButton.icon(
-                                  icon: const Icon(Icons.restaurant_menu, size: 16),
-                                  label: const Text('Thực Đơn'),
-                                  onPressed: () => _openSellerMenuDialog(r),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                  tooltip: 'Xóa quán',
-                                  onPressed: () => _deleteRestaurant(r),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    )),
-            ]
-            // USER VIEW: FAVOURITES
-            else ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Món Ăn Yêu Thích Của Bạn', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  if (_loadingFavourites)
-                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_loadingFavourites)
-                const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-              else if (_favourites.isEmpty)
-                Card(
-                  color: Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.favorite_border, size: 44, color: Colors.grey),
-                        const SizedBox(height: 8),
-                        Text('Bạn chưa có món ăn yêu thích nào', style: TextStyle(color: Colors.grey[700])),
-                        const SizedBox(height: 4),
-                        Text('Khám phá các quán và bấm tim (❤) để lưu món ngon nhé!',
-                            textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ..._favourites.map((fav) {
-                  final dish = fav.dish;
-                  return Card(
-                    color: Colors.white,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Color(0xFFEEEEEE),
-                        child: Icon(Icons.fastfood, color: Colors.black, size: 20),
-                      ),
-                      title: Text(dish?.name ?? 'Món #${fav.dishId}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: dish != null
-                          ? Text('${dish.price.toStringAsFixed(0)} đ • ${dish.mealType}')
-                          : null,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                        tooltip: 'Bỏ thích',
-                        onPressed: () => _removeFavourite(fav.id),
-                      ),
-                    ),
-                  );
-                }),
-            ],
+                );
+              }),
           ],
         ),
       );
     }
 
-    // ==========================================
-    // AUTH FORM (CHƯA ĐĂNG NHẬP)
-    // ==========================================
     return Scaffold(
       appBar: AppBar(
         title: Text(_isRegister ? 'Tạo Tài Khoản Khách Hàng' : 'Đăng Nhập Khách Hàng'),
@@ -1315,23 +1097,6 @@ class _AccountScreenState extends State<AccountScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Chọn Vai Trò
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'user', label: Text('Thực khách (User)'), icon: Icon(Icons.person)),
-              ButtonSegment(value: 'seller', label: Text('Chủ quán (Seller)'), icon: Icon(Icons.store)),
-            ],
-            selected: {_selectedRole},
-            onSelectionChanged: (set) {
-              setState(() {
-                _selectedRole = set.first;
-                _error = null;
-              });
-            },
-          ),
-          const SizedBox(height: 14),
-
-          // Chọn Đăng nhập / Đăng ký
           SegmentedButton<bool>(
             segments: const [
               ButtonSegment(value: false, label: Text('Đăng nhập')),
@@ -1350,7 +1115,7 @@ class _AccountScreenState extends State<AccountScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               color: Colors.red.shade50,
-              child: Text('⚠️ $_error', style: TextStyle(color: Colors.red.shade800)),
+              child: Text('⚠️ ', style: TextStyle(color: Colors.red.shade800)),
             ),
           ],
           const SizedBox(height: 16),
@@ -1370,18 +1135,6 @@ class _AccountScreenState extends State<AccountScreen> {
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: 'Họ và tên', border: OutlineInputBorder()),
             ),
-            if (_selectedRole == 'seller') ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _shopNameCtrl,
-                decoration: const InputDecoration(labelText: 'Tên cửa hàng/Shop *', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Số điện thoại', border: OutlineInputBorder()),
-              ),
-            ],
           ],
           const SizedBox(height: 20),
           FilledButton(
@@ -1393,9 +1146,7 @@ class _AccountScreenState extends State<AccountScreen> {
           const SizedBox(height: 24),
           Center(
             child: Text(
-              _selectedRole == 'seller'
-                  ? '💡 Chủ quán có thể quản lý danh sách quán ăn, thực đơn món và phân loại danh mục ngay trên app.'
-                  : '💡 Thực khách có thể lưu món ăn yêu thích và xem thực đơn từ hàng ngàn quán ăn lân cận.',
+              '💡 Thực khách có thể lưu món ăn yêu thích và xem thực đơn từ hàng ngàn quán ăn lân cận.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
@@ -1664,239 +1415,6 @@ class _RestaurantMenuWidgetState extends State<_RestaurantMenuWidget> {
                         ),
         ),
       ],
-    );
-  }
-}
-
-// ==========================================
-// SELLER MENU MANAGEMENT DIALOG
-// ==========================================
-class _SellerMenuDialog extends StatefulWidget {
-  final int sellerId;
-  final Restaurant restaurant;
-  final ApiService api;
-
-  const _SellerMenuDialog({
-    required this.sellerId,
-    required this.restaurant,
-    required this.api,
-  });
-
-  @override
-  State<_SellerMenuDialog> createState() => _SellerMenuDialogState();
-}
-
-class _SellerMenuDialogState extends State<_SellerMenuDialog> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  List<Category> _categories = [];
-  List<Dish> _dishes = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
-    try {
-      final cats = await widget.api.getRestaurantCategories(widget.restaurant.id);
-      final dishes = await widget.api.getRestaurantDishes(widget.restaurant.id);
-      setState(() {
-        _categories = cats;
-        _dishes = dishes;
-      });
-    } catch (_) {}
-    setState(() => _loading = false);
-  }
-
-  void _openAddCategoryDialog() {
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thêm Danh Mục Mới'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Tên danh mục *')),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Mô tả')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          FilledButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx);
-              await widget.api.createCategory(
-                widget.sellerId,
-                widget.restaurant.id,
-                nameCtrl.text.trim(),
-                description: descCtrl.text.trim(),
-              );
-              _loadData();
-            },
-            child: const Text('Tạo'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openAddDishDialog() {
-    final nameCtrl = TextEditingController();
-    final priceCtrl = TextEditingController(text: '35000');
-    final ingredientsCtrl = TextEditingController();
-    int? selectedCatId = _categories.isNotEmpty ? _categories.first.id : null;
-    String selectedMeal = 'all_day';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Thêm Món Ăn Mới'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Tên món ăn *')),
-                TextField(controller: priceCtrl, decoration: const InputDecoration(labelText: 'Giá tiền (VNĐ) *'), keyboardType: TextInputType.number),
-                if (_categories.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    initialValue: selectedCatId,
-                    decoration: const InputDecoration(labelText: 'Danh mục'),
-                    items: _categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
-                    onChanged: (val) => setDialogState(() => selectedCatId = val),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedMeal,
-                  decoration: const InputDecoration(labelText: 'Bữa ăn'),
-                  items: const [
-                    DropdownMenuItem(value: 'all_day', child: Text('Cả ngày (all_day)')),
-                    DropdownMenuItem(value: 'breakfast', child: Text('Bữa sáng (breakfast)')),
-                    DropdownMenuItem(value: 'lunch', child: Text('Bữa trưa (lunch)')),
-                    DropdownMenuItem(value: 'dinner', child: Text('Bữa tối (dinner)')),
-                    DropdownMenuItem(value: 'snack', child: Text('Ăn vặt (snack)')),
-                  ],
-                  onChanged: (val) => setDialogState(() => selectedMeal = val ?? 'all_day'),
-                ),
-                TextField(controller: ingredientsCtrl, decoration: const InputDecoration(labelText: 'Nguyên liệu (phẩy để tách)')),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-            FilledButton(
-              onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty) return;
-                Navigator.pop(ctx);
-                final ingredientsList = ingredientsCtrl.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-                await widget.api.createDish(widget.sellerId, widget.restaurant.id, {
-                  'name': nameCtrl.text.trim(),
-                  'price': double.tryParse(priceCtrl.text) ?? 35000,
-                  if (selectedCatId != null) 'category_id': selectedCatId,
-                  'meal_type': selectedMeal,
-                  'ingredients': ingredientsList,
-                });
-                _loadData();
-              },
-              child: const Text('Thêm Món'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(16),
-      child: SizedBox(
-        width: 600,
-        height: 600,
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text('Thực đơn: ${widget.restaurant.name}'),
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Danh Mục'),
-                Tab(text: 'Món Ăn'),
-              ],
-            ),
-          ),
-          body: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Tab Danh Mục
-                    Scaffold(
-                      floatingActionButton: FloatingActionButton(
-                        onPressed: _openAddCategoryDialog,
-                        child: const Icon(Icons.add),
-                      ),
-                      body: _categories.isEmpty
-                          ? const Center(child: Text('Chưa có danh mục nào'))
-                          : ListView.separated(
-                              itemCount: _categories.length,
-                              separatorBuilder: (_, __) => const Divider(),
-                              itemBuilder: (context, index) {
-                                final c = _categories[index];
-                                return ListTile(
-                                  title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  subtitle: c.description != null ? Text(c.description!) : null,
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                    onPressed: () async {
-                                      await widget.api.deleteCategory(widget.sellerId, c.id);
-                                      _loadData();
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                    // Tab Món Ăn
-                    Scaffold(
-                      floatingActionButton: FloatingActionButton(
-                        onPressed: _openAddDishDialog,
-                        child: const Icon(Icons.add),
-                      ),
-                      body: _dishes.isEmpty
-                          ? const Center(child: Text('Chưa có món ăn nào'))
-                          : ListView.separated(
-                              itemCount: _dishes.length,
-                              separatorBuilder: (_, __) => const Divider(),
-                              itemBuilder: (context, index) {
-                                final d = _dishes[index];
-                                return ListTile(
-                                  title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  subtitle: Text('${d.price.toStringAsFixed(0)} đ • ${d.categoryName ?? 'Chung'} • ${d.mealType}'),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                    onPressed: () async {
-                                      await widget.api.deleteDish(widget.sellerId, d.id);
-                                      _loadData();
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
     );
   }
 }

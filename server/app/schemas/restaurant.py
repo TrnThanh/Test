@@ -49,7 +49,6 @@ class RestaurantUpdate(BaseModel):
 
 class RestaurantResponse(RestaurantBase):
     id: int
-    seller_id: int
     is_active: bool
     created_at: datetime
 

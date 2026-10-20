@@ -8,7 +8,7 @@ Tài liệu này lưu trữ toàn bộ thiết kế kiến trúc cơ sở dữ l
 
 - **Hệ quản trị CSDL:** PostgreSQL 14 (chuẩn hóa quốc tế).
 - **Phần mở rộng không gian địa lý:** PostGIS 3.6.1 (hỗ trợ kiểu dữ liệu `GEOGRAPHY(POINT, 4326)` và các hàm tính toán khoảng cách cầu, tìm kiếm lân cận `ST_DWithin`, `ST_Distance`).
-- **Mô hình tài khoản (Role Separation):** Phân chia 3 bảng độc lập (`users`, `sellers`, `admins`) dùng chung cấu trúc xác thực qua mixin, giúp tối ưu hóa nghiệp vụ riêng của từng đối tượng và đảm bảo an toàn phân quyền ở tầng dữ liệu.
+- **Mô hình tài khoản (Role Separation):** Phân chia 2 bảng tài khoản độc lập (`users`, `admins`) dùng chung cấu trúc xác thực qua mixin, giúp tối ưu hóa nghiệp vụ riêng của từng đối tượng và đảm bảo an toàn phân quyền ở tầng dữ liệu.
 - **Khách vãng lai (Guest):** Không lưu trữ thông tin trong DB, chỉ truy vấn dữ liệu công khai.
 
 ---
@@ -43,23 +43,10 @@ erDiagram
         int role_level "Cấp độ quyền (Default: 1)"
     }
 
-    SELLERS ||--o{ RESTAURANTS : "owns (1-N, cascade delete)"
-    SELLERS {
-        int id PK "Khóa chính tự tăng"
-        string email UK "Email đăng nhập (Unique, Index)"
-        string hashed_password "Mật khẩu băm PBKDF2"
-        string full_name "Họ tên người bán (Nullable)"
-        boolean is_active "Trạng thái kích hoạt (Default: true)"
-        timestamp created_at "Thời điểm tạo tài khoản (UTC)"
-        string shop_name "Tên thương hiệu / cửa hàng"
-        string phone "Số điện thoại liên hệ (Nullable)"
-    }
-
     RESTAURANTS ||--o{ CATEGORIES : "has (1-N, cascade delete)"
     RESTAURANTS ||--o{ DISHES : "offers (1-N, cascade delete)"
     RESTAURANTS {
         int id PK "Khóa chính tự tăng"
-        int seller_id FK "Khóa ngoại trỏ về SELLERS(id)"
         string name "Tên quán ăn"
         string address "Địa chỉ quán ăn"
         float latitude "Vĩ độ (-90 đến 90)"
@@ -174,23 +161,7 @@ Model ORM: `server/app/models/user.py` kế thừa `AccountMixin`.
 
 ---
 
-### 3.2. Bảng `sellers` (Người bán hàng / Chủ quán ăn)
-Model ORM: `server/app/models/seller.py`.
-
-| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
-| :--- | :--- | :--- | :--- |
-| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY`, `INDEX` | Định danh người bán |
-| `email` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE`, `INDEX` | Email đăng nhập |
-| `hashed_password` | `VARCHAR(255)` | `NOT NULL` | Mật khẩu băm |
-| `full_name` | `VARCHAR(255)` | `NULLABLE`, Default: `NULL` | Tên người đại diện |
-| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái tài khoản |
-| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian đăng ký |
-| `shop_name` | `VARCHAR(255)` | `NOT NULL` | Tên thương hiệu/gian hàng |
-| `phone` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL` | Số điện thoại liên hệ |
-
----
-
-### 3.3. Bảng `admins` (Quản trị viên hệ thống)
+### 3.2. Bảng `admins` (Quản trị viên hệ thống)
 Model ORM: `server/app/models/admin.py`.
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
@@ -205,13 +176,12 @@ Model ORM: `server/app/models/admin.py`.
 
 ---
 
-### 3.4. Bảng `restaurants` (Quán ăn / Điểm bán ẩm thực)
+### 3.3. Bảng `restaurants` (Quán ăn / Điểm bán ẩm thực)
 Model ORM: `server/app/models/restaurant.py`.
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
 | :--- | :--- | :--- | :--- |
 | `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Định danh quán ăn |
-| `seller_id` | `INTEGER` | `NOT NULL`, `FK(sellers.id ON DELETE CASCADE)`, `INDEX` | Seller sở hữu quán ăn |
 | `name` | `VARCHAR(255)` | `NOT NULL` | Tên quán ăn |
 | `address` | `VARCHAR(500)` | `NOT NULL` | Địa chỉ cụ thể |
 | `latitude` | `DOUBLE PRECISION` | `NOT NULL`, `CHECK (latitude BETWEEN -90.0 AND 90.0)` | Vĩ độ địa lý WGS84 |
@@ -224,7 +194,7 @@ Model ORM: `server/app/models/restaurant.py`.
 
 ---
 
-### 3.5. Bảng `categories` (Nhóm món / Danh mục thực đơn của Quán)
+### 3.4. Bảng `categories` (Nhóm món / Danh mục thực đơn của Quán)
 Model ORM: `server/app/models/category.py`.
 Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Categories). Mỗi món ăn có thể thuộc 1 Category (`dishes.category_id`).
 
@@ -315,7 +285,7 @@ Bảng độc lập lưu trữ các điều kiện thời tiết chuẩn bị ch
 
 ---
 
-### 3.9. Bảng `favourite_dishes` (Món ăn yêu thích của User - Pure Junction Table)
+### 3.8. Bảng `favourite_dishes` (Món ăn yêu thích của User - Pure Junction Table)
 Quan hệ:
 - 1 User có nhiều món ăn yêu thích (`users ||--o{ favourite_dishes`, 1-N).
 - 1 Món ăn có thể được nhiều User yêu thích (`dishes ||--o{ favourite_dishes`, 1-N).
@@ -330,7 +300,7 @@ Quan hệ:
 
 ---
 
-### 3.10. Bảng `weather_categories` (Liên kết Thời tiết - Nhóm danh mục món ăn N-N)
+### 3.9. Bảng `weather_categories` (Liên kết Thời tiết - Nhóm danh mục món ăn N-N)
 Model ORM: `server/app/models/weather_category.py`.
 Quan hệ: N-N giữa `weather` và `categories` (`weather ||--o{ weather_categories`, `categories ||--o{ weather_categories`), có khóa ngoại `weather_id` và `category_id` kèm `ON DELETE CASCADE`.
 
@@ -354,7 +324,6 @@ Quan hệ: N-N giữa `weather` và `categories` (`weather ||--o{ weather_catego
    - `ck_dish_price`: `price >= 0` (đơn giá món ăn không được phép âm).
    - `ck_dishes_meal_type`: `meal_type IN ('breakfast', 'lunch', 'dinner', 'snack', 'all_day')`.
 3. **Khóa ngoại và hành vi Cascade (Foreign Key):**
-   - `restaurants.seller_id` trỏ đến `sellers.id` với `ON DELETE CASCADE`.
    - `categories.restaurant_id` trỏ đến `restaurants.id` với `ON DELETE CASCADE`.
    - `dishes.restaurant_id` trỏ đến `restaurants.id` với `ON DELETE CASCADE`.
    - `dishes.category_id` trỏ đến `categories.id` với `ON DELETE SET NULL`.
@@ -407,21 +376,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS ix_users_id ON users (id);
 CREATE INDEX IF NOT EXISTS ix_users_email ON users (email);
 
--- 3. Bảng sellers
-CREATE TABLE IF NOT EXISTS sellers (
-    id SERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    hashed_password VARCHAR(255) NOT NULL,
-    full_name VARCHAR(255) DEFAULT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    shop_name VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) DEFAULT NULL
-);
-CREATE INDEX IF NOT EXISTS ix_sellers_id ON sellers (id);
-CREATE INDEX IF NOT EXISTS ix_sellers_email ON sellers (email);
-
--- 4. Bảng admins
+-- 3. Bảng admins
 CREATE TABLE IF NOT EXISTS admins (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -434,10 +389,9 @@ CREATE TABLE IF NOT EXISTS admins (
 CREATE INDEX IF NOT EXISTS ix_admins_id ON admins (id);
 CREATE INDEX IF NOT EXISTS ix_admins_email ON admins (email);
 
--- 5. Bảng restaurants
+-- 4. Bảng restaurants
 CREATE TABLE IF NOT EXISTS restaurants (
     id SERIAL PRIMARY KEY,
-    seller_id INTEGER NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     address VARCHAR(500) NOT NULL,
     latitude DOUBLE PRECISION NOT NULL,
@@ -455,11 +409,10 @@ CREATE TABLE IF NOT EXISTS restaurants (
     CONSTRAINT ck_restaurant_longitude CHECK (longitude >= -180.0 AND longitude <= 180.0)
 );
 
-CREATE INDEX IF NOT EXISTS ix_restaurants_seller_id ON restaurants (seller_id);
 CREATE INDEX IF NOT EXISTS ix_restaurants_lat_lon ON restaurants (latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_restaurants_location ON restaurants USING GIST (location);
 
--- 6. Bảng categories (Nhóm danh mục món ăn thuộc quán - Quan hệ 1-N)
+-- 5. Bảng categories (Nhóm danh mục món ăn thuộc quán - Quan hệ 1-N)
 CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
     restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
@@ -473,7 +426,7 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE INDEX IF NOT EXISTS ix_categories_restaurant_id ON categories (restaurant_id);
 
--- 7. Bảng meal_types (Loại bữa ăn)
+-- 6. Bảng meal_types (Loại bữa ăn)
 CREATE TABLE IF NOT EXISTS meal_types (
     id SERIAL PRIMARY KEY,
     code VARCHAR(30) NOT NULL UNIQUE,
@@ -487,7 +440,7 @@ CREATE TABLE IF NOT EXISTS meal_types (
 );
 CREATE INDEX IF NOT EXISTS ix_meal_types_code ON meal_types (code);
 
--- 8. Bảng weather (Trạng thái thời tiết chuẩn bị gợi ý món ăn)
+-- 7. Bảng weather (Trạng thái thời tiết chuẩn bị gợi ý món ăn)
 CREATE TABLE IF NOT EXISTS weather (
     id SERIAL PRIMARY KEY,
     code VARCHAR(30) NOT NULL UNIQUE,
@@ -504,7 +457,7 @@ CREATE TABLE IF NOT EXISTS weather (
 );
 CREATE INDEX IF NOT EXISTS ix_weather_code ON weather (code);
 
--- 9. Bảng dishes (Món ăn thuộc quán ăn - Quan hệ 1-N)
+-- 8. Bảng dishes (Món ăn thuộc quán ăn - Quan hệ 1-N)
 CREATE TABLE IF NOT EXISTS dishes (
     id SERIAL PRIMARY KEY,
     restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
@@ -529,7 +482,7 @@ CREATE INDEX IF NOT EXISTS ix_dishes_meal_type_id ON dishes (meal_type_id);
 CREATE INDEX IF NOT EXISTS ix_dishes_restaurant_category ON dishes (restaurant_id, category);
 CREATE INDEX IF NOT EXISTS ix_dishes_ingredients_gin ON dishes USING GIN (ingredients);
 
--- 10. Bảng favourite_dishes (Món ăn yêu thích của User - Pure Junction Table)
+-- 9. Bảng favourite_dishes (Món ăn yêu thích của User - Pure Junction Table)
 CREATE TABLE IF NOT EXISTS favourite_dishes (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

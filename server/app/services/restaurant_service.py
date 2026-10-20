@@ -4,7 +4,6 @@ from sqlalchemy import select, func, literal, Float
 from sqlalchemy.orm import Session
 from geoalchemy2 import Geography
 
-from server.app.models.seller import Seller
 from server.app.models.restaurant import Restaurant
 from server.app.schemas.restaurant import RestaurantCreate, RestaurantUpdate
 
@@ -13,19 +12,10 @@ class RestaurantService:
     @staticmethod
     def create_restaurant(
         db: Session,
-        seller_id: int,
         data: RestaurantCreate,
     ) -> Restaurant:
-        """Tạo một quán ăn mới thuộc sở hữu của Seller."""
-        seller = db.get(Seller, seller_id)
-        if not seller:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Không tìm thấy người bán (Seller) với ID {seller_id}.",
-            )
-
+        """Tạo một quán ăn mới trong hệ thống."""
         restaurant = Restaurant(
-            seller_id=seller_id,
             name=data.name.strip(),
             address=data.address.strip(),
             latitude=data.latitude,
@@ -40,30 +30,6 @@ class RestaurantService:
         db.commit()
         db.refresh(restaurant)
         return restaurant
-
-    @staticmethod
-    def get_restaurants_by_seller(
-        db: Session,
-        seller_id: int,
-        skip: int = 0,
-        limit: int = 100,
-    ) -> List[Restaurant]:
-        """Lấy danh sách tất cả quán ăn do Seller quản lý."""
-        seller = db.get(Seller, seller_id)
-        if not seller:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Không tìm thấy người bán (Seller) với ID {seller_id}.",
-            )
-
-        stmt = (
-            select(Restaurant)
-            .where(Restaurant.seller_id == seller_id)
-            .order_by(Restaurant.id.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        return list(db.scalars(stmt).all())
 
     @staticmethod
     def get_restaurant_by_id(
@@ -83,21 +49,14 @@ class RestaurantService:
     def update_restaurant(
         db: Session,
         restaurant_id: int,
-        seller_id: int,
         data: RestaurantUpdate,
     ) -> Restaurant:
-        """Cập nhật thông tin quán ăn, kiểm tra chặt chẽ quyền sở hữu của Seller."""
+        """Cập nhật thông tin quán ăn."""
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy quán ăn với ID {restaurant_id}.",
-            )
-
-        if restaurant.seller_id != seller_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không có quyền chỉnh sửa quán ăn của người bán khác.",
             )
 
         update_data = data.model_dump(exclude_unset=True)
@@ -114,20 +73,13 @@ class RestaurantService:
     def delete_restaurant(
         db: Session,
         restaurant_id: int,
-        seller_id: int,
     ) -> bool:
-        """Xoá một quán ăn, kiểm tra chặt chẽ quyền sở hữu của Seller."""
+        """Xoá một quán ăn."""
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy quán ăn với ID {restaurant_id}.",
-            )
-
-        if restaurant.seller_id != seller_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không có quyền xoá quán ăn của người bán khác.",
             )
 
         db.delete(restaurant)
@@ -181,7 +133,6 @@ class RestaurantService:
         for restaurant, dist_m in db.execute(stmt).all():
             data = {
                 "id": restaurant.id,
-                "seller_id": restaurant.seller_id,
                 "name": restaurant.name,
                 "address": restaurant.address,
                 "latitude": restaurant.latitude,

@@ -9,5 +9,5 @@ class LoginRequest(BaseModel):
 
 class RoleLoginResponse(BaseModel):
     message: str = Field("Login successful", description="Thông báo đăng nhập")
-    role: str = Field(..., description="Vai trò tài khoản (user, seller, admin)")
+    role: str = Field(..., description="Vai trò tài khoản (user, admin)")
     data: Dict[str, Any] = Field(..., description="Thông tin chi tiết của tài khoản đã đăng nhập")

@@ -1,7 +1,6 @@
-import type { Restaurant, GeocodePlace, RoleLoginResponse, SystemStats, AdminSeller, AdminUser } from '../types';
+import type { Restaurant, GeocodePlace, RoleLoginResponse, SystemStats, AdminUser } from '../types';
 
-
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = 'http://localhost:8001/api/v1';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`;
@@ -62,30 +61,6 @@ export const api = {
     } as RoleLoginResponse;
   },
 
-  registerSeller: async (data: { email: string; password: string; full_name?: string; shop_name: string; phone?: string }) => {
-    const res = await request<any>('/auth/seller/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return {
-      role: res.role || 'seller',
-      ...(res.data || {}),
-      access_token: res.access_token || '',
-    } as RoleLoginResponse;
-  },
-
-  loginSeller: async (data: { email: string; password: string }) => {
-    const res = await request<any>('/auth/seller/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return {
-      role: res.role || 'seller',
-      ...(res.data || {}),
-      access_token: res.access_token || '',
-    } as RoleLoginResponse;
-  },
-
   loginAdmin: async (data: { email: string; password: string }) => {
     const res = await request<any>('/auth/admin/login', {
       method: 'POST',
@@ -102,9 +77,6 @@ export const api = {
   getAdminStats: () =>
     request<SystemStats>('/admin/stats'),
 
-  getAdminSellers: () =>
-    request<AdminSeller[]>('/admin/sellers'),
-
   getAdminUsers: () =>
     request<AdminUser[]>('/admin/users'),
 
@@ -112,6 +84,12 @@ export const api = {
     request<Restaurant>(`/admin/restaurants/${restaurantId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ is_active: isActive }),
+    }),
+
+  createRestaurantAsAdmin: (data: Partial<Restaurant>) =>
+    request<Restaurant>('/admin/restaurants', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 
   updateRestaurantAsAdmin: (restaurantId: number, data: Partial<Restaurant>) =>
@@ -128,12 +106,9 @@ export const api = {
       method: 'DELETE',
     }),
 
-
-
   // --- RESTAURANTS (PUBLIC) ---
   getRestaurants: (skip = 0, limit = 50) =>
     request<Restaurant[]>(`/restaurants?skip=${skip}&limit=${Math.min(limit, 100)}`),
-
 
   getRestaurantDetail: (id: number) =>
     request<Restaurant>(`/restaurants/${id}`),
@@ -148,12 +123,7 @@ export const api = {
       `/restaurants/${id}/distance?lat=${lat}&lon=${lon}`
     ),
 
-  // --- SELLER RESTAURANTS MANAGEMENT ---
-  getSellerRestaurants: (sellerId: number) =>
-    request<Restaurant[]>(`/sellers/${sellerId}/restaurants`),
-
-  createSellerRestaurant: (
-    sellerId: number,
+  createRestaurant: (
     data: {
       name: string;
       address?: string;
@@ -165,13 +135,12 @@ export const api = {
       longitude: number;
     }
   ) =>
-    request<Restaurant>(`/sellers/${sellerId}/restaurants`, {
+    request<Restaurant>('/restaurants', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  updateSellerRestaurant: (
-    sellerId: number,
+  updateRestaurant: (
     restaurantId: number,
     data: {
       name?: string;
@@ -185,13 +154,13 @@ export const api = {
       is_active?: boolean;
     }
   ) =>
-    request<Restaurant>(`/sellers/${sellerId}/restaurants/${restaurantId}`, {
+    request<Restaurant>(`/restaurants/${restaurantId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
-  deleteSellerRestaurant: (sellerId: number, restaurantId: number) =>
-    request<void>(`/sellers/${sellerId}/restaurants/${restaurantId}`, {
+  deleteRestaurant: (restaurantId: number) =>
+    request<void>(`/restaurants/${restaurantId}`, {
       method: 'DELETE',
     }),
 
@@ -224,12 +193,11 @@ export const api = {
     ),
 
   createCategory: (
-    sellerId: number,
     restaurantId: number,
     data: { name: string; description?: string; display_order?: number; is_active?: boolean }
   ) =>
     request<import('../types').Category>(
-      `/restaurants/${restaurantId}/categories?seller_id=${sellerId}`,
+      `/restaurants/${restaurantId}/categories`,
       {
         method: 'POST',
         body: JSON.stringify(data),
@@ -237,17 +205,16 @@ export const api = {
     ),
 
   updateCategory: (
-    sellerId: number,
     categoryId: number,
     data: { name?: string; description?: string; display_order?: number; is_active?: boolean }
   ) =>
-    request<import('../types').Category>(`/categories/${categoryId}?seller_id=${sellerId}`, {
+    request<import('../types').Category>(`/categories/${categoryId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
-  deleteCategory: (sellerId: number, categoryId: number) =>
-    request<{ message: string }>(`/categories/${categoryId}?seller_id=${sellerId}`, {
+  deleteCategory: (categoryId: number) =>
+    request<{ message: string }>(`/categories/${categoryId}`, {
       method: 'DELETE',
     }),
 
@@ -265,23 +232,23 @@ export const api = {
     return request<import('../types').Dish[]>(`/restaurants/${restaurantId}/dishes${qs}`);
   },
 
-  createDish: (sellerId: number, restaurantId: number, data: Partial<import('../types').Dish>) =>
+  createDish: (restaurantId: number, data: Partial<import('../types').Dish>) =>
     request<import('../types').Dish>(
-      `/restaurants/${restaurantId}/dishes?seller_id=${sellerId}`,
+      `/restaurants/${restaurantId}/dishes`,
       {
         method: 'POST',
         body: JSON.stringify(data),
       }
     ),
 
-  updateDish: (sellerId: number, dishId: number, data: Partial<import('../types').Dish>) =>
-    request<import('../types').Dish>(`/dishes/${dishId}?seller_id=${sellerId}`, {
+  updateDish: (dishId: number, data: Partial<import('../types').Dish>) =>
+    request<import('../types').Dish>(`/dishes/${dishId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
-  deleteDish: (sellerId: number, dishId: number) =>
-    request<{ message: string }>(`/dishes/${dishId}?seller_id=${sellerId}`, {
+  deleteDish: (dishId: number) =>
+    request<{ message: string }>(`/dishes/${dishId}`, {
       method: 'DELETE',
     }),
 
@@ -316,4 +283,3 @@ export const api = {
       method: 'DELETE',
     }),
 };
-
