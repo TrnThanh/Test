@@ -35,11 +35,11 @@ Sau khi cài đặt xong:
   .\.venv\Scripts\Activate.ps1
 
   # Chạy server FastAPI
-  .\.venv\Scripts\uvicorn server.app.main:app --reload --port 8000
+  .\.venv\Scripts\uvicorn server.app.main:app --reload --port 8001
   ```
 
-- **Swagger UI Interactive Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **Swagger UI Interactive Docs:** [http://localhost:8001/docs](http://localhost:8001/docs)
+- **ReDoc:** [http://localhost:8001/redoc](http://localhost:8001/redoc)
 
 ---
 

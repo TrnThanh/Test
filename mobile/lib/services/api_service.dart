@@ -13,10 +13,37 @@ class ApiService {
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
       };
 
+  Future<http.Response> _requestWithFallback(
+    Future<http.Response> Function(String baseUrl) makeRequest,
+  ) async {
+    try {
+      return await makeRequest(Env.baseUrl);
+    } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      final isConnError = errStr.contains('failed to fetch') ||
+          errStr.contains('connection refused') ||
+          errStr.contains('socketexception') ||
+          errStr.contains('clientexception');
+      if (isConnError) {
+        final originalPort = Env.activePort;
+        Env.switchPort();
+        try {
+          return await makeRequest(Env.baseUrl);
+        } catch (_) {
+          Env.activePort = originalPort;
+          rethrow;
+        }
+      }
+      rethrow;
+    }
+  }
+
   // --- RESTAURANTS ---
   Future<List<Restaurant>> getRestaurants({int skip = 0, int limit = 50}) async {
-    final uri = Uri.parse('${Env.baseUrl}/restaurants?skip=$skip&limit=$limit');
-    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/restaurants?skip=$skip&limit=$limit');
+      return _client.get(uri).timeout(const Duration(seconds: 10));
+    });
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(utf8.decode(res.bodyBytes));
@@ -30,8 +57,10 @@ class ApiService {
     required double lon,
     required double radiusKm,
   }) async {
-    final uri = Uri.parse('${Env.baseUrl}/restaurants/nearby?lat=$lat&lon=$lon&radius_km=$radiusKm');
-    final res = await _client.get(uri).timeout(const Duration(seconds: 10));
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/restaurants/nearby?lat=$lat&lon=$lon&radius_km=$radiusKm');
+      return _client.get(uri).timeout(const Duration(seconds: 10));
+    });
 
     if (res.statusCode == 200) {
       final List data = jsonDecode(utf8.decode(res.bodyBytes));
@@ -42,12 +71,14 @@ class ApiService {
 
   // --- AUTH ---
   Future<RoleLoginResponse> loginUser(String email, String password) async {
-    final uri = Uri.parse('${Env.baseUrl}/auth/user/login');
-    final res = await _client.post(
-      uri,
-      headers: _headers(),
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/auth/user/login');
+      return _client.post(
+        uri,
+        headers: _headers(),
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+    });
 
     if (res.statusCode == 200) {
       return RoleLoginResponse.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
@@ -56,16 +87,18 @@ class ApiService {
   }
 
   Future<RoleLoginResponse> registerUser(String email, String password, [String? fullName]) async {
-    final uri = Uri.parse('${Env.baseUrl}/auth/user/register');
-    final res = await _client.post(
-      uri,
-      headers: _headers(),
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        if (fullName != null && fullName.isNotEmpty) 'full_name': fullName,
-      }),
-    );
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/auth/user/register');
+      return _client.post(
+        uri,
+        headers: _headers(),
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          if (fullName != null && fullName.isNotEmpty) 'full_name': fullName,
+        }),
+      );
+    });
 
     if (res.statusCode == 200 || res.statusCode == 201) {
       return RoleLoginResponse.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
@@ -75,8 +108,10 @@ class ApiService {
 
   // --- MAP GEOCODING ---
   Future<List<GeocodePlace>> searchMap(String query) async {
-    final uri = Uri.parse('${Env.baseUrl}/map/search?q=${Uri.encodeComponent(query)}&limit=5');
-    final res = await _client.get(uri).timeout(const Duration(seconds: 8));
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/map/search?q=${Uri.encodeComponent(query)}&limit=5');
+      return _client.get(uri).timeout(const Duration(seconds: 8));
+    });
 
     if (res.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
@@ -87,8 +122,10 @@ class ApiService {
   }
 
   Future<String> reverseMap(double lat, double lon) async {
-    final uri = Uri.parse('${Env.baseUrl}/map/reverse?lat=$lat&lon=$lon');
-    final res = await _client.get(uri).timeout(const Duration(seconds: 8));
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/map/reverse?lat=$lat&lon=$lon');
+      return _client.get(uri).timeout(const Duration(seconds: 8));
+    });
 
     if (res.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
@@ -99,8 +136,10 @@ class ApiService {
 
   // --- CATEGORIES ---
   Future<List<Category>> getRestaurantCategories(int restaurantId) async {
-    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/categories?is_active_only=true');
-    final res = await _client.get(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/restaurants/$restaurantId/categories?is_active_only=true');
+      return _client.get(uri);
+    });
     if (res.statusCode == 200) {
       final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
       return list.map((e) => Category.fromJson(e as Map<String, dynamic>)).toList();
@@ -114,16 +153,18 @@ class ApiService {
     String? description,
     int displayOrder = 0,
   }) async {
-    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/categories');
-    final res = await _client.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'name': name,
-        if (description != null) 'description': description,
-        'display_order': displayOrder,
-      }),
-    );
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/restaurants/$restaurantId/categories');
+      return _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          if (description != null) 'description': description,
+          'display_order': displayOrder,
+        }),
+      );
+    });
     if (res.statusCode == 201) {
       return Category.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
     }
@@ -131,19 +172,23 @@ class ApiService {
   }
 
   Future<void> deleteCategory(int categoryId) async {
-    final uri = Uri.parse('${Env.baseUrl}/categories/$categoryId');
-    final res = await _client.delete(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/categories/$categoryId');
+      return _client.delete(uri);
+    });
     if (res.statusCode == 200) return;
     _throwError(res);
   }
 
   // --- DISHES ---
   Future<List<Dish>> getRestaurantDishes(int restaurantId, {int? categoryId}) async {
-    String url = '${Env.baseUrl}/restaurants/$restaurantId/dishes';
-    if (categoryId != null) {
-      url += '?category_id=$categoryId';
-    }
-    final res = await _client.get(Uri.parse(url));
+    final res = await _requestWithFallback((base) {
+      String url = '$base/restaurants/$restaurantId/dishes';
+      if (categoryId != null) {
+        url += '?category_id=$categoryId';
+      }
+      return _client.get(Uri.parse(url));
+    });
     if (res.statusCode == 200) {
       final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
       return list.map((e) => Dish.fromJson(e as Map<String, dynamic>)).toList();
@@ -152,12 +197,14 @@ class ApiService {
   }
 
   Future<Dish> createDish(int restaurantId, Map<String, dynamic> data) async {
-    final uri = Uri.parse('${Env.baseUrl}/restaurants/$restaurantId/dishes');
-    final res = await _client.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(data),
-    );
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/restaurants/$restaurantId/dishes');
+      return _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+    });
     if (res.statusCode == 201) {
       return Dish.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
     }
@@ -165,16 +212,20 @@ class ApiService {
   }
 
   Future<void> deleteDish(int dishId) async {
-    final uri = Uri.parse('${Env.baseUrl}/dishes/$dishId');
-    final res = await _client.delete(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/dishes/$dishId');
+      return _client.delete(uri);
+    });
     if (res.statusCode == 200) return;
     _throwError(res);
   }
 
   // --- FAVOURITES ---
   Future<List<FavouriteDish>> getUserFavourites(int userId) async {
-    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites');
-    final res = await _client.get(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/users/$userId/favourites');
+      return _client.get(uri);
+    });
     if (res.statusCode == 200) {
       final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
       return list.map((e) => FavouriteDish.fromJson(e as Map<String, dynamic>)).toList();
@@ -183,36 +234,46 @@ class ApiService {
   }
 
   Future<void> addFavouriteDish(int userId, int dishId) async {
-    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/$dishId');
-    final res = await _client.post(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/users/$userId/favourites/$dishId');
+      return _client.post(uri);
+    });
     if (res.statusCode == 200 || res.statusCode == 201) return;
     _throwError(res);
   }
 
   Future<void> removeFavouriteDish(int userId, int dishId) async {
-    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/$dishId');
-    final res = await _client.delete(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/users/$userId/favourites/$dishId');
+      return _client.delete(uri);
+    });
     if (res.statusCode == 200) return;
     _throwError(res);
   }
 
   Future<void> removeFavourite(int userId, int favId) async {
-    final uri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/by-id/$favId');
-    final res = await _client.delete(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/users/$userId/favourites/by-id/$favId');
+      return _client.delete(uri);
+    });
     if (res.statusCode == 200 || res.statusCode == 204) return;
-    final fallbackUri = Uri.parse('${Env.baseUrl}/users/$userId/favourites/$favId');
-    final res2 = await _client.delete(fallbackUri);
+    final res2 = await _requestWithFallback((base) {
+      final fallbackUri = Uri.parse('$base/users/$userId/favourites/$favId');
+      return _client.delete(fallbackUri);
+    });
     if (res2.statusCode == 200 || res2.statusCode == 204) return;
     _throwError(res);
   }
 
   // --- USER OPTIONS (OptionUser) ---
   Future<List<OptionUser>> getUserOptions(int userId, {bool? hide}) async {
-    String url = '${Env.baseUrl}/users/$userId/options';
-    if (hide != null) {
-      url += '?hide=$hide';
-    }
-    final res = await _client.get(Uri.parse(url));
+    final res = await _requestWithFallback((base) {
+      String url = '$base/users/$userId/options';
+      if (hide != null) {
+        url += '?hide=$hide';
+      }
+      return _client.get(Uri.parse(url));
+    });
     if (res.statusCode == 200) {
       final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
       return list.map((e) => OptionUser.fromJson(e as Map<String, dynamic>)).toList();
@@ -221,12 +282,14 @@ class ApiService {
   }
 
   Future<OptionUser> setUserOption(int userId, int categoryId, bool hide) async {
-    final uri = Uri.parse('${Env.baseUrl}/users/$userId/options');
-    final res = await _client.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'category_id': categoryId, 'hide': hide}),
-    );
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/users/$userId/options');
+      return _client.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'category_id': categoryId, 'hide': hide}),
+      );
+    });
     if (res.statusCode == 200 || res.statusCode == 201) {
       return OptionUser.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
     }
@@ -234,8 +297,10 @@ class ApiService {
   }
 
   Future<void> deleteUserOption(int userId, int optionId) async {
-    final uri = Uri.parse('${Env.baseUrl}/users/$userId/options/$optionId');
-    final res = await _client.delete(uri);
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/users/$userId/options/$optionId');
+      return _client.delete(uri);
+    });
     if (res.statusCode == 200 || res.statusCode == 204) return;
     _throwError(res);
   }

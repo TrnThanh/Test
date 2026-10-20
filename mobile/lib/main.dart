@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'models/models.dart';
 import 'services/api_service.dart';
 
@@ -125,9 +127,14 @@ class _MainShellState extends State<MainShell> {
         onRequireLogin: () {
           setState(() => _currentIndex = 3);
         },
+        onOpenMap: () {
+          setState(() => _currentIndex = 2);
+        },
       ),
       GeocodingScreen(
         api: widget.apiService,
+        initialLat: _targetLat,
+        initialLon: _targetLon,
         onSelectPlaceNearby: _navigateToNearbyWithLocation,
       ),
       AccountScreen(
@@ -455,6 +462,7 @@ class NearbyScreen extends StatefulWidget {
   final double? initialLon;
   final RoleLoginResponse? currentUser;
   final VoidCallback onRequireLogin;
+  final VoidCallback? onOpenMap;
 
   const NearbyScreen({
     super.key,
@@ -463,6 +471,7 @@ class NearbyScreen extends StatefulWidget {
     this.initialLon,
     this.currentUser,
     required this.onRequireLogin,
+    this.onOpenMap,
   });
 
   @override
@@ -470,8 +479,8 @@ class NearbyScreen extends StatefulWidget {
 }
 
 class _NearbyScreenState extends State<NearbyScreen> {
-  double _lat = 21.0285; // Mặc định Hà Nội
-  double _lon = 105.8542;
+  double _lat = 21.0046; // Mặc định Học viện Nông nghiệp Việt Nam (HVNN)
+  double _lon = 105.9387;
   double _radiusKm = 5.0;
 
   List<Restaurant> _restaurants = [];
@@ -558,6 +567,14 @@ class _NearbyScreenState extends State<NearbyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quán Ăn Lân Cận (PostGIS)', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          if (widget.onOpenMap != null)
+            IconButton(
+              tooltip: 'Xem trên Bản đồ OSM',
+              icon: const Icon(Icons.map_outlined),
+              onPressed: widget.onOpenMap,
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -593,6 +610,18 @@ class _NearbyScreenState extends State<NearbyScreen> {
                 Wrap(
                   spacing: 8,
                   children: [
+                    ChoiceChip(
+                      label: const Text('HVNN'),
+                      selected: (_lat == 21.0046 && _lon == 105.9387),
+                      onSelected: (_) {
+                        setState(() {
+                          _lat = 21.0046;
+                          _lon = 105.9387;
+                        });
+                        _searchNearby();
+                      },
+                    ),
+                    const SizedBox(width: 8),
                     ChoiceChip(
                       label: const Text('Hồ Gươm'),
                       selected: (_lat == 21.0285 && _lon == 105.8542),
@@ -734,15 +763,21 @@ class _NearbyScreenState extends State<NearbyScreen> {
 }
 
 // ==========================================
+// ==========================================
+// ==========================================
 // TAB 3: BẢN ĐỒ & GEOCODING OSM
 // ==========================================
 class GeocodingScreen extends StatefulWidget {
   final ApiService api;
+  final double? initialLat;
+  final double? initialLon;
   final Function(double lat, double lon) onSelectPlaceNearby;
 
   const GeocodingScreen({
     super.key,
     required this.api,
+    this.initialLat,
+    this.initialLon,
     required this.onSelectPlaceNearby,
   });
 
@@ -751,10 +786,58 @@ class GeocodingScreen extends StatefulWidget {
 }
 
 class _GeocodingScreenState extends State<GeocodingScreen> {
+  late final MapController _mapController;
   final _searchCtrl = TextEditingController();
+
+  LatLng _currentCenter = const LatLng(21.0046, 105.9387); // Mặc định Học viện Nông nghiệp Việt Nam (HVNN)
+  LatLng? _pinnedLocation;
+  String? _pinnedAddress;
+
   List<GeocodePlace> _places = [];
+  List<Restaurant> _nearbyRestaurants = [];
+  Restaurant? _selectedRestaurant;
+
   bool _loading = false;
   String? _error;
+  bool _showSearchResults = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _mapController = MapController();
+    if (widget.initialLat != null && widget.initialLon != null) {
+      _currentCenter = LatLng(widget.initialLat!, widget.initialLon!);
+    }
+    _pinnedLocation = _currentCenter;
+    _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
+  }
+
+  @override
+  void didUpdateWidget(covariant GeocodingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialLat != null &&
+        widget.initialLon != null &&
+        (widget.initialLat != oldWidget.initialLat || widget.initialLon != oldWidget.initialLon)) {
+      final newPos = LatLng(widget.initialLat!, widget.initialLon!);
+      setState(() {
+        _currentCenter = newPos;
+        _pinnedLocation = newPos;
+      });
+      _mapController.move(newPos, 14.5);
+      _loadNearby(newPos.latitude, newPos.longitude);
+    }
+  }
+
+  Future<void> _loadNearby(double lat, double lon) async {
+    try {
+      final list = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: 5.0);
+      if (mounted) {
+        setState(() {
+          _nearbyRestaurants = list;
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _search() async {
     final q = _searchCtrl.text.trim();
@@ -763,6 +846,7 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _showSearchResults = true;
     });
 
     try {
@@ -781,87 +865,472 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
     }
   }
 
+  Future<void> _onMapTap(LatLng point) async {
+    setState(() {
+      _pinnedLocation = point;
+      _selectedRestaurant = null;
+      _showSearchResults = false;
+      _pinnedAddress = 'Đang tra cứu toạ độ...';
+    });
+
+    _loadNearby(point.latitude, point.longitude);
+
+    try {
+      final addr = await widget.api.reverseMap(point.latitude, point.longitude);
+      if (mounted) {
+        setState(() {
+          _pinnedAddress = addr;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _pinnedAddress = 'Toạ độ: ${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
+        });
+      }
+    }
+  }
+
+  void _selectPlace(GeocodePlace p) {
+    final pos = LatLng(p.latitude, p.longitude);
+    setState(() {
+      _pinnedLocation = pos;
+      _pinnedAddress = p.displayName;
+      _showSearchResults = false;
+      _searchCtrl.text = p.displayName;
+    });
+    _mapController.move(pos, 15.0);
+    _loadNearby(p.latitude, p.longitude);
+  }
+
+  void _jumpTo(double lat, double lon, String name) {
+    final pos = LatLng(lat, lon);
+    setState(() {
+      _pinnedLocation = pos;
+      _pinnedAddress = name;
+      _showSearchResults = false;
+      _searchCtrl.text = name;
+      _selectedRestaurant = null;
+    });
+    _mapController.move(pos, 14.5);
+    _loadNearby(lat, lon);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bản Đồ & Geocoding OSM', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            tooltip: 'Về HVNN',
+            icon: const Icon(Icons.my_location),
+            onPressed: () => _jumpTo(21.0046, 105.9387, 'Học viện Nông nghiệp Việt Nam (HVNN)'),
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Nhập địa chỉ (VD: Hồ Gươm, Hà Nội)...',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      body: Stack(
+        children: [
+          // 1. BẢN ĐỒ OPENSTREETMAP TƯƠNG TÁC
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentCenter,
+              initialZoom: 14.0,
+              onTap: (tapPosition, point) => _onMapTap(point),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'com.ptc1.mobile',
+              ),
+              MarkerLayer(
+                markers: [
+                  // Marker điểm chọn / ghim
+                  if (_pinnedLocation != null)
+                    Marker(
+                      point: _pinnedLocation!,
+                      width: 44,
+                      height: 44,
+                      child: const Icon(
+                        Icons.location_pin,
+                        color: Colors.red,
+                        size: 44,
+                      ),
                     ),
-                    onSubmitted: (_) => _search(),
+                  // Marker các quán ăn lân cận xung quanh
+                  ..._nearbyRestaurants.map((r) {
+                    final isSelected = _selectedRestaurant?.id == r.id;
+                    return Marker(
+                      point: LatLng(r.latitude, r.longitude),
+                      width: isSelected ? 48 : 38,
+                      height: isSelected ? 48 : 38,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedRestaurant = r;
+                            _showSearchResults = false;
+                          });
+                          _mapController.move(LatLng(r.latitude, r.longitude), 15.0);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.amber[700] : Colors.deepOrange,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.restaurant,
+                            color: Colors.white,
+                            size: isSelected ? 26 : 20,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ],
+          ),
+
+          // 2. KHUNG TÌM KIẾM & CHIPS
+          Positioned(
+            top: 12,
+            left: 16,
+            right: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  child: Row(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Icon(Icons.search, color: Colors.grey),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          decoration: const InputDecoration(
+                            hintText: 'Nhập địa chỉ (VD: Hồ Gươm, Hà Nội)...',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onSubmitted: (_) => _search(),
+                        ),
+                      ),
+                      if (_searchCtrl.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() {
+                              _places = [];
+                              _showSearchResults = false;
+                            });
+                          },
+                        ),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        onPressed: _loading ? null : _search,
+                        child: _loading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Text('Tìm'),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _loading ? null : _search,
-                  child: _loading
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Tìm'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_error != null)
-              Container(
-                padding: const EdgeInsets.all(10),
-                color: Colors.red.shade50,
-                child: Text('Lỗi: $_error', style: const TextStyle(color: Colors.red)),
-              ),
-            Expanded(
-              child: _places.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.map, size: 54, color: Colors.grey[400]),
-                          const SizedBox(height: 12),
-                          Text('Nhập tên địa điểm để tra cứu toạ độ và tìm quán',
-                              style: TextStyle(color: Colors.grey[600])),
-                        ],
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.school, size: 16, color: Colors.deepOrange),
+                        label: const Text('HVNN (Nông Nghiệp)'),
+                        backgroundColor: Colors.white,
+                        elevation: 2,
+                        onPressed: () => _jumpTo(21.0046, 105.9387, 'Học viện Nông nghiệp Việt Nam (HVNN)'),
                       ),
-                    )
-                  : ListView.separated(
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        avatar: const Icon(Icons.place, size: 16, color: Colors.deepOrange),
+                        label: const Text('Hồ Gươm'),
+                        backgroundColor: Colors.white,
+                        elevation: 2,
+                        onPressed: () => _jumpTo(21.0285, 105.8542, 'Hồ Gươm, Hoàn Kiếm, Hà Nội'),
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        avatar: const Icon(Icons.place, size: 16, color: Colors.deepOrange),
+                        label: const Text('Cầu Giấy'),
+                        backgroundColor: Colors.white,
+                        elevation: 2,
+                        onPressed: () => _jumpTo(21.0333, 105.7939, 'Cầu Giấy, Hà Nội'),
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        avatar: const Icon(Icons.place, size: 16, color: Colors.deepOrange),
+                        label: const Text('Tây Hồ'),
+                        backgroundColor: Colors.white,
+                        elevation: 2,
+                        onPressed: () => _jumpTo(21.0717, 105.8236, 'Tây Hồ, Hà Nội'),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_showSearchResults && _places.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+                      ],
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
                       itemCount: _places.length,
-                      separatorBuilder: (_, __) => const Divider(),
+                      separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final p = _places[index];
                         return ListTile(
-                          leading: const Icon(Icons.place, color: Colors.deepOrange),
-                          title: Text(p.displayName, style: const TextStyle(fontSize: 14)),
-                          subtitle: Text('Toạ độ: ${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}'),
-                          trailing: FilledButton.tonal(
-                            child: const Text('Tìm quán'),
-                            onPressed: () {
-                              widget.onSelectPlaceNearby(p.latitude, p.longitude);
-                            },
-                          ),
+                          dense: true,
+                          leading: const Icon(Icons.location_on, color: Colors.deepOrange),
+                          title: Text(p.displayName, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                              'Toạ độ: ${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}'),
+                          onTap: () => _selectPlace(p),
                         );
                       },
                     ),
+                  ),
+                if (_error != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('Lỗi: ${_error!}', style: const TextStyle(color: Colors.red)),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+
+          // 3. NÚT ĐIỀU KHIỂN ZOOM (+) (-)
+          Positioned(
+            right: 16,
+            bottom: (_selectedRestaurant != null || _pinnedAddress != null || _pinnedLocation != null) ? 140 : 24,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'zoom_in_btn',
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  onPressed: () {
+                    _mapController.move(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom + 1,
+                    );
+                  },
+                  child: const Icon(Icons.add),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.small(
+                  heroTag: 'zoom_out_btn',
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  onPressed: () {
+                    _mapController.move(
+                      _mapController.camera.center,
+                      _mapController.camera.zoom - 1,
+                    );
+                  },
+                  child: const Icon(Icons.remove),
+                ),
+              ],
+            ),
+          ),
+
+          // 4. CARD CHI TIẾT ĐÁY MÀN HÌNH
+          if (_selectedRestaurant != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Card(
+                elevation: 6,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.deepOrange.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.restaurant, color: Colors.deepOrange, size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _selectedRestaurant!.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (_selectedRestaurant!.address != null)
+                                  Text(
+                                    _selectedRestaurant!.address!,
+                                    style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.grey),
+                            onPressed: () {
+                              setState(() {
+                                _selectedRestaurant = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (_selectedRestaurant!.distanceKm != null)
+                            Row(
+                              children: [
+                                const Icon(Icons.near_me, size: 16, color: Colors.deepOrange),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_selectedRestaurant!.distanceKm!.toStringAsFixed(1)} km',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                                ),
+                              ],
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.near_me, size: 16),
+                            label: const Text('Tìm quán quanh đây'),
+                            onPressed: () {
+                              widget.onSelectPlaceNearby(
+                                _selectedRestaurant!.latitude,
+                                _selectedRestaurant!.longitude,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (_pinnedAddress != null || _pinnedLocation != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Card(
+                elevation: 6,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.place, color: Colors.red, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _pinnedAddress ?? 'Vị trí đã ghim trên bản đồ',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (_pinnedLocation != null)
+                              Text(
+                                'Toạ độ: ${_pinnedLocation!.latitude.toStringAsFixed(4)}, ${_pinnedLocation!.longitude.toStringAsFixed(4)}',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.tonal(
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Tìm quán'),
+                        onPressed: () {
+                          if (_pinnedLocation != null) {
+                            widget.onSelectPlaceNearby(
+                              _pinnedLocation!.latitude,
+                              _pinnedLocation!.longitude,
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-// ==========================================
+
 // TAB 4: TÀI KHOẢN (USER AUTH & YÊU THÍCH)
 // ==========================================
 class AccountScreen extends StatefulWidget {

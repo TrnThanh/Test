@@ -1,8 +1,8 @@
 @echo off
 cd /d "%~dp0mobile"
-title PTC1 Mobile App (Chrome Web)
+title PTC1 Flutter Mobile (Port 3000)
 echo ========================================================
-echo   KHOI DONG PTC1 FLUTTER CONSUMER APP TREN CHROME
+echo   KHOI DONG FLUTTER MOBILE APP TAI http://localhost:3000
 echo ========================================================
-flutter run -d chrome
+flutter run -d chrome --web-port=3000
 pause

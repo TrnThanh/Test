@@ -388,7 +388,7 @@ Write-Host " [HOAN TAT CAI DAT] Moi truong PTC1 da san sang!" -ForegroundColor G
 Write-Host "========================================================" -ForegroundColor Green
 Write-Host "1. Khoi chay Backend FastAPI:" -ForegroundColor Yellow
 Write-Host "   Click dup file CHAY_SERVER.bat hoac chay lenh:" -ForegroundColor Cyan
-Write-Host "   .\.venv\Scripts\uvicorn server.app.main:app --reload --port 8000" -ForegroundColor Cyan
-Write-Host "2. Swagger UI: http://localhost:8000/docs" -ForegroundColor Cyan
+Write-Host "   .\.venv\Scripts\uvicorn server.app.main:app --reload --port 8001" -ForegroundColor Cyan
+Write-Host "2. Swagger UI: http://localhost:8001/docs" -ForegroundColor Cyan
 Write-Host "3. Flutter Mobile SDK: $flutterBin" -ForegroundColor Cyan
 Write-Host "========================================================`n" -ForegroundColor Green
