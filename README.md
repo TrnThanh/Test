@@ -16,18 +16,18 @@ Dự án cung cấp script tự động 1-click cài đặt đầy đủ từ A-
 - Chạy toàn bộ 36 tests backend + Flutter widget tests tự động kiểm thử
 
 ### Cách chạy cài đặt 1-click:
-- **Cách 1 (Nhanh nhất - Chỉ cần Click Đúp):** Click đúp vào file **`CAI_DAT.bat`** (hoặc `setup.bat`).
+- **Cách 1 (Nhanh nhất - Chỉ cần Click Đúp):** Click đúp vào file **`CAI_DAT.bat`**.
 - **Cách 2 (Qua PowerShell):** Mở PowerShell với quyền Administrator tại thư mục dự án và chạy:
    ```powershell
    Set-ExecutionPolicy Bypass -Scope Process
    .\setup.ps1
    ```
-   dfghfnmbvm
 ---
 
 ## 🏃 Khởi Chạy Ứng Dụng (1-Click Launchers)
 
-Dự án cung cấp các file batch khởi chạy nhanh chóng cho từng dịch vụ:
+Dự án cung cấp các file batch khởi chạy 1-click chuẩn hoá:
+- **Khởi chạy Toàn Bộ Hệ Thống (1-Click)**: Click đúp file **`CHAY_TAT_CA.bat`** (Tự động khởi động đồng thời Backend FastAPI, Web Admin và Flutter Mobile).
 - **Backend FastAPI**: Click đúp file **`CHAY_SERVER.bat`** (Khởi chạy FastAPI tại [http://localhost:8001](http://localhost:8001) và tự mở Swagger UI).
 - **Web Frontend (Vue 3 + Vite)**: Click đúp file **`CHAY_WEB.bat`** (Khởi chạy Vite tại [http://localhost:5173](http://localhost:5173) và tự mở trình duyệt).
 - **Mobile Client (Flutter Web)**: Click đúp file **`CHAY_MOBILE.bat`** (Khởi chạy Flutter Chrome tại [http://localhost:3000](http://localhost:3000)).
