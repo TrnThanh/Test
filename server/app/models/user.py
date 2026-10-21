@@ -5,6 +5,7 @@ from server.app.models.base import AccountMixin
 
 if TYPE_CHECKING:
     from server.app.models.option_user import OptionUser
+    from server.app.models.user_profile import UserProfile
 
 
 class User(AccountMixin, Base):
@@ -17,3 +18,12 @@ class User(AccountMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+    profile: Mapped[Optional["UserProfile"]] = relationship(
+        "UserProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+

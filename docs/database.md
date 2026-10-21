@@ -115,6 +115,7 @@ erDiagram
         timestamp created_at "Thời điểm tạo món (UTC)"
     }
 
+    USERS ||--|| USER_PROFILES : "has profile (1-1, cascade delete)"
     USERS ||--o{ FAVOURITE_DISHES : "favourites (1-N, cascade delete)"
     USERS ||--o{ OPTION_USERS : "configures (1-N, cascade delete)"
     CATEGORIES ||--o{ OPTION_USERS : "configured by (1-N, cascade delete)"
@@ -139,6 +140,25 @@ erDiagram
         int user_id FK "Khóa ngoại trỏ về USERS(id) ON DELETE CASCADE"
         int dish_id FK "Khóa ngoại trỏ về DISHES(id) ON DELETE CASCADE"
         timestamp created_at "Thời điểm yêu thích món (UTC)"
+    }
+    USER_PROFILES {
+        int id PK "Khóa chính tự tăng"
+        int user_id FK "Khóa ngoại trỏ về USERS(id) UNIQUE, ON DELETE CASCADE"
+        float height_cm "Chiều cao tính bằng cm (50 - 260)"
+        float weight_kg "Cân nặng tính bằng kg (10 - 500)"
+        string gender "Giới tính: male, female, other"
+        int birth_year "Năm sinh (1920 - hiện tại)"
+        string activity_level "Mức vận động: sedentary, light, moderate, active"
+        string target_goal "Mục tiêu: maintain, lose_weight, gain_muscle, eat_healthy"
+        string favorite_category_ids "Mảng ID nhóm món ăn yêu thích ARRAY(Integer)"
+        string dietary_preferences "Mảng chế độ ăn uống ARRAY(Text)"
+        string spicy_tolerance "Khẩu vị cay: none, mild, medium, hot"
+        string allergies "Mảng thành phần dị ứng thực phẩm ARRAY(Text)"
+        string budget_range "Khung ngân sách: budget, moderate, premium"
+        boolean is_onboarded "Trạng thái đã hoàn thành khảo sát ban đầu"
+        timestamp onboarded_at "Thời điểm hoàn thành khảo sát (UTC)"
+        timestamp created_at "Thời điểm tạo hồ sơ (UTC)"
+        timestamp updated_at "Thời điểm cập nhật hồ sơ (UTC)"
     }
 ```
 </details>
@@ -520,3 +540,32 @@ CREATE INDEX IF NOT EXISTS ix_weather_categories_weather_id ON weather_categorie
 CREATE INDEX IF NOT EXISTS ix_weather_categories_category_id ON weather_categories (category_id);
 ```
 
+
+
+---
+
+### 3.9. Bảng `user_profiles` (Hồ sơ Sức khỏe & Sở thích Ẩm thực Mở rộng)
+Model ORM: `server/app/models/user_profile.py`. Quan hệ 1-1 với `users`.
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY`, `INDEX` | Định danh hồ sơ cá nhân |
+| `user_id` | `INTEGER` | `NOT NULL`, `UNIQUE`, `FK users(id) ON DELETE CASCADE` | Khóa ngoại người dùng sở hữu |
+| `height_cm` | `FLOAT` | `NULLABLE`, `CHECK (height_cm BETWEEN 50 AND 260)` | Chiều cao cá nhân (cm) |
+| `weight_kg` | `FLOAT` | `NULLABLE`, `CHECK (weight_kg BETWEEN 10 AND 500)` | Cân nặng cá nhân (kg) |
+| `gender` | `VARCHAR(20)` | `NULLABLE`, `male / female / other` | Giới tính |
+| `birth_year` | `INTEGER` | `NULLABLE`, `1920 - 2026` | Năm sinh |
+| `activity_level` | `VARCHAR(30)` | `NULLABLE`, `sedentary / light / moderate / active` | Mức độ vận động thể chất |
+| `target_goal` | `VARCHAR(50)` | `NULLABLE`, `maintain / lose_weight / gain_muscle / eat_healthy` | Mục tiêu dinh dưỡng |
+| `favorite_category_ids` | `INTEGER[]` | `NOT NULL`, Default: `'{}'::integer[]` | Mảng ID danh mục món ăn yêu thích |
+| `dietary_preferences` | `TEXT[]` | `NOT NULL`, Default: `'{}'::text[]` | Mảng chế độ ăn (eat clean, low-carb, keto, ăn chay...) |
+| `spicy_tolerance` | `VARCHAR(20)` | `NULLABLE`, `none / mild / medium / hot` | Khẩu vị ăn cay |
+| `allergies` | `TEXT[]` | `NOT NULL`, Default: `'{}'::text[]` | Mảng thành phần dị ứng thực phẩm |
+| `budget_range` | `VARCHAR(20)` | `NULLABLE`, `budget / moderate / premium` | Khung chi tiêu ẩm thực |
+| `is_onboarded` | `BOOLEAN` | `NOT NULL`, Default: `FALSE` | Trạng thái hoàn thành khảo sát ban đầu |
+| `onboarded_at` | `TIMESTAMP WITH TIME ZONE` | `NULLABLE` | Thời điểm hoàn thành khảo sát (UTC) |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian khởi tạo hồ sơ (UTC) |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian cập nhật gần nhất (UTC) |
+
+> 💡 **Tính toán động (Virtual Field):**
+> Chỉ số **BMI** (`weight_kg / (height_m^2)`) và phân loại **thể trạng** (`underweight`, `normal`, `overweight`, `obese`) được tự động tính toán trực tiếp trong Pydantic schema `UserProfileResponse` ở tầng ứng dụng, giúp đảm bảo tính nhất quán dữ liệu mà không cần thêm cột dư thừa vào CSDL.

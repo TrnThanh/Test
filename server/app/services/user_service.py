@@ -33,3 +33,21 @@ class UserService:
         if not verify_password(password, user.hashed_password):
             return None
         return user
+
+    @staticmethod
+    def seed_default_user(db: Session) -> User:
+        """Tự động khởi tạo tài khoản User/Thực khách mặc định nếu chưa tồn tại."""
+        default_email = "user@example.com"
+        user = UserService.get_user_by_email(db, default_email)
+        if not user:
+            user = User(
+                email=default_email,
+                hashed_password=hash_password("123456"),
+                full_name="Nguyễn Văn Thực Khách",
+                is_active=True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        return user
+

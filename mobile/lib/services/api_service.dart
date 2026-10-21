@@ -314,4 +314,31 @@ class ApiService {
     } catch (_) {}
     throw Exception('Lỗi máy chủ (${res.statusCode})');
   }
+  // --- USER PROFILE & ONBOARDING ---
+  Future<UserProfile> getUserProfile(int userId) async {
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('/users//profile');
+      return _client.get(uri);
+    });
+    if (res.statusCode == 200) {
+      return UserProfile.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+    }
+    _throwError(res);
+  }
+
+  Future<UserProfile> updateUserProfile(int userId, Map<String, dynamic> data) async {
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('/users//profile');
+      return _client.put(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+    });
+    if (res.statusCode == 200) {
+      return UserProfile.fromJson(jsonDecode(utf8.decode(res.bodyBytes)));
+    }
+    _throwError(res);
+  }
+
 }

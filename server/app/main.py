@@ -10,6 +10,7 @@ from server.app.db.base import Base
 from server.app.db.session import engine, SessionLocal
 from server.app.api.v1.router import api_router
 from server.app.services.admin_service import AdminService
+from server.app.services.user_service import UserService
 from server.app.services.meal_type_service import MealTypeService
 from server.app.services.weather_service import WeatherService
 # Import models để Base.metadata nhận diện các bảng trước khi create_all
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Tự động seed tài khoản Admin, MealTypes và Weathers mặc định
         with SessionLocal() as db:
             AdminService.seed_default_admin(db)
+            UserService.seed_default_user(db)
             MealTypeService.seed_default_meal_types(db)
             WeatherService.seed_default_weathers(db)
         logger.info("Khởi tạo PostgreSQL tables và seed dữ liệu ban đầu thành công.")

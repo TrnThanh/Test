@@ -412,3 +412,60 @@ sequenceDiagram
    - User gửi `user_id` và `dish_id`.
    - Hệ thống tìm và xoá bản ghi khỏi bảng `favourite_dishes`. Nếu không tìm thấy trả về HTTP 404 Not Found.
 3. **Cascade Integrity:** Khi món ăn (`Dish`) hoặc tài khoản khách hàng (`User`) bị xoá, toàn bộ các bản ghi `favourite_dishes` liên quan sẽ tự động được xoá theo nhờ cơ chế `ON DELETE CASCADE`.
+
+
+---
+
+## 9. Luồng 9: Khảo sát Onboarding & Cập nhật Hồ sơ Sức khỏe / Sở thích (User Profile)
+
+Áp dụng cho module: `mobile/lib/main.dart`, `server/app/api/v1/endpoints/user_profiles.py` & `server/app/services/user_profile_service.py`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 👤 Khách hàng (User)
+    participant Mobile as 📱 Flutter Mobile (main.dart)
+    participant API as 🚪 FastAPI Router (user_profiles.py)
+    participant Svc as ⚙️ UserProfileService
+    participant DB as 🗄️ PostgreSQL (user_profiles table)
+
+    Note over User, DB: Giai đoạn 1: Đăng nhập & Kiểm tra Onboarding
+    User->>Mobile: Đăng nhập thành công vào ứng dụng
+    Mobile->>API: GET /api/v1/users/{user_id}/profile
+    activate API
+    API->>Svc: get_or_create_profile(db, user_id)
+    activate Svc
+    Svc->>DB: select(UserProfile).where(user_id == user_id)
+    alt Chưa có profile
+        Svc->>DB: INSERT INTO user_profiles(user_id, is_onboarded=False)
+    end
+    DB-->>Svc: UserProfile instance
+    deactivate Svc
+    API-->>Mobile: HTTP 200 OK (UserProfileResponse: is_onboarded=False)
+    deactivate API
+
+    Note over User, Mobile: Giai đoạn 2: Khảo sát tương tác (Onboarding Survey Wizard)
+    Mobile->>User: Hiển thị OnboardingSurveyDialog (3 Bước)
+    User->>Mobile: Bước 1: Chọn thể loại món & chế độ ăn (healthy, low_carb)
+    User->>Mobile: Bước 2: Nhập chiều cao (175cm), cân nặng (70kg), mục tiêu (maintain)
+    User->>Mobile: Bước 3: Chọn độ cay (cay vừa), dị ứng (hải sản), ngân sách
+    User->>Mobile: Nhấn nút [Lưu & Hoàn tất]
+
+    Note over Mobile, DB: Giai đoạn 3: Lưu trữ & Tính toán BMI động
+    Mobile->>API: PUT /api/v1/users/{user_id}/profile {height_cm, weight_kg, complete_onboarding: true, ...}
+    activate API
+    API->>Svc: update_profile(db, user_id, payload)
+    activate Svc
+    Svc->>Svc: Kiểm tra ràng buộc (height BETWEEN 50 AND 260, weight BETWEEN 10 AND 500)
+    Svc->>Svc: Gán is_onboarded = True, onboarded_at = now()
+    Svc->>DB: UPDATE user_profiles SET ... (db.commit + db.refresh)
+    DB-->>Svc: Cập nhật thành công
+    deactivate Svc
+    API->>API: Tính toán tự động: bmi = 70 / (1.75^2) = 22.9, bmi_category = 'normal'
+    API-->>Mobile: HTTP 200 OK (UserProfileResponse: bmi=22.9, bmi_category='normal', is_onboarded=True)
+    deactivate API
+
+    Mobile->>User: Đóng Dialog, thông báo hoàn tất & hiển thị thẻ Hồ Sơ Sức Khỏe trên Tab Tài Khoản
+```
+
+</details>

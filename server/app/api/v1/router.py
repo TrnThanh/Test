@@ -11,6 +11,7 @@ from server.app.api.v1.endpoints import (
     weather,
     option_user,
     weather_categories,
+    user_profiles,
 )
 
 api_router = APIRouter()
@@ -76,3 +77,10 @@ api_router.include_router(
     prefix="/weather-categories",
     tags=["Weather Categories"],
 )
+
+api_router.include_router(
+    user_profiles.router,
+    prefix="/users",
+    tags=["User Profiles & Onboarding"],
+)
+

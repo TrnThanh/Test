@@ -422,3 +422,43 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
 | **Bữa ăn & Thời tiết:** Tra cứu loại bữa ăn & thời tiết | ✓ | ✓ | ✓ |
 | **Cấu hình Nền tảng:** Thêm mới MealType & Weather | ✗ | ✗ | **✓** |
 | **Quản trị cấp cao:** Vận hành và giám sát nền tảng | ✗ | ✗ | **✓** |
+
+
+---
+
+### 2.6. Phân hệ 6: Khảo sát Onboarding & Quản lý Hồ sơ Thực khách (User Profile & Dietary Options)
+Dành cho tác nhân **Khách hàng (User)** thực hiện khảo sát thể chất (chiều cao, cân nặng, BMI), thiết lập mục tiêu sức khỏe, khẩu vị ăn cay, dị ứng và thể loại món ăn yêu thích.
+
+```mermaid
+flowchart LR
+    User["👤 Khách hàng (User)"]
+    
+    subgraph System ["🔲 Hệ thống PTC1 (Consumer App & Backend)"]
+        UC1(["⬭ Khảo sát Onboarding lần đầu (3 bước)"])
+        UC2(["⬭ Khai báo Chiều cao & Cân nặng (Tính BMI)"])
+        UC3(["⬭ Thiết lập Sở thích & Khẩu vị món ăn"])
+        UC4(["⬭ Khai báo Dị ứng & Ngân sách"])
+        UC5(["⬭ Xem & Chỉnh sửa Hồ sơ Sức khỏe trong Tab Tài khoản"])
+    end
+
+    User --> UC1
+    User --> UC5
+    UC1 -.->|"<<include>>"| UC2
+    UC1 -.->|"<<include>>"| UC3
+    UC1 -.->|"<<include>>"| UC4
+```
+
+#### Đặc tả chi tiết Use Case:
+- **Tác nhân chính:** Khách hàng (User).
+- **Mục tiêu:** Thu thập và lưu trữ thông tin thể trạng (chiều cao, cân nặng, BMI) và sở thích cá nhân hóa (thể loại món, độ cay, chế độ ăn kiêng, dị ứng, ngân sách) để hệ thống phục vụ gợi ý món ăn chuẩn gu.
+- **Tiền điều kiện:** Người dùng đã đăng ký và đăng nhập tài khoản Thực khách thành công.
+- **Luồng sự kiện chính (Happy Path):**
+  1. Sau khi đăng nhập, hệ thống kiểm tra cờ `is_onboarded`. Nếu `false`, mở Onboarding Survey Dialog (3 bước).
+  2. Bước 1: Người dùng chọn các thể loại món yêu thích (Phở, Cơm, Lẩu nướng...) và chế độ ăn (Eat clean, Ăn chay, Low-carb...).
+  3. Bước 2: Người dùng nhập Chiều cao (cm), Cân nặng (kg), Năm sinh, Giới tính và Mục tiêu dinh dưỡng (Giảm cân, Tăng cơ, Duy trì dáng).
+  4. Bước 3: Người dùng chọn Khẩu vị cay (Không cay, Cay vừa, Rất cay), Dị ứng thực phẩm (Hải sản, Đậu phộng...) và Khung ngân sách.
+  5. Người dùng nhấn "Lưu & Hoàn tất". Hệ thống gửi request lên Backend API `PUT /api/v1/users/{id}/profile`, tự động tính toán chỉ số BMI và phân loại thể trạng, chuyển cờ `is_onboarded = True`.
+  6. Ứng dụng đóng modal và hiển thị thẻ Hồ Sơ Sức Khỏe & Sở Thích trên Tab Tài khoản.
+- **Luồng ngoại lệ (Alternative Flows):**
+  - Người dùng có thể nhấn "Để sau" để bỏ qua khảo sát lúc mới vào; một banner màu cam sẽ xuất hiện trong tab Tài khoản nhắc nhở khảo sát bất cứ lúc nào.
+  - Người dùng có thể nhấn biểu tượng Chỉnh sửa trong tab Tài khoản để cập nhật lại số đo thể chất hoặc sở thích bất kỳ lúc nào.

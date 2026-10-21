@@ -10,6 +10,11 @@ from server.app.schemas.restaurant import (
     NearbyRestaurantResponse,
     DistanceResponse,
 )
+from server.app.schemas.user_profile import (
+    UserProfileBase,
+    UserProfileUpdate,
+    UserProfileResponse,
+)
 
 __all__ = [
     "UserRegister",
@@ -27,4 +32,7 @@ __all__ = [
     "RestaurantResponse",
     "NearbyRestaurantResponse",
     "DistanceResponse",
+    "UserProfileBase",
+    "UserProfileUpdate",
+    "UserProfileResponse",
 ]

@@ -76,14 +76,18 @@ class RoleLoginResponse {
   });
 
   factory RoleLoginResponse.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> data = (json['data'] != null && json['data'] is Map<String, dynamic>)
+        ? json['data'] as Map<String, dynamic>
+        : json;
+
     return RoleLoginResponse(
       role: json['role'] as String? ?? 'user',
-      id: json['id'] as int,
-      email: json['email'] as String,
-      fullName: json['full_name'] as String?,
-      shopName: json['shop_name'] as String?,
-      phone: json['phone'] as String?,
-      accessToken: json['access_token'] as String? ?? '',
+      id: (data['id'] ?? json['id'] ?? 0) as int,
+      email: (data['email'] ?? json['email'] ?? '') as String,
+      fullName: (data['full_name'] ?? json['full_name']) as String?,
+      shopName: (data['shop_name'] ?? json['shop_name']) as String?,
+      phone: (data['phone'] ?? json['phone']) as String?,
+      accessToken: (json['access_token'] ?? data['access_token'] ?? '') as String,
     );
   }
 }
@@ -327,5 +331,98 @@ class OptionUser {
     'hide': hide,
   };
 }
+
+class UserProfile {
+  final int id;
+  final int userId;
+  final double? heightCm;
+  final double? weightKg;
+  final String? gender;
+  final int? birthYear;
+  final String? activityLevel;
+  final String? targetGoal;
+  final List<int> favoriteCategoryIds;
+  final List<String> dietaryPreferences;
+  final String? spicyTolerance;
+  final List<String> allergies;
+  final String? budgetRange;
+  final bool isOnboarded;
+  final String? onboardedAt;
+  final double? bmi;
+  final String? bmiCategory;
+
+  UserProfile({
+    required this.id,
+    required this.userId,
+    this.heightCm,
+    this.weightKg,
+    this.gender,
+    this.birthYear,
+    this.activityLevel,
+    this.targetGoal,
+    this.favoriteCategoryIds = const [],
+    this.dietaryPreferences = const [],
+    this.spicyTolerance,
+    this.allergies = const [],
+    this.budgetRange,
+    this.isOnboarded = false,
+    this.onboardedAt,
+    this.bmi,
+    this.bmiCategory,
+  });
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    List<int> catIds = [];
+    if (json['favorite_category_ids'] != null && json['favorite_category_ids'] is List) {
+      catIds = (json['favorite_category_ids'] as List).map((e) => (e as num).toInt()).toList();
+    }
+
+    List<String> diets = [];
+    if (json['dietary_preferences'] != null && json['dietary_preferences'] is List) {
+      diets = (json['dietary_preferences'] as List).map((e) => e.toString()).toList();
+    }
+
+    List<String> algs = [];
+    if (json['allergies'] != null && json['allergies'] is List) {
+      algs = (json['allergies'] as List).map((e) => e.toString()).toList();
+    }
+
+    return UserProfile(
+      id: json['id'] as int? ?? 0,
+      userId: json['user_id'] as int? ?? 0,
+      heightCm: json['height_cm'] != null ? (json['height_cm'] as num).toDouble() : null,
+      weightKg: json['weight_kg'] != null ? (json['weight_kg'] as num).toDouble() : null,
+      gender: json['gender'] as String?,
+      birthYear: json['birth_year'] != null ? (json['birth_year'] as num).toInt() : null,
+      activityLevel: json['activity_level'] as String?,
+      targetGoal: json['target_goal'] as String?,
+      favoriteCategoryIds: catIds,
+      dietaryPreferences: diets,
+      spicyTolerance: json['spicy_tolerance'] as String?,
+      allergies: algs,
+      budgetRange: json['budget_range'] as String?,
+      isOnboarded: json['is_onboarded'] as bool? ?? false,
+      onboardedAt: json['onboarded_at'] as String?,
+      bmi: json['bmi'] != null ? (json['bmi'] as num).toDouble() : null,
+      bmiCategory: json['bmi_category'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson({bool completeOnboarding = false}) => {
+    if (heightCm != null) 'height_cm': heightCm,
+    if (weightKg != null) 'weight_kg': weightKg,
+    if (gender != null) 'gender': gender,
+    if (birthYear != null) 'birth_year': birthYear,
+    if (activityLevel != null) 'activity_level': activityLevel,
+    if (targetGoal != null) 'target_goal': targetGoal,
+    'favorite_category_ids': favoriteCategoryIds,
+    'dietary_preferences': dietaryPreferences,
+    if (spicyTolerance != null) 'spicy_tolerance': spicyTolerance,
+    'allergies': allergies,
+    if (budgetRange != null) 'budget_range': budgetRange,
+    'complete_onboarding': completeOnboarding,
+  };
+}
+
 
 
