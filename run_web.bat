@@ -1,8 +1,12 @@
 @echo off
 cd /d "%~dp0web"
-title PTC1 Web Admin Console (Port 5173)
+title PTC1 Vue 3 Web App (Port 5173)
 echo ========================================================
-echo   KHOI DONG WEB ADMIN CONSOLE TAI http://localhost:5173
+echo   KHOI DONG PTC1 VUE 3 WEB APP TAI http://localhost:5173
 echo ========================================================
-npm run dev
+if not exist "node_modules" (
+    call npm install
+)
+start "" "http://localhost:5173"
+call npm run dev
 pause

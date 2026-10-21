@@ -25,18 +25,24 @@ Dự án cung cấp script tự động 1-click cài đặt đầy đủ từ A-
    dfghfnmbvm
 ---
 
-## 🏃 Khởi Chạy Server
+## 🏃 Khởi Chạy Ứng Dụng (1-Click Launchers)
 
-Sau khi cài đặt xong:
-- **Cách 1 (1-Click):** Click đúp vào file **`CHAY_SERVER.bat`** (Tự động khởi chạy FastAPI và tự động mở trình duyệt xem Swagger UI).
-- **Cách 2 (Thủ công):**
-  ```powershell
-  # Kích hoạt virtualenv
-  .\.venv\Scripts\Activate.ps1
+Dự án cung cấp các file batch khởi chạy nhanh chóng cho từng dịch vụ:
+- **Backend FastAPI**: Click đúp file **`CHAY_SERVER.bat`** (Khởi chạy FastAPI tại [http://localhost:8001](http://localhost:8001) và tự mở Swagger UI).
+- **Web Frontend (Vue 3 + Vite)**: Click đúp file **`CHAY_WEB.bat`** (Khởi chạy Vite tại [http://localhost:5173](http://localhost:5173) và tự mở trình duyệt).
+- **Mobile Client (Flutter Web)**: Click đúp file **`CHAY_MOBILE.bat`** (Khởi chạy Flutter Chrome tại [http://localhost:3000](http://localhost:3000)).
 
-  # Chạy server FastAPI
-  .\.venv\Scripts\uvicorn server.app.main:app --reload --port 8001
-  ```
+### Khởi chạy thủ công qua dòng lệnh:
+```powershell
+# 1. Chạy Backend
+.\.venv\Scripts\uvicorn server.app.main:app --reload --port 8001
+
+# 2. Chạy Web Frontend
+cd web && npm run dev
+
+# 3. Chạy Flutter Mobile
+cd mobile && flutter run -d chrome --web-port=3000
+```
 
 - **Swagger UI Interactive Docs:** [http://localhost:8001/docs](http://localhost:8001/docs)
 - **ReDoc:** [http://localhost:8001/redoc](http://localhost:8001/redoc)

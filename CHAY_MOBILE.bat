@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title [FLUTTER] PTC1 Mobile / Web App (Port 3000)
+title [MOBILE] PTC1 Flutter App (Port 3000)
 cls
 echo ==============================================================================
-echo                 KHOI DONG FLUTTER APP (PTC1 MOBILE)
+echo                 KHOI DONG FLUTTER MOBILE APP (PTC1)
 echo ==============================================================================
 echo.
 cd /d "%~dp0mobile"
