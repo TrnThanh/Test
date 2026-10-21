@@ -19,8 +19,9 @@ const emit = defineEmits<{
   (e: 'logout'): void;
 }>();
 
-// Active View Tab: 'dashboard' | 'restaurants' | 'menus' | 'accounts'
-const currentTab = ref<'dashboard' | 'restaurants' | 'menus' | 'accounts'>('dashboard');
+// --- NAVIGATION STATE ---
+type TabKey = 'dashboard' | 'restaurants' | 'menus' | 'accounts';
+const currentTab = ref<TabKey>('dashboard');
 
 // --- DATA STATES ---
 const stats = ref<SystemStats | null>(null);
@@ -40,8 +41,8 @@ const editPhone = ref('');
 const editDesc = ref('');
 const editOpenTime = ref('');
 const editCloseTime = ref('');
-const editLat = ref(21.0285);
-const editLon = ref(105.8542);
+const editLat = ref(21.0055);
+const editLon = ref(105.9325);
 const editIsActive = ref(true);
 const editSaving = ref(false);
 
@@ -53,9 +54,18 @@ const newRestPhone = ref('');
 const newRestDesc = ref('');
 const newRestOpenTime = ref('08:00');
 const newRestCloseTime = ref('22:00');
-const newRestLat = ref(21.0285);
-const newRestLon = ref(105.8542);
+const newRestLat = ref(21.0055); // Toạ độ trung tâm HVNN Gia Lâm
+const newRestLon = ref(105.9325);
 const newRestSaving = ref(false);
+
+// Menus State
+const selectedMenuRestaurantId = ref<number | null>(null);
+const menuCategories = ref<Category[]>([]);
+const menuDishes = ref<Dish[]>([]);
+const menuLoading = ref(false);
+const selectedCategoryId = ref<number | 'all'>('all');
+const dishSearchQuery = ref('');
+const menuRestSearch = ref('');
 
 // Create Dish Modal State
 const showCreateDishModal = ref(false);
@@ -73,16 +83,10 @@ const newCatName = ref('');
 const newCatDesc = ref('');
 const newCatSaving = ref(false);
 
-// Menus Tab State
-const selectedMenuRestaurantId = ref<number | null>(null);
-const menuCategories = ref<Category[]>([]);
-const menuDishes = ref<Dish[]>([]);
-const menuLoading = ref(false);
-
-// Accounts Tab State
-
+// Accounts State
 const users = ref<AdminUser[]>([]);
 const accountsLoading = ref(false);
+const userSearchQuery = ref('');
 
 // Notification Alert
 const noticeMsg = ref<string | null>(null);
@@ -118,6 +122,7 @@ async function loadRestaurants() {
   restaurantsLoading.value = true;
   try {
     restaurants.value = await api.getAdminRestaurants(0, 100);
+    // Nếu chưa chọn quán cho tab menu thì mặc định quán đầu tiên
     if (!selectedMenuRestaurantId.value && restaurants.value.length > 0) {
       selectedMenuRestaurantId.value = restaurants.value[0].id;
     }
@@ -128,35 +133,42 @@ async function loadRestaurants() {
   }
 }
 
-async function toggleRestaurantStatus(restaurant: Restaurant) {
+async function toggleRestaurantStatus(rest: Restaurant) {
+  const newStatus = !rest.is_active;
   try {
-    const updated = await api.toggleRestaurantStatus(restaurant.id, !restaurant.is_active);
-    restaurant.is_active = updated.is_active;
-    showNotice(
-      `Đã ${updated.is_active ? 'kích hoạt' : 'tạm dừng'} hoạt động của quán "${restaurant.name}"`
-    );
+    const updated = await api.updateRestaurantAsAdmin(rest.id, { is_active: newStatus });
+    const idx = restaurants.value.findIndex((r) => r.id === rest.id);
+    if (idx !== -1) {
+      restaurants.value[idx] = updated;
+    }
+    showNotice(`Đã chuyển trạng thái "${rest.name}" sang: ${newStatus ? 'Đang hoạt động' : 'Tạm dừng'}`);
     loadStats();
   } catch (err: any) {
-    showError(err.message || 'Lỗi khi thay đổi trạng thái quán ăn');
+    showError(err.message || 'Không thể cập nhật trạng thái quán');
   }
 }
 
-function openEditRestaurant(r: Restaurant) {
-  editingRestaurant.value = r;
-  editName.value = r.name;
-  editAddress.value = r.address || '';
-  editPhone.value = r.phone || '';
-  editDesc.value = r.description || '';
-  editOpenTime.value = r.open_time || '';
-  editCloseTime.value = r.close_time || '';
-  editLat.value = r.latitude;
-  editLon.value = r.longitude;
-  editIsActive.value = r.is_active;
+function openEditRestaurant(rest: Restaurant) {
+  editingRestaurant.value = rest;
+  editName.value = rest.name;
+  editAddress.value = rest.address || '';
+  editPhone.value = rest.phone || '';
+  editDesc.value = rest.description || '';
+  editOpenTime.value = rest.open_time || '';
+  editCloseTime.value = rest.close_time || '';
+  editLat.value = rest.latitude;
+  editLon.value = rest.longitude;
+  editIsActive.value = rest.is_active;
   showEditModal.value = true;
 }
 
 async function saveRestaurantChanges() {
   if (!editingRestaurant.value) return;
+  if (!editName.value.trim() || !editAddress.value.trim()) {
+    showError('Vui lòng nhập tên quán và địa chỉ');
+    return;
+  }
+
   editSaving.value = true;
   try {
     const updated = await api.updateRestaurantAsAdmin(editingRestaurant.value.id, {
@@ -171,30 +183,34 @@ async function saveRestaurantChanges() {
       is_active: editIsActive.value,
     });
 
-    const index = restaurants.value.findIndex((x) => x.id === updated.id);
-    if (index !== -1) {
-      restaurants.value[index] = updated;
+    const idx = restaurants.value.findIndex((r) => r.id === updated.id);
+    if (idx !== -1) {
+      restaurants.value[idx] = updated;
     }
 
-    showNotice(`Đã cập nhật thông tin quán "${updated.name}" thành công`);
+    showNotice(`Cập nhật thông tin quán "${updated.name}" thành công!`);
     showEditModal.value = false;
     loadStats();
   } catch (err: any) {
-    showError(err.message || 'Không thể lưu cập nhật quán ăn');
+    showError(err.message || 'Không thể cập nhật quán ăn');
   } finally {
     editSaving.value = false;
   }
 }
 
-async function deleteRestaurant(r: Restaurant) {
-  if (!confirm(`Bạn có chắc chắn muốn xoá vĩnh viễn quán ăn "${r.name}" (ID #${r.id})? Hành động này sẽ xoá cả thực đơn và không thể hoàn tác.`)) {
+async function deleteRestaurant(rest: Restaurant) {
+  if (!confirm(`Bạn có chắc muốn xoá vĩnh viễn quán "${rest.name}"? Dữ liệu thực đơn và món ăn của quán sẽ bị xoá kèm.`)) {
     return;
   }
 
   try {
-    await api.deleteRestaurantAsAdmin(r.id);
-    restaurants.value = restaurants.value.filter((x) => x.id !== r.id);
-    showNotice(`Đã xoá quán ăn "${r.name}" thành công.`);
+    await api.deleteRestaurant(rest.id);
+    restaurants.value = restaurants.value.filter((r) => r.id !== rest.id);
+    if (selectedMenuRestaurantId.value === rest.id) {
+      selectedMenuRestaurantId.value = restaurants.value.length > 0 ? restaurants.value[0].id : null;
+      loadMenuData();
+    }
+    showNotice(`Đã xoá quán "${rest.name}" khỏi hệ thống.`);
     loadStats();
   } catch (err: any) {
     showError(err.message || 'Không thể xoá quán ăn.');
@@ -203,8 +219,13 @@ async function deleteRestaurant(r: Restaurant) {
 
 // Menus
 async function loadMenuData() {
-  if (!selectedMenuRestaurantId.value) return;
+  if (!selectedMenuRestaurantId.value) {
+    menuCategories.value = [];
+    menuDishes.value = [];
+    return;
+  }
   menuLoading.value = true;
+  selectedCategoryId.value = 'all';
   try {
     const [cats, dishes] = await Promise.all([
       api.getRestaurantCategories(selectedMenuRestaurantId.value),
@@ -229,15 +250,13 @@ function selectRestaurantForMenu(restId: number) {
 async function loadAccounts() {
   accountsLoading.value = true;
   try {
-    const uList = await api.getAdminUsers();
-    users.value = uList;
+    users.value = await api.getAdminUsers();
   } catch (err: any) {
     showError(err.message || 'Không thể nạp danh sách tài khoản');
   } finally {
     accountsLoading.value = false;
   }
 }
-
 
 function openCreateRestaurantModal() {
   newRestName.value = '';
@@ -246,9 +265,15 @@ function openCreateRestaurantModal() {
   newRestDesc.value = '';
   newRestOpenTime.value = '08:00';
   newRestCloseTime.value = '22:00';
-  newRestLat.value = 21.0285;
-  newRestLon.value = 105.8542;
+  newRestLat.value = 21.0055;
+  newRestLon.value = 105.9325;
   showCreateRestaurantModal.value = true;
+}
+
+function applyHvnnPreset() {
+  newRestAddress.value = 'Thị trấn Trâu Quỳ, Huyện Gia Lâm, Hà Nội';
+  newRestLat.value = 21.0055;
+  newRestLon.value = 105.9325;
 }
 
 async function handleCreateRestaurant() {
@@ -270,7 +295,7 @@ async function handleCreateRestaurant() {
     });
     restaurants.value.unshift(created);
     selectedMenuRestaurantId.value = created.id;
-    showNotice(`Đã thêm quán ăn mới "${created.name}" thành công!`);
+    showNotice(`Đã thêm quán mới "${created.name}" thành công!`);
     showCreateRestaurantModal.value = false;
     loadStats();
   } catch (err: any) {
@@ -321,7 +346,7 @@ async function handleCreateDish() {
       is_available: true,
     });
     menuDishes.value.unshift(created);
-    showNotice(`Đã thêm món ăn "${created.name}" vào thực đơn thành công!`);
+    showNotice(`Đã thêm món "${created.name}" vào thực đơn.`);
     showCreateDishModal.value = false;
     loadStats();
   } catch (err: any) {
@@ -336,7 +361,7 @@ async function deleteDishItem(dish: Dish) {
   try {
     await api.deleteDish(dish.id);
     menuDishes.value = menuDishes.value.filter((d) => d.id !== dish.id);
-    showNotice(`Đã xóa món "${dish.name}" khỏi quán.`);
+    showNotice(`Đã xóa món "${dish.name}".`);
     loadStats();
   } catch (err: any) {
     showError(err.message || 'Không thể xóa món ăn');
@@ -364,10 +389,13 @@ async function handleCreateCategory() {
     const created = await api.createCategory(selectedMenuRestaurantId.value, {
       name: newCatName.value.trim(),
       description: newCatDesc.value.trim() || undefined,
+      is_active: true,
+      display_order: menuCategories.value.length,
     });
     menuCategories.value.push(created);
-    showNotice(`Đã tạo danh mục "${created.name}" thành công!`);
+    showNotice(`Đã tạo nhóm món "${created.name}" thành công!`);
     showCreateCategoryModal.value = false;
+    loadStats();
   } catch (err: any) {
     showError(err.message || 'Không thể tạo danh mục');
   } finally {
@@ -376,24 +404,29 @@ async function handleCreateCategory() {
 }
 
 async function deleteCategoryItem(cat: Category) {
-  if (!confirm(`Bạn có chắc muốn xóa danh mục "${cat.name}"? Các món thuộc danh mục này sẽ chuyển về Chưa phân loại.`)) return;
+  if (!confirm(`Xác nhận xóa danh mục "${cat.name}"? Các món trong danh mục sẽ được đưa về nhóm Chung.`)) {
+    return;
+  }
   try {
     await api.deleteCategory(cat.id);
     menuCategories.value = menuCategories.value.filter((c) => c.id !== cat.id);
-    showNotice(`Đã xóa danh mục "${cat.name}".`);
+    if (selectedCategoryId.value === cat.id) {
+      selectedCategoryId.value = 'all';
+    }
     loadMenuData();
+    showNotice(`Đã xóa danh mục "${cat.name}".`);
   } catch (err: any) {
     showError(err.message || 'Không thể xóa danh mục');
   }
 }
 
-// Filtered Restaurants
+// --- COMPUTED PROPERTIES ---
+
+// Lọc quán ăn theo từ khóa và trạng thái
 const filteredRestaurants = computed(() => {
   return restaurants.value.filter((r) => {
-    const matchesSearch =
-      !restaurantSearch.value.trim() ||
-      r.name.toLowerCase().includes(restaurantSearch.value.toLowerCase()) ||
-      (r.address && r.address.toLowerCase().includes(restaurantSearch.value.toLowerCase()));
+    const q = restaurantSearch.value.trim().toLowerCase();
+    const matchesSearch = !q || r.name.toLowerCase().includes(q) || (r.address && r.address.toLowerCase().includes(q));
 
     const matchesStatus =
       restaurantStatusFilter.value === 'all' ||
@@ -404,6 +437,63 @@ const filteredRestaurants = computed(() => {
   });
 });
 
+// Quán đang được chọn ở tab Thực đơn
+const selectedMenuRestaurant = computed(() => {
+  return restaurants.value.find((r) => r.id === selectedMenuRestaurantId.value) || null;
+});
+
+// Danh sách quán lọc ở cột Master tab Thực đơn
+const filteredMenuRestaurants = computed(() => {
+  const q = menuRestSearch.value.trim().toLowerCase();
+  if (!q) return restaurants.value;
+  return restaurants.value.filter(
+    (r) => r.name.toLowerCase().includes(q) || (r.address && r.address.toLowerCase().includes(q))
+  );
+});
+
+// Lọc món ăn theo Category và Search
+const filteredMenuDishes = computed(() => {
+  return menuDishes.value.filter((d) => {
+    const matchCat =
+      selectedCategoryId.value === 'all' ||
+      d.category_id === selectedCategoryId.value;
+
+    const q = dishSearchQuery.value.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      d.name.toLowerCase().includes(q) ||
+      (d.description && d.description.toLowerCase().includes(q)) ||
+      (d.ingredients && d.ingredients.some((ing) => ing.toLowerCase().includes(q)));
+
+    return matchCat && matchSearch;
+  });
+});
+
+// Lọc tài khoản người dùng
+const filteredUsers = computed(() => {
+  const q = userSearchQuery.value.trim().toLowerCase();
+  if (!q) return users.value;
+  return users.value.filter(
+    (u) => u.email.toLowerCase().includes(q) || (u.full_name && u.full_name.toLowerCase().includes(q))
+  );
+});
+
+// Helper chuyển meal type sang tiếng Việt
+function formatMealType(mt: MealType): string {
+  switch (mt) {
+    case 'breakfast':
+      return 'Bữa sáng';
+    case 'lunch':
+      return 'Bữa trưa';
+    case 'dinner':
+      return 'Bữa tối';
+    case 'snack':
+      return 'Ăn vặt';
+    default:
+      return 'Cả ngày';
+  }
+}
+
 onMounted(() => {
   loadStats();
   loadRestaurants();
@@ -413,172 +503,196 @@ onMounted(() => {
 
 <template>
   <div class="admin-portal">
-    <!-- Top Header -->
-    <header class="admin-header">
-      <div class="header-container">
-        <div class="header-brand">
-          <span class="admin-badge">ADMIN CONSOLE</span>
-          <div class="brand-text">
-            <h1>PTC1 Spatial Platform</h1>
-            <span class="brand-caption">Cổng Quản Trị & Giám Sát Cơ Sở Ẩm Thực</span>
+    <!-- Top Bar: Minimalist Modern Navbar -->
+    <header class="admin-topbar">
+      <div class="topbar-inner">
+        <!-- Brand -->
+        <div class="brand-cluster">
+          <div class="brand-logo">P</div>
+          <div>
+            <div class="brand-title">PTC1 Platform</div>
+            <div class="brand-subtitle">Cổng Quản Trị Hệ Thống</div>
           </div>
         </div>
 
         <!-- Navigation Tabs -->
-        <nav class="admin-nav">
+        <nav class="nav-cluster">
           <button
             type="button"
-            class="nav-item"
+            class="nav-tab"
             :class="{ active: currentTab === 'dashboard' }"
             @click="currentTab = 'dashboard'"
           >
-            Tổng Quan
+            Tổng quan
           </button>
           <button
             type="button"
-            class="nav-item"
+            class="nav-tab"
             :class="{ active: currentTab === 'restaurants' }"
             @click="currentTab = 'restaurants'"
           >
-            Quán Ăn ({{ restaurants.length }})
+            Cơ sở quán ăn
+            <span class="tab-badge">{{ restaurants.length }}</span>
           </button>
           <button
             type="button"
-            class="nav-item"
+            class="nav-tab"
             :class="{ active: currentTab === 'menus' }"
             @click="currentTab = 'menus'; loadMenuData()"
           >
-            Thực Đơn & Nhóm Món
+            Thực đơn món
           </button>
           <button
             type="button"
-            class="nav-item"
+            class="nav-tab"
             :class="{ active: currentTab === 'accounts' }"
             @click="currentTab = 'accounts'; loadAccounts()"
           >
-            Đối Tác & Người Dùng
+            Thực khách
+            <span class="tab-badge">{{ users.length }}</span>
           </button>
         </nav>
 
-        <!-- Admin Profile & Logout -->
-        <div class="header-user">
-          <div class="user-pill">
-            <span class="user-avatar">A</span>
-            <div class="user-info">
-              <span class="user-email">{{ admin.email }}</span>
-              <span class="user-role">Quản Trị Viên</span>
-            </div>
+        <!-- Admin Profile -->
+        <div class="user-cluster">
+          <div class="user-chip">
+            <span class="avatar-circle">A</span>
+            <span class="user-email-text" :title="admin.email">{{ admin.email }}</span>
           </div>
-          <button type="button" class="btn btn-outline btn-sm" @click="emit('logout')">
-            Đăng xuất
+          <button type="button" class="btn-logout" title="Đăng xuất" @click="emit('logout')">
+            Thoát
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Notification Bars -->
-    <div v-if="noticeMsg" class="container notice-bar">
-      <div class="alert alert-success">
-        {{ noticeMsg }}
-      </div>
+    <!-- Thông báo nổi -->
+    <div v-if="noticeMsg" class="banner-notice">
+      <span>{{ noticeMsg }}</span>
     </div>
-    <div v-if="errorMsg" class="container notice-bar">
-      <div class="alert alert-error">
-        {{ errorMsg }}
-      </div>
+    <div v-if="errorMsg" class="banner-error">
+      <span>{{ errorMsg }}</span>
     </div>
 
     <!-- Main Workspace -->
-    <main class="container admin-content">
+    <main class="admin-body">
       <!-- ============================================== -->
       <!-- TAB 1: TỔNG QUAN (DASHBOARD)                   -->
       <!-- ============================================== -->
-      <section v-if="currentTab === 'dashboard'" class="tab-pane">
-        <div class="pane-header">
+      <section v-if="currentTab === 'dashboard'" class="view-panel">
+        <div class="view-header">
           <div>
-            <h2>Bảng Điều Khiển Tổng Quan (Dashboard)</h2>
-            <p class="text-muted">Giám sát số lượng thực thể, dữ liệu toạ độ PostGIS và người dùng hệ thống</p>
+            <h1 class="view-title">Tổng quan hệ thống</h1>
+            <p class="view-desc">Tóm tắt các chỉ số cốt lõi và các cơ sở ẩm thực cập nhật mới nhất</p>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" :disabled="statsLoading" @click="loadStats(); loadRestaurants(); loadAccounts()">
-            {{ statsLoading ? 'Đang cập nhật...' : 'Làm Mới Dữ Liệu' }}
+          <button
+            type="button"
+            class="btn-refresh"
+            :disabled="statsLoading"
+            @click="loadStats(); loadRestaurants(); loadAccounts()"
+          >
+            {{ statsLoading ? 'Đang nạp...' : '↻ Làm mới' }}
           </button>
         </div>
 
-        <!-- KPI Grid -->
-        <div class="stats-grid">
-          <div class="kpi-card">
-            <div class="kpi-body">
-              <span class="kpi-value">{{ stats?.total_restaurants ?? restaurants.length }}</span>
-              <span class="kpi-label">Tổng Quán Ăn</span>
-            </div>
-            <div class="kpi-footer">
-              <span class="kpi-sub green">{{ stats?.active_restaurants ?? restaurants.filter(r => r.is_active).length }} đang mở</span>
-              <span class="kpi-divider">•</span>
-              <span class="kpi-sub red">{{ stats?.inactive_restaurants ?? restaurants.filter(r => !r.is_active).length }} tạm dừng</span>
+        <!-- 4 KPI Metrics tinh gọn -->
+        <div class="kpi-row">
+          <div class="kpi-box">
+            <span class="kpi-label">Tổng cơ sở quán</span>
+            <div class="kpi-num">{{ stats?.total_restaurants ?? restaurants.length }}</div>
+            <div class="kpi-footnote">
+              <span class="dot-online"></span> {{ stats?.active_restaurants ?? restaurants.filter(r => r.is_active).length }} đang mở cửa
             </div>
           </div>
 
-          <div class="kpi-card">
-            <div class="kpi-body">
-              <span class="kpi-value">{{ stats?.total_dishes ?? 0 }}</span>
-              <span class="kpi-label">Tổng Món Ăn</span>
-            </div>
-            <div class="kpi-footer">
-              <span class="kpi-sub">{{ stats?.total_categories ?? 0 }} nhóm danh mục thực đơn</span>
+          <div class="kpi-box">
+            <span class="kpi-label">Tổng món ăn</span>
+            <div class="kpi-num">{{ stats?.total_dishes ?? 0 }}</div>
+            <div class="kpi-footnote">
+              {{ stats?.total_categories ?? 0 }} nhóm danh mục món
             </div>
           </div>
 
-          
+          <div class="kpi-box">
+            <span class="kpi-label">Thực khách đăng ký</span>
+            <div class="kpi-num">{{ stats?.total_users ?? users.length }}</div>
+            <div class="kpi-footnote">Tài khoản Mobile App</div>
+          </div>
 
-          <div class="kpi-card">
-            <div class="kpi-body">
-              <span class="kpi-value">{{ stats?.total_users ?? users.length }}</span>
-              <span class="kpi-label">Thực Khách (Users)</span>
+          <div class="kpi-box">
+            <span class="kpi-label">Tỷ lệ hoạt động</span>
+            <div class="kpi-num">
+              {{
+                restaurants.length > 0
+                  ? Math.round((restaurants.filter(r => r.is_active).length / restaurants.length) * 100)
+                  : 100
+              }}%
             </div>
-            <div class="kpi-footer">
-              <span class="kpi-sub">Truy cập từ ứng dụng Mobile</span>
-            </div>
+            <div class="kpi-footnote">Cơ sở sẵn sàng phục vụ</div>
           </div>
         </div>
 
-        <!-- Infrastructure & Platform Health Cards -->
-        <div class="tech-grid">
-          <div class="tech-card">
-            <h3>Cấu Hình Nền Tảng Không Gian</h3>
-            <ul class="tech-list">
-              <li>
-                <span class="tech-name">Hệ Quản Trị CSDL:</span>
-                <span class="badge badge-primary">PostgreSQL 14 + PostGIS 3.6</span>
-              </li>
-              <li>
-                <span class="tech-name">Loại dữ liệu địa lý:</span>
-                <code>Geography(POINT, 4326 WGS84)</code>
-              </li>
-              <li>
-                <span class="tech-name">Thuật toán lân cận:</span>
-                <code>ST_DWithin & ST_Distance</code>
-              </li>
-              <li>
-                <span class="tech-name">Dịch vụ Geocoding bản đồ:</span>
-                <span class="badge badge-success">OpenStreetMap Nominatim</span>
-              </li>
-            </ul>
+        <!-- Bảng tóm tắt hoạt động gần đây -->
+        <div class="recent-box">
+          <div class="box-head">
+            <h2 class="box-title">Cơ sở hoạt động gần đây</h2>
+            <button type="button" class="btn-link" @click="currentTab = 'restaurants'">
+              Xem tất cả quán ăn →
+            </button>
           </div>
 
-          <div class="tech-card">
-            <h3>Lối Tắt Quản Trị Nhanh</h3>
-            <p class="text-muted" style="margin-bottom: 16px;">Truy cập nhanh các phân hệ điều hành quản lý cơ sở dữ liệu:</p>
-            <div class="quick-links">
-              <button type="button" class="btn btn-secondary" @click="currentTab = 'restaurants'">
-                Quản lý danh sách Quán ăn
-              </button>
-              <button type="button" class="btn btn-secondary" @click="currentTab = 'menus'; loadMenuData()">
-                Xem thực đơn & danh mục
-              </button>
-              <button type="button" class="btn btn-secondary" @click="currentTab = 'accounts'; loadAccounts()">
-                Xem danh sách Thực Khách (Users)
-              </button>
-            </div>
+          <div v-if="restaurantsLoading" class="compact-loading">
+            <div class="spinner-small"></div> Đang nạp dữ liệu...
+          </div>
+          <div v-else-if="restaurants.length === 0" class="compact-empty">
+            Chưa có quán ăn nào trên hệ thống.
+          </div>
+          <div v-else class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Cơ sở</th>
+                  <th>Địa chỉ</th>
+                  <th>Giờ phục vụ</th>
+                  <th>Trạng thái</th>
+                  <th style="text-align: right;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in restaurants.slice(0, 5)" :key="r.id">
+                  <td>
+                    <div class="rest-title-cell">
+                      <div class="rest-avatar">{{ r.name.charAt(0).toUpperCase() }}</div>
+                      <div>
+                        <strong>{{ r.name }}</strong>
+                        <div v-if="r.phone" class="text-sub">{{ r.phone }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-sub">{{ r.address || '—' }}</td>
+                  <td>
+                    <span v-if="r.open_time && r.close_time" class="time-pill">
+                      {{ r.open_time }} – {{ r.close_time }}
+                    </span>
+                    <span v-else class="text-sub">—</span>
+                  </td>
+                  <td>
+                    <span :class="['status-dot-badge', r.is_active ? 'active' : 'inactive']">
+                      {{ r.is_active ? 'Đang mở' : 'Tạm dừng' }}
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    <button
+                      type="button"
+                      class="btn-sub-action"
+                      @click="selectRestaurantForMenu(r.id)"
+                    >
+                      Thực đơn
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -586,116 +700,113 @@ onMounted(() => {
       <!-- ============================================== -->
       <!-- TAB 2: QUẢN LÝ QUÁN ĂN (RESTAURANTS)           -->
       <!-- ============================================== -->
-      <section v-else-if="currentTab === 'restaurants'" class="tab-pane">
-        <div class="pane-header">
+      <section v-else-if="currentTab === 'restaurants'" class="view-panel">
+        <div class="view-header">
           <div>
-            <h2>Quản Lý Cơ Sở Quán Ăn (Restaurants)</h2>
-            <p class="text-muted">Giám sát toạ độ địa lý, thông tin liên hệ và trạng thái hoạt động của từng quán</p>
+            <h1 class="view-title">Cơ sở quán ăn</h1>
+            <p class="view-desc">Quản lý danh sách, thông tin liên hệ và trạng thái hoạt động của từng quán</p>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="btn btn-primary btn-sm" @click="openCreateRestaurantModal">
-              + Thêm Quán Mới
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" :disabled="restaurantsLoading" @click="loadRestaurants">
-              {{ restaurantsLoading ? 'Đang tải...' : 'Làm Mới' }}
-            </button>
-          </div>
+          <button type="button" class="btn-primary-action" @click="openCreateRestaurantModal">
+            + Thêm quán mới
+          </button>
         </div>
 
-        <!-- Filter bar -->
-        <div class="filter-bar">
-          <input
-            v-model="restaurantSearch"
-            type="text"
-            class="input search-input"
-            placeholder="Tìm theo tên quán, địa chỉ..."
-          />
-          <div class="filter-group">
-            <label>Trạng thái:</label>
-            <select v-model="restaurantStatusFilter" class="input filter-select">
+        <!-- Toolbar: Search & Filter -->
+        <div class="toolbar-row">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input
+              v-model="restaurantSearch"
+              type="text"
+              placeholder="Tìm theo tên quán, địa chỉ..."
+              class="toolbar-input"
+            />
+          </div>
+          <div class="filter-cluster">
+            <label class="filter-label">Trạng thái:</label>
+            <select v-model="restaurantStatusFilter" class="toolbar-select">
               <option value="all">Tất cả ({{ restaurants.length }})</option>
-              <option value="active">Đang hoạt động ({{ restaurants.filter(r => r.is_active).length }})</option>
+              <option value="active">Đang mở ({{ restaurants.filter(r => r.is_active).length }})</option>
               <option value="inactive">Tạm dừng ({{ restaurants.filter(r => !r.is_active).length }})</option>
             </select>
           </div>
         </div>
 
-        <!-- Restaurants Table -->
-        <div v-if="restaurantsLoading" class="state-box">
-          <div class="spinner"></div>
-          <p>Đang tải danh sách cơ sở ẩm thực...</p>
+        <!-- Content Table -->
+        <div v-if="restaurantsLoading" class="panel-loading">
+          <div class="spinner-small"></div> Đang tải danh sách cơ sở...
         </div>
-
-        <div v-else-if="filteredRestaurants.length === 0" class="state-box">
-          <p>Không tìm thấy quán ăn nào phù hợp với bộ lọc.</p>
+        <div v-else-if="filteredRestaurants.length === 0" class="panel-empty">
+          Không tìm thấy quán ăn nào phù hợp với bộ lọc.
         </div>
-
-        <div v-else class="table-container">
-          <table class="admin-table">
+        <div v-else class="table-wrap main-card">
+          <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 60px;">ID</th>
-                <th>Tên Quán Ăn</th>
-                <th>Địa Chỉ</th>
-                <th>Giờ Mở Cửa</th>
-                <th>Toạ Độ PostGIS</th>
-                <th>Trạng Thái</th>
-                <th style="width: 220px; text-align: right;">Hành Động Quản Trị</th>
+                <th style="width: 50px;">#</th>
+                <th>Cơ sở quán ăn</th>
+                <th>Địa chỉ & Giờ phục vụ</th>
+                <th>Trạng thái</th>
+                <th style="width: 240px; text-align: right;">Hành động</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="r in filteredRestaurants" :key="r.id">
-                <td>#{{ r.id }}</td>
-                <td class="name-cell">
-                  <strong>{{ r.name }}</strong>
-                  <span v-if="r.phone" class="sub-cell">SĐT: {{ r.phone }}</span>
-                </td>
-                                <td class="addr-cell">{{ r.address || '—' }}</td>
+                <td class="text-sub">#{{ r.id }}</td>
                 <td>
-                  <span v-if="r.open_time && r.close_time">{{ r.open_time }} – {{ r.close_time }}</span>
-                  <span v-else class="text-muted">—</span>
-                </td>
-                <td>
-                  <code>{{ r.latitude.toFixed(4) }}, {{ r.longitude.toFixed(4) }}</code>
+                  <div class="rest-title-cell">
+                    <div class="rest-avatar">{{ r.name.charAt(0).toUpperCase() }}</div>
+                    <div>
+                      <div class="cell-main-title">{{ r.name }}</div>
+                      <div v-if="r.phone" class="text-sub">Hotline: {{ r.phone }}</div>
+                    </div>
+                  </div>
                 </td>
                 <td>
-                  <span class="badge" :class="r.is_active ? 'badge-primary' : 'badge-danger'">
-                    {{ r.is_active ? 'Hoạt động' : 'Tạm dừng' }}
+                  <div>{{ r.address || '—' }}</div>
+                  <div class="text-sub" style="margin-top: 2px;">
+                    <span v-if="r.open_time && r.close_time">🕒 {{ r.open_time }} – {{ r.close_time }}</span>
+                    <span v-else>🕒 Chưa cấu hình giờ</span>
+                  </div>
+                </td>
+                <td>
+                  <span :class="['status-dot-badge', r.is_active ? 'active' : 'inactive']">
+                    {{ r.is_active ? 'Đang hoạt động' : 'Tạm dừng' }}
                   </span>
                 </td>
                 <td style="text-align: right;">
-                  <div class="action-buttons">
+                  <div class="actions-group">
                     <button
                       type="button"
-                      class="btn-action"
-                      :title="r.is_active ? 'Tạm dừng hoạt động' : 'Kích hoạt hoạt động'"
-                      @click="toggleRestaurantStatus(r)"
+                      class="btn-action-ghost"
+                      title="Xem thực đơn của quán"
+                      @click="selectRestaurantForMenu(r.id)"
                     >
-                      {{ r.is_active ? 'Tạm Dừng' : 'Mở Quán' }}
+                      Thực đơn
                     </button>
                     <button
                       type="button"
-                      class="btn-action"
-                      title="Chỉnh sửa thông tin cơ sở"
+                      class="btn-action-ghost"
+                      title="Sửa thông tin"
                       @click="openEditRestaurant(r)"
                     >
                       Sửa
                     </button>
                     <button
                       type="button"
-                      class="btn-action"
-                      title="Xem thực đơn của quán"
-                      @click="selectRestaurantForMenu(r.id)"
+                      class="btn-action-ghost"
+                      :title="r.is_active ? 'Tạm dừng quán' : 'Mở bán lại'"
+                      @click="toggleRestaurantStatus(r)"
                     >
-                      Thực Đơn
+                      {{ r.is_active ? 'Tắt' : 'Bật' }}
                     </button>
                     <button
                       type="button"
-                      class="btn-action btn-action-danger"
-                      title="Xoá vĩnh viễn quán"
+                      class="btn-action-danger"
+                      title="Xóa quán vĩnh viễn"
                       @click="deleteRestaurant(r)"
                     >
-                      Xoá
+                      Xóa
                     </button>
                   </div>
                 </td>
@@ -706,178 +817,264 @@ onMounted(() => {
       </section>
 
       <!-- ============================================== -->
-      <!-- TAB 3: THỰC ĐƠN & NHÓM MÓN (MENUS)             -->
+      <!-- TAB 3: THỰC ĐƠN & NHÓM MÓN (MASTER-DETAIL)     -->
       <!-- ============================================== -->
-      <section v-else-if="currentTab === 'menus'" class="tab-pane">
-        <div class="pane-header">
+      <section v-else-if="currentTab === 'menus'" class="view-panel">
+        <div class="view-header">
           <div>
-            <h2>Kiểm Duyệt Thực Đơn & Nhóm Món (Menus & Dishes)</h2>
-            <p class="text-muted">Chọn một quán ăn để duyệt nhóm danh mục và danh sách món ăn đang phục vụ</p>
+            <h1 class="view-title">Thực đơn & Nhóm món</h1>
+            <p class="view-desc">Quản lý thực đơn phân nhóm theo từng cơ sở ẩm thực</p>
           </div>
-          <div class="rest-selector-box" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <label>Chọn Quán:</label>
-              <select
-                v-model="selectedMenuRestaurantId"
-                class="input"
-                style="min-width: 240px;"
-                @change="loadMenuData"
-              >
-                <option v-for="r in restaurants" :key="r.id" :value="r.id">
-                  #{{ r.id }} - {{ r.name }}
-                </option>
-              </select>
-            </div>
+          <div class="header-actions">
             <button
               type="button"
-              class="btn btn-primary btn-sm"
-              :disabled="!selectedMenuRestaurantId"
-              @click="openCreateDishModal"
-            >
-              + Thêm Món Ăn Mới
-            </button>
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
+              class="btn-secondary-action"
               :disabled="!selectedMenuRestaurantId"
               @click="openCreateCategoryModal"
             >
-              + Thêm Danh Mục
+              + Nhóm món
+            </button>
+            <button
+              type="button"
+              class="btn-primary-action"
+              :disabled="!selectedMenuRestaurantId"
+              @click="openCreateDishModal"
+            >
+              + Thêm món ăn
             </button>
           </div>
         </div>
 
-        <div v-if="menuLoading" class="state-box">
-          <div class="spinner"></div>
-          <p>Đang nạp thực đơn của quán...</p>
-        </div>
+        <!-- Layout Master - Detail 2 cột -->
+        <div class="master-detail-layout">
+          <!-- Cột Master (Trái): Chọn quán -->
+          <aside class="master-pane">
+            <div class="master-search-box">
+              <input
+                v-model="menuRestSearch"
+                type="text"
+                placeholder="Tìm quán ăn..."
+                class="master-input"
+              />
+            </div>
 
-        <div v-else>
-          <!-- Categories Overview -->
-          <div class="section-card">
-            <div class="section-header">
-              <h3>Nhóm Danh Mục ({{ menuCategories.length }})</h3>
+            <div class="master-list">
+              <div
+                v-for="r in filteredMenuRestaurants"
+                :key="r.id"
+                class="master-item"
+                :class="{ active: selectedMenuRestaurantId === r.id }"
+                @click="selectedMenuRestaurantId = r.id; loadMenuData()"
+              >
+                <div class="master-item-avatar">{{ r.name.charAt(0).toUpperCase() }}</div>
+                <div class="master-item-info">
+                  <div class="master-item-name">{{ r.name }}</div>
+                  <div class="master-item-sub">{{ r.address || '—' }}</div>
+                </div>
+              </div>
+              <div v-if="filteredMenuRestaurants.length === 0" class="master-empty">
+                Không tìm thấy quán
+              </div>
             </div>
-            <div v-if="menuCategories.length === 0" class="text-muted" style="padding: 12px 0;">
-              Quán chưa tạo nhóm danh mục nào.
+          </aside>
+
+          <!-- Cột Detail (Phải): Thực đơn & Món ăn -->
+          <section class="detail-pane">
+            <div v-if="!selectedMenuRestaurant" class="panel-empty">
+              Vui lòng chọn một quán ăn ở cột bên trái để quản lý thực đơn.
             </div>
-            <div v-else class="chips-container">
-              <span v-for="c in menuCategories" :key="c.id" class="category-chip" style="display: inline-flex; align-items: center; gap: 6px;">
-                <strong>{{ c.name }}</strong>
-                <small v-if="c.description">({{ c.description }})</small>
+
+            <div v-else>
+              <!-- Info Bar của quán đang chọn -->
+              <div class="detail-header-card">
+                <div>
+                  <h2 class="detail-rest-name">{{ selectedMenuRestaurant.name }}</h2>
+                  <div class="detail-rest-sub">
+                    <span>📍 {{ selectedMenuRestaurant.address || 'Chưa cập nhật địa chỉ' }}</span>
+                    <span v-if="selectedMenuRestaurant.open_time"> • 🕒 {{ selectedMenuRestaurant.open_time }} – {{ selectedMenuRestaurant.close_time }}</span>
+                  </div>
+                </div>
+                <div class="detail-stats-pill">
+                  {{ menuDishes.length }} món ăn • {{ menuCategories.length }} nhóm
+                </div>
+              </div>
+
+              <!-- Thanh lọc Category Pills -->
+              <div class="category-pills-bar">
                 <button
                   type="button"
-                  style="border: none; background: transparent; cursor: pointer; color: #ef4444; font-weight: bold; padding: 0 4px;"
-                  title="Xóa danh mục này"
-                  @click.stop="deleteCategoryItem(c)"
+                  class="cat-pill"
+                  :class="{ active: selectedCategoryId === 'all' }"
+                  @click="selectedCategoryId = 'all'"
                 >
-                  &times;
+                  Tất cả ({{ menuDishes.length }})
                 </button>
-              </span>
-            </div>
-          </div>
+                <div
+                  v-for="c in menuCategories"
+                  :key="c.id"
+                  class="cat-pill-wrapper"
+                >
+                  <button
+                    type="button"
+                    class="cat-pill"
+                    :class="{ active: selectedCategoryId === c.id }"
+                    @click="selectedCategoryId = c.id"
+                  >
+                    {{ c.name }}
+                  </button>
+                  <button
+                    type="button"
+                    class="cat-del-btn"
+                    title="Xóa nhóm này"
+                    @click.stop="deleteCategoryItem(c)"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="cat-pill add-cat-pill"
+                  @click="openCreateCategoryModal"
+                >
+                  + Thêm nhóm
+                </button>
+              </div>
 
-          <!-- Dishes Table -->
-          <div class="section-card" style="margin-top: 20px;">
-            <div class="section-header">
-              <h3>Danh Sách Món Ăn ({{ menuDishes.length }})</h3>
-            </div>
+              <!-- Thanh tìm kiếm món -->
+              <div class="dish-search-bar">
+                <input
+                  v-model="dishSearchQuery"
+                  type="text"
+                  placeholder="Lọc món ăn theo tên hoặc nguyên liệu..."
+                  class="dish-search-input"
+                />
+              </div>
 
-            <div v-if="menuDishes.length === 0" class="text-muted" style="padding: 12px 0;">
-              Quán chưa có món ăn nào trong thực đơn.
+              <!-- Trạng thái Loading hoặc Empty -->
+              <div v-if="menuLoading" class="panel-loading">
+                <div class="spinner-small"></div> Đang nạp thực đơn...
+              </div>
+
+              <div v-else-if="filteredMenuDishes.length === 0" class="panel-empty-box">
+                <div style="font-size: 1.5rem; margin-bottom: 8px;">🍽️</div>
+                <div style="font-weight: 600; margin-bottom: 4px;">Chưa có món ăn nào</div>
+                <p class="text-sub">Thêm món ăn mới để hoàn thiện thực đơn cho quán.</p>
+                <button
+                  type="button"
+                  class="btn-primary-action"
+                  style="margin-top: 12px;"
+                  @click="openCreateDishModal"
+                >
+                  + Thêm món ăn ngay
+                </button>
+              </div>
+
+              <!-- Lưới món ăn (Dish Cards Grid) -->
+              <div v-else class="dish-grid">
+                <div v-for="d in filteredMenuDishes" :key="d.id" class="dish-card">
+                  <div class="dish-card-body">
+                    <div class="dish-card-header">
+                      <div class="dish-card-title">{{ d.name }}</div>
+                      <div class="dish-price">{{ Number(d.price).toLocaleString('vi-VN') }} đ</div>
+                    </div>
+                    <p v-if="d.description" class="dish-card-desc">{{ d.description }}</p>
+
+                    <div class="dish-meta-row">
+                      <span class="meal-tag">{{ formatMealType(d.meal_type) }}</span>
+                      <span v-if="d.category_name" class="category-tag">{{ d.category_name }}</span>
+                    </div>
+
+                    <div v-if="d.ingredients && d.ingredients.length > 0" class="dish-ingredients">
+                      <span v-for="ing in d.ingredients" :key="ing" class="ing-tag">{{ ing }}</span>
+                    </div>
+                  </div>
+
+                  <div class="dish-card-footer">
+                    <span :class="['avail-badge', d.is_available ? 'available' : 'out-of-stock']">
+                      {{ d.is_available ? 'Còn món' : 'Hết món' }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn-dish-delete"
+                      title="Xóa món ăn"
+                      @click="deleteDishItem(d)"
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div v-else class="table-container">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th style="width: 50px;">ID</th>
-                    <th>Tên Món Ăn</th>
-                    <th>Đơn Giá</th>
-                    <th>Bữa Ăn</th>
-                    <th>Nhóm Danh Mục</th>
-                    <th>Thành Phần</th>
-                    <th>Tình Trạng</th>
-                    <th style="width: 100px; text-align: right;">Hành Động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="d in menuDishes" :key="d.id">
-                    <td>#{{ d.id }}</td>
-                    <td>
-                      <strong>{{ d.name }}</strong>
-                      <p v-if="d.description" class="sub-cell">{{ d.description }}</p>
-                    </td>
-                    <td>
-                      <span class="price-text">{{ Number(d.price).toLocaleString('vi-VN') }} đ</span>
-                    </td>
-                    <td>
-                      <span class="badge badge-neutral">{{ d.meal_type }}</span>
-                    </td>
-                    <td>{{ d.category_name || '—' }}</td>
-                    <td>
-                      <span v-for="ing in (d.ingredients || [])" :key="ing" class="tag-badge">{{ ing }}</span>
-                      <span v-if="!d.ingredients || d.ingredients.length === 0" class="text-muted">—</span>
-                    </td>
-                    <td>
-                      <span class="badge" :class="d.is_available ? 'badge-primary' : 'badge-danger'">
-                        {{ d.is_available ? 'Còn món' : 'Hết món' }}
-                      </span>
-                    </td>
-                    <td style="text-align: right;">
-                      <button
-                        type="button"
-                        class="btn-action btn-action-danger"
-                        title="Xóa món này khỏi quán"
-                        @click="deleteDishItem(d)"
-                      >
-                        Xóa
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </section>
         </div>
       </section>
 
       <!-- ============================================== -->
-      <!-- TAB 4: ĐỐI TÁC & NGƯỜI DÙNG (ACCOUNTS)         -->
+      <!-- TAB 4: THỰC KHÁCH (ACCOUNTS)                   -->
       <!-- ============================================== -->
-      <section v-else-if="currentTab === 'accounts'" class="tab-pane">
-        <div class="pane-header">
+      <section v-else-if="currentTab === 'accounts'" class="view-panel">
+        <div class="view-header">
           <div>
-            <h2>Quản Lý Tài Khoản Đối Tác & Người Dùng</h2>
-            <p class="text-muted">Danh sách các tài khoản Thực Khách (Users) trên hệ thống</p>
+            <h1 class="view-title">Tài khoản thực khách</h1>
+            <p class="view-desc">Danh sách tài khách hàng đã đăng ký sử dụng ứng dụng di động PTC1</p>
           </div>
-          </div>
-        <div v-if="accountsLoading" class="state-box">
-          <div class="spinner"></div>
-          <p>Đang nạp danh sách tài khoản...</p>
+          <button
+            type="button"
+            class="btn-refresh"
+            :disabled="accountsLoading"
+            @click="loadAccounts"
+          >
+            {{ accountsLoading ? 'Đang nạp...' : '↻ Làm mới' }}
+          </button>
         </div>
 
-        <div v-else class="table-container">
-          <table class="admin-table">
+        <div class="toolbar-row">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input
+              v-model="userSearchQuery"
+              type="text"
+              placeholder="Tìm theo email hoặc họ tên..."
+              class="toolbar-input"
+            />
+          </div>
+        </div>
+
+        <div v-if="accountsLoading" class="panel-loading">
+          <div class="spinner-small"></div> Đang tải danh sách tài khoản...
+        </div>
+        <div v-else-if="filteredUsers.length === 0" class="panel-empty">
+          Không tìm thấy tài khoản người dùng nào.
+        </div>
+        <div v-else class="table-wrap main-card">
+          <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 60px;">ID</th>
-                <th>Email Đăng Ký</th>
-                <th>Họ Và Tên</th>
-                <th>Trạng Thái</th>
-                <th>Ngày Tạo Tài Khoản</th>
+                <th style="width: 50px;">#</th>
+                <th>Người dùng</th>
+                <th>Họ và tên</th>
+                <th>Ngày tạo tài khoản</th>
+                <th>Trạng thái</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="u in users" :key="u.id">
-                <td>#{{ u.id }}</td>
-                <td><code>{{ u.email }}</code></td>
-                <td>{{ u.full_name || '—' }}</td>
+              <tr v-for="u in filteredUsers" :key="u.id">
+                <td class="text-sub">#{{ u.id }}</td>
                 <td>
-                  <span class="badge" :class="u.is_active ? 'badge-primary' : 'badge-danger'">
-                    {{ u.is_active ? 'Hoạt động' : 'Khoá' }}
+                  <div class="rest-title-cell">
+                    <div class="user-avatar-circle">{{ (u.full_name || u.email).charAt(0).toUpperCase() }}</div>
+                    <div>
+                      <div class="cell-main-title">{{ u.email }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ u.full_name || '—' }}</td>
+                <td class="text-sub">{{ new Date(u.created_at).toLocaleString('vi-VN') }}</td>
+                <td>
+                  <span :class="['status-dot-badge', u.is_active ? 'active' : 'inactive']">
+                    {{ u.is_active ? 'Hoạt động' : 'Bị khóa' }}
                   </span>
                 </td>
-                <td>{{ new Date(u.created_at).toLocaleString('vi-VN') }}</td>
               </tr>
             </tbody>
           </table>
@@ -885,136 +1082,143 @@ onMounted(() => {
       </section>
     </main>
 
-    <!-- Modal Chỉnh Sửa Quán Ăn (Admin Edit Modal) -->
-    <div v-if="showEditModal" class="modal-backdrop" @click.self="showEditModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Sửa Thông Tin Quán Ăn (#{{ editingRestaurant?.id }})</h3>
-          <button type="button" class="modal-close" @click="showEditModal = false">×</button>
+    <!-- ============================================== -->
+    <!-- MODAL: THÊM QUÁN MỚI                          -->
+    <!-- ============================================== -->
+    <div v-if="showCreateRestaurantModal" class="modal-backdrop" @click.self="showCreateRestaurantModal = false">
+      <div class="modal-sheet">
+        <div class="modal-sheet-header">
+          <h3>Thêm quán ăn mới</h3>
+          <button type="button" class="btn-close" @click="showCreateRestaurantModal = false">✕</button>
         </div>
 
-        <form class="modal-body" @submit.prevent="saveRestaurantChanges">
-          <div class="form-group">
-            <label>Tên Quán Ăn *</label>
-            <input v-model="editName" type="text" class="input" required />
+        <form class="modal-sheet-body" @submit.prevent="handleCreateRestaurant">
+          <div class="form-item">
+            <label>Tên quán ăn *</label>
+            <input v-model="newRestName" type="text" class="field-input" placeholder="Ví dụ: Cơm tấm Sài Gòn 99" required />
           </div>
 
-          <div class="form-group">
-            <label>Địa Chỉ Cụ Thể *</label>
-            <input v-model="editAddress" type="text" class="input" required />
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Số Điện Thoại</label>
-              <input v-model="editPhone" type="text" class="input" placeholder="0987..." />
+          <div class="form-item">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label>Địa chỉ cơ sở *</label>
+              <button type="button" class="btn-preset-hint" @click="applyHvnnPreset">
+                Gợi ý: HVNN Gia Lâm
+              </button>
             </div>
-            <div class="form-group">
-              <label>Trạng Thái Hoạt Động</label>
-              <select v-model="editIsActive" class="input">
-                <option :value="true">Hoạt động</option>
+            <input v-model="newRestAddress" type="text" class="field-input" placeholder="Số nhà, đường, thị trấn..." required />
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Số điện thoại</label>
+              <input v-model="newRestPhone" type="text" class="field-input" placeholder="0987..." />
+            </div>
+            <div class="form-item">
+              <label>Khung giờ mở cửa</label>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <input v-model="newRestOpenTime" type="time" class="field-input" />
+                <span>–</span>
+                <input v-model="newRestCloseTime" type="time" class="field-input" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Vĩ độ (Latitude)</label>
+              <input v-model.number="newRestLat" type="number" step="any" class="field-input" required />
+            </div>
+            <div class="form-item">
+              <label>Kinh độ (Longitude)</label>
+              <input v-model.number="newRestLon" type="number" step="any" class="field-input" required />
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label>Mô tả ngắn</label>
+            <textarea v-model="newRestDesc" class="field-textarea" rows="2" placeholder="Đặc sản, ghi chú thêm..."></textarea>
+          </div>
+
+          <div class="modal-sheet-footer">
+            <button type="button" class="btn-cancel" @click="showCreateRestaurantModal = false">
+              Hủy
+            </button>
+            <button type="submit" class="btn-primary-action" :disabled="newRestSaving">
+              {{ newRestSaving ? 'Đang tạo...' : 'Tạo cơ sở' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL: SỬA QUÁN ĂN                            -->
+    <!-- ============================================== -->
+    <div v-if="showEditModal" class="modal-backdrop" @click.self="showEditModal = false">
+      <div class="modal-sheet">
+        <div class="modal-sheet-header">
+          <h3>Sửa thông tin quán (#{{ editingRestaurant?.id }})</h3>
+          <button type="button" class="btn-close" @click="showEditModal = false">✕</button>
+        </div>
+
+        <form class="modal-sheet-body" @submit.prevent="saveRestaurantChanges">
+          <div class="form-item">
+            <label>Tên quán ăn *</label>
+            <input v-model="editName" type="text" class="field-input" required />
+          </div>
+
+          <div class="form-item">
+            <label>Địa chỉ *</label>
+            <input v-model="editAddress" type="text" class="field-input" required />
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Số điện thoại</label>
+              <input v-model="editPhone" type="text" class="field-input" />
+            </div>
+            <div class="form-item">
+              <label>Trạng thái</label>
+              <select v-model="editIsActive" class="field-select">
+                <option :value="true">Đang hoạt động</option>
                 <option :value="false">Tạm dừng</option>
               </select>
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label>Giờ Mở Cửa (HH:MM)</label>
-              <input v-model="editOpenTime" type="time" class="input" />
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Giờ mở cửa</label>
+              <input v-model="editOpenTime" type="time" class="field-input" />
             </div>
-            <div class="form-group">
-              <label>Giờ Đóng Cửa (HH:MM)</label>
-              <input v-model="editCloseTime" type="time" class="input" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Vĩ Độ (Latitude)</label>
-              <input v-model.number="editLat" type="number" step="any" class="input" required />
-            </div>
-            <div class="form-group">
-              <label>Kinh Độ (Longitude)</label>
-              <input v-model.number="editLon" type="number" step="any" class="input" required />
+            <div class="form-item">
+              <label>Giờ đóng cửa</label>
+              <input v-model="editCloseTime" type="time" class="field-input" />
             </div>
           </div>
 
-          <div class="form-group">
-            <label>Mô Tả Giới Thiệu Quán</label>
-            <textarea v-model="editDesc" class="input" rows="3"></textarea>
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Vĩ độ</label>
+              <input v-model.number="editLat" type="number" step="any" class="field-input" required />
+            </div>
+            <div class="form-item">
+              <label>Kinh độ</label>
+              <input v-model.number="editLon" type="number" step="any" class="field-input" required />
+            </div>
           </div>
 
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="showEditModal = false">
-              Hủy Bỏ
+          <div class="form-item">
+            <label>Mô tả quán</label>
+            <textarea v-model="editDesc" class="field-textarea" rows="2"></textarea>
+          </div>
+
+          <div class="modal-sheet-footer">
+            <button type="button" class="btn-cancel" @click="showEditModal = false">
+              Hủy
             </button>
-            <button type="submit" class="btn btn-primary" :disabled="editSaving">
-              {{ editSaving ? 'Đang lưu...' : 'Lưu Cập Nhật' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ============================================== -->
-    <!-- MODAL: TẠO MỚI QUÁN ĂN (CREATE RESTAURANT)     -->
-    <!-- ============================================== -->
-    <div v-if="showCreateRestaurantModal" class="modal-backdrop" @click.self="showCreateRestaurantModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Thêm Quán Ăn Mới Vào Hệ Thống</h3>
-          <button type="button" class="close-btn" @click="showCreateRestaurantModal = false">&times;</button>
-        </div>
-
-        <form @submit.prevent="handleCreateRestaurant" class="modal-form">
-          <div class="form-group">
-            <label>Tên Quán Ăn *</label>
-            <input v-model="newRestName" type="text" class="input" placeholder="Ví dụ: Phở Bò Gia Truyền PTC1" required />
-          </div>
-
-          <div class="form-group">
-            <label>Địa Chỉ Cụ Thể *</label>
-            <input v-model="newRestAddress" type="text" class="input" placeholder="Số nhà, phố, quận, TP..." required />
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Số Điện Thoại</label>
-              <input v-model="newRestPhone" type="text" class="input" placeholder="0912345678" />
-            </div>
-            <div class="form-group">
-              <label>Vĩ Độ (Latitude)</label>
-              <input v-model.number="newRestLat" type="number" step="any" class="input" required />
-            </div>
-            <div class="form-group">
-              <label>Kinh Độ (Longitude)</label>
-              <input v-model.number="newRestLon" type="number" step="any" class="input" required />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Giờ Mở Cửa (HH:MM)</label>
-              <input v-model="newRestOpenTime" type="time" class="input" />
-            </div>
-            <div class="form-group">
-              <label>Giờ Đóng Cửa (HH:MM)</label>
-              <input v-model="newRestCloseTime" type="time" class="input" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Mô Tả Giới Thiệu Quán</label>
-            <textarea v-model="newRestDesc" class="input" rows="2" placeholder="Đặc sản, phong cách phục vụ..."></textarea>
-          </div>
-
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="showCreateRestaurantModal = false">
-              Hủy Bỏ
-            </button>
-            <button type="submit" class="btn btn-primary" :disabled="newRestSaving">
-              {{ newRestSaving ? 'Đang tạo...' : 'Tạo Quán Mới' }}
+            <button type="submit" class="btn-primary-action" :disabled="editSaving">
+              {{ editSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
             </button>
           </div>
         </form>
@@ -1022,29 +1226,31 @@ onMounted(() => {
     </div>
 
     <!-- ============================================== -->
-    <!-- MODAL: THÊM MÓN ĂN MỚI (CREATE DISH)           -->
+    <!-- MODAL: THÊM MÓN ĂN                            -->
     <!-- ============================================== -->
     <div v-if="showCreateDishModal" class="modal-backdrop" @click.self="showCreateDishModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Thêm Món Ăn Mới Vào Quán</h3>
-          <button type="button" class="close-btn" @click="showCreateDishModal = false">&times;</button>
+      <div class="modal-sheet">
+        <div class="modal-sheet-header">
+          <h3>Thêm món ăn mới vào thực đơn</h3>
+          <button type="button" class="btn-close" @click="showCreateDishModal = false">✕</button>
         </div>
 
-        <form @submit.prevent="handleCreateDish" class="modal-form">
-          <div class="form-group">
-            <label>Tên Món Ăn *</label>
-            <input v-model="newDishName" type="text" class="input" placeholder="Ví dụ: Cơm tấm sườn bì chả" required />
+        <form class="modal-sheet-body" @submit.prevent="handleCreateDish">
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Tên món ăn *</label>
+              <input v-model="newDishName" type="text" class="field-input" placeholder="Ví dụ: Phở bò đặc biệt" required />
+            </div>
+            <div class="form-item">
+              <label>Đơn giá (VNĐ) *</label>
+              <input v-model.number="newDishPrice" type="number" min="0" step="1000" class="field-input" required />
+            </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label>Giá Tiền (VNĐ) *</label>
-              <input v-model.number="newDishPrice" type="number" min="0" step="1000" class="input" required />
-            </div>
-            <div class="form-group">
-              <label>Bữa Ăn Phục Vụ</label>
-              <select v-model="newDishMealType" class="input">
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Bữa ăn phù hợp</label>
+              <select v-model="newDishMealType" class="field-select">
                 <option value="all_day">Cả ngày (all_day)</option>
                 <option value="breakfast">Bữa sáng (breakfast)</option>
                 <option value="lunch">Bữa trưa (lunch)</option>
@@ -1052,34 +1258,33 @@ onMounted(() => {
                 <option value="snack">Ăn vặt / Xế (snack)</option>
               </select>
             </div>
+            <div class="form-item">
+              <label>Nhóm danh mục</label>
+              <select v-model="newDishCategoryId" class="field-select">
+                <option :value="null">-- Nhóm Chung --</option>
+                <option v-for="c in menuCategories" :key="c.id" :value="c.id">
+                  {{ c.name }}
+                </option>
+              </select>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label>Nhóm Danh Mục</label>
-            <select v-model="newDishCategoryId" class="input">
-              <option :value="null">-- Không phân nhóm / Chung --</option>
-              <option v-for="c in menuCategories" :key="c.id" :value="c.id">
-                {{ c.name }}
-              </option>
-            </select>
+          <div class="form-item">
+            <label>Nguyên liệu (phân tách bằng dấu phẩy)</label>
+            <input v-model="newDishIngredients" type="text" class="field-input" placeholder="Thịt bò, bánh phở, hành tây, rau thơm..." />
           </div>
 
-          <div class="form-group">
-            <label>Nguyên Liệu / Thành Phần (phân tách bằng dấu phẩy)</label>
-            <input v-model="newDishIngredients" type="text" class="input" placeholder="Gạo tấm, sườn nướng, chả trứng, nước mắm..." />
+          <div class="form-item">
+            <label>Mô tả chi tiết món</label>
+            <textarea v-model="newDishDesc" class="field-textarea" rows="2" placeholder="Hương vị, định lượng..."></textarea>
           </div>
 
-          <div class="form-group">
-            <label>Mô Tả Chi Tiết Món</label>
-            <textarea v-model="newDishDesc" class="input" rows="2" placeholder="Hương vị, định lượng, gợi ý ăn kèm..."></textarea>
-          </div>
-
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="showCreateDishModal = false">
-              Hủy Bỏ
+          <div class="modal-sheet-footer">
+            <button type="button" class="btn-cancel" @click="showCreateDishModal = false">
+              Hủy
             </button>
-            <button type="submit" class="btn btn-primary" :disabled="newDishSaving">
-              {{ newDishSaving ? 'Đang thêm...' : 'Thêm Món Ăn' }}
+            <button type="submit" class="btn-primary-action" :disabled="newDishSaving">
+              {{ newDishSaving ? 'Đang thêm...' : 'Thêm món' }}
             </button>
           </div>
         </form>
@@ -1087,518 +1292,1189 @@ onMounted(() => {
     </div>
 
     <!-- ============================================== -->
-    <!-- MODAL: THÊM DANH MỤC MỚI (CREATE CATEGORY)     -->
+    <!-- MODAL: THÊM DANH MỤC                          -->
     <!-- ============================================== -->
     <div v-if="showCreateCategoryModal" class="modal-backdrop" @click.self="showCreateCategoryModal = false">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Thêm Danh Mục Món Ăn Mới</h3>
-          <button type="button" class="close-btn" @click="showCreateCategoryModal = false">&times;</button>
+      <div class="modal-sheet" style="max-width: 440px;">
+        <div class="modal-sheet-header">
+          <h3>Thêm nhóm món mới</h3>
+          <button type="button" class="btn-close" @click="showCreateCategoryModal = false">✕</button>
         </div>
 
-        <form @submit.prevent="handleCreateCategory" class="modal-form">
-          <div class="form-group">
-            <label>Tên Danh Mục *</label>
-            <input v-model="newCatName" type="text" class="input" placeholder="Ví dụ: Món Nướng, Đồ Uống, Khai Vị..." required />
+        <form class="modal-sheet-body" @submit.prevent="handleCreateCategory">
+          <div class="form-item">
+            <label>Tên nhóm danh mục *</label>
+            <input v-model="newCatName" type="text" class="field-input" placeholder="Ví dụ: Đồ Uống, Món Nướng..." required />
           </div>
 
-          <div class="form-group">
-            <label>Mô Tả Nhóm Món</label>
-            <textarea v-model="newCatDesc" class="input" rows="2" placeholder="Mô tả nhóm danh mục này..."></textarea>
+          <div class="form-item">
+            <label>Mô tả ngắn</label>
+            <textarea v-model="newCatDesc" class="field-textarea" rows="2" placeholder="Ghi chú thêm về nhóm món..."></textarea>
           </div>
 
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="showCreateCategoryModal = false">
-              Hủy Bỏ
+          <div class="modal-sheet-footer">
+            <button type="button" class="btn-cancel" @click="showCreateCategoryModal = false">
+              Hủy
             </button>
-            <button type="submit" class="btn btn-primary" :disabled="newCatSaving">
-              {{ newCatSaving ? 'Đang tạo...' : 'Tạo Danh Mục' }}
+            <button type="submit" class="btn-primary-action" :disabled="newCatSaving">
+              {{ newCatSaving ? 'Đang tạo...' : 'Tạo nhóm' }}
             </button>
           </div>
         </form>
       </div>
     </div>
-
   </div>
 </template>
 
 <style scoped>
+/* ==================================================== */
+/* MODERN SAAS ADMIN CONSOLE STYLES                     */
+/* ==================================================== */
+
 .admin-portal {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #fafafa;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-/* Header */
-.admin-header {
-  background: #ffffff;
-  border-bottom: 1px solid var(--c-border);
+/* TOPBAR */
+.admin-topbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 50;
 }
 
-.header-container {
+.topbar-inner {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 12px 24px;
+  padding: 10px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: 24px;
 }
 
-.header-brand {
+.brand-cluster {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.admin-badge {
-  background-color: #18181b;
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  background-color: #0f172a;
   color: #ffffff;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: -0.5px;
 }
 
-.brand-text h1 {
-  font-size: 1.15rem;
-  font-weight: 800;
+.brand-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
   line-height: 1.2;
 }
 
-.brand-caption {
-  font-size: 0.75rem;
-  color: var(--c-text-muted);
+.brand-subtitle {
+  font-size: 11px;
+  color: #64748b;
 }
 
-.admin-nav {
+/* NAVIGATION TABS */
+.nav-cluster {
   display: flex;
   align-items: center;
   gap: 4px;
-  background-color: #f4f4f5;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--c-border);
+  background-color: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
 }
 
-.nav-item {
+.nav-tab {
   background: transparent;
   border: none;
-  font-size: 0.88rem;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--c-text-muted);
+  color: #64748b;
   padding: 6px 14px;
   border-radius: 6px;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.nav-item:hover {
-  color: var(--c-text);
+.nav-tab:hover {
+  color: #0f172a;
 }
 
-.nav-item.active {
-  color: #09090b;
+.nav-tab.active {
   background-color: #ffffff;
+  color: #0f172a;
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.header-user {
+.tab-badge {
+  background-color: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.nav-tab.active .tab-badge {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* USER PROFILE */
+.user-cluster {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.user-pill {
+.user-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f4f4f5;
-  padding: 4px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--c-border);
+  font-size: 13px;
+  color: #334155;
+  background-color: #f8fafc;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
 }
 
-.user-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  background: #18181b;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 0.8rem;
+.avatar-circle {
+  width: 24px;
+  height: 24px;
+  background-color: #e2e8f0;
+  color: #0f172a;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
 }
 
-.user-info {
-  display: flex;
-  flex-direction: column;
+.user-email-text {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.user-email {
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.2;
+.btn-logout {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.user-role {
-  font-size: 0.68rem;
-  color: var(--c-text-muted);
+.btn-logout:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
 }
 
-/* Notice Bar */
-.notice-bar {
-  margin-top: 16px;
-}
-
-/* Main Content */
-.admin-content {
-  flex: 1;
-  padding-top: 24px;
-  padding-bottom: 40px;
+/* NOTICES */
+.banner-notice,
+.banner-error {
   max-width: 1280px;
+  margin: 12px auto 0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.banner-notice {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.banner-error {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* BODY WORKSPACE */
+.admin-body {
+  max-width: 1280px;
+  width: 100%;
   margin: 0 auto;
+  padding: 24px;
+  flex: 1;
 }
 
-.pane-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.pane-header h2 {
-  font-size: 1.4rem;
-  font-weight: 800;
-}
-
-.text-muted {
-  color: var(--c-text-muted);
-  font-size: 0.9rem;
-}
-
-/* Stats KPI Cards */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.kpi-card {
-  background: #ffffff;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  padding: 20px;
+.view-panel {
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.kpi-icon {
-  font-size: 1.6rem;
-  margin-bottom: 12px;
-}
-
-.kpi-value {
-  font-size: 2.2rem;
-  font-weight: 800;
-  line-height: 1.1;
-  color: #000000;
-}
-
-.kpi-label {
-  font-size: 0.88rem;
-  color: var(--c-text-muted);
-  margin-top: 4px;
-}
-
-.kpi-footer {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid #f4f4f5;
-  font-size: 0.8rem;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.kpi-sub.green { color: #16a34a; font-weight: 600; }
-.kpi-sub.red { color: #dc2626; font-weight: 600; }
-
-/* Tech Grid */
-.tech-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 20px;
 }
 
-.tech-card {
-  background: #ffffff;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  padding: 24px;
-}
-
-.tech-card h3 {
-  font-size: 1.05rem;
-  font-weight: 700;
-  margin-bottom: 14px;
-}
-
-.tech-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tech-list li {
+.view-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: 0.88rem;
-}
-
-.quick-links {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* Tables */
-.table-container {
-  overflow-x: auto;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  background: #ffffff;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 0.9rem;
-}
-
-.admin-table th,
-.admin-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--c-border);
-}
-
-.admin-table th {
-  background: #f8fafc;
-  font-weight: 700;
-  color: #1e293b;
-  white-space: nowrap;
-}
-
-.admin-table tr:hover td {
-  background: #f8fafc;
-}
-
-.name-cell strong {
-  display: block;
-}
-
-.sub-cell {
-  font-size: 0.78rem;
-  color: var(--c-text-muted);
-}
-
-.addr-cell {
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.action-buttons {
-  display: inline-flex;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.btn-action {
-  background: #f4f4f5;
-  border: 1px solid var(--c-border);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.btn-action:hover {
-  background: #e4e4e7;
-}
-
-.btn-action-danger:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
-  color: #b91c1c;
-}
-
-/* Filter Bar */
-.filter-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
 }
 
-.search-input {
-  max-width: 380px;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.filter-select {
-  padding: 6px 12px;
-}
-
-/* Menus Tab */
-.section-card {
-  background: #ffffff;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  padding: 20px;
-}
-
-.section-header h3 {
-  font-size: 1.05rem;
+.view-title {
+  font-size: 20px;
   font-weight: 700;
-  margin-bottom: 12px;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px 0;
 }
 
-.chips-container {
+.view-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.header-actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
 }
 
-.category-chip {
-  background: #f4f4f5;
-  border: 1px solid var(--c-border);
+/* BUTTONS */
+.btn-primary-action {
+  background-color: #0f172a;
+  color: #ffffff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-primary-action:hover:not(:disabled) {
+  background-color: #1e293b;
+}
+
+.btn-primary-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary-action {
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-secondary-action:hover:not(:disabled) {
+  background-color: #f1f5f9;
+}
+
+.btn-refresh {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
   padding: 6px 12px;
   border-radius: 6px;
-  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.category-chip small {
-  color: var(--c-text-muted);
-  margin-left: 4px;
-}
-
-.tag-badge {
-  display: inline-block;
-  background: #e0f2fe;
-  color: #0369a1;
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-right: 4px;
-}
-
-.price-text {
-  font-weight: 700;
+.btn-refresh:hover:not(:disabled) {
+  background-color: #ffffff;
   color: #0f172a;
 }
 
-/* Modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+/* KPI ROW */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.kpi-box {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.kpi-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kpi-num {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.kpi-footnote {
+  font-size: 12px;
+  color: #64748b;
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
+  gap: 6px;
 }
 
-.modal-card {
-  background: #ffffff;
-  border-radius: var(--radius-md);
-  width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+.dot-online {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #16a34a;
 }
 
-.modal-header {
+/* RECENT BOX & TABLES */
+.recent-box,
+.main-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.box-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--c-border);
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.modal-header h3 {
-  font-size: 1.15rem;
-  font-weight: 700;
+.box-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: #0f172a;
 }
 
-.modal-close {
-  background: none;
+.btn-link {
+  background: transparent;
   border: none;
-  font-size: 1.4rem;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  color: var(--c-text-muted);
+  padding: 0;
 }
 
-.modal-body {
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  background-color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 12px 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background-color: #f8fafc;
+}
+
+.rest-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rest-avatar,
+.user-avatar-circle {
+  width: 32px;
+  height: 32px;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.cell-main-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.text-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.time-pill {
+  font-size: 12px;
+  color: #334155;
+  background-color: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.status-dot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.status-dot-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.status-dot-badge.active {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+.status-dot-badge.inactive {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.actions-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-action-ghost {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-action-ghost:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-action-danger {
+  background: transparent;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-action-danger:hover {
+  background-color: #fef2f2;
+}
+
+.btn-sub-action {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-sub-action:hover {
+  background-color: #eff6ff;
+}
+
+/* TOOLBAR ROW */
+.toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 12px;
+  gap: 8px;
+  min-width: 280px;
+  flex: 1;
+  max-width: 400px;
+}
+
+.search-icon {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.toolbar-input {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: #0f172a;
+  width: 100%;
+}
+
+.filter-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.toolbar-select {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #0f172a;
+  outline: none;
+}
+
+/* MASTER-DETAIL LAYOUT (TAB MENUS) */
+.master-detail-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.master-pane {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 180px);
+  position: sticky;
+  top: 80px;
+  overflow: hidden;
+}
+
+.master-search-box {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.master-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+}
+
+.master-list {
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.master-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+
+.master-item:hover {
+  background-color: #f8fafc;
+}
+
+.master-item.active {
+  background-color: #f1f5f9;
+  border-left-color: #0f172a;
+}
+
+.master-item-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background-color: #e2e8f0;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.master-item-info {
+  overflow: hidden;
+}
+
+.master-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.master-item-sub {
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.master-empty {
+  padding: 24px;
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* DETAIL PANE */
+.detail-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-header-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.detail-rest-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+}
+
+.detail-rest-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.detail-stats-pill {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  background-color: #f1f5f9;
+  padding: 4px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* CATEGORY PILLS BAR */
+.category-pills-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cat-pill-wrapper {
+  display: inline-flex;
+  align-items: center;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding-right: 4px;
+  transition: all 0.15s;
+}
+
+.cat-pill-wrapper:hover {
+  border-color: #cbd5e1;
+}
+
+.cat-pill {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  padding: 5px 12px;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+button.cat-pill {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+button.cat-pill.active {
+  background-color: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  font-weight: 600;
+}
+
+.cat-pill-wrapper:has(.active) {
+  background-color: #0f172a;
+  border-color: #0f172a;
+}
+
+.cat-pill-wrapper:has(.active) .cat-pill {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.cat-pill-wrapper:has(.active) .cat-del-btn {
+  color: #94a3b8;
+}
+
+.cat-del-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 50%;
+}
+
+.cat-del-btn:hover {
+  color: #ef4444;
+}
+
+.add-cat-pill {
+  border-style: dashed;
+  color: #64748b;
+}
+
+.add-cat-pill:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* DISH SEARCH BAR */
+.dish-search-bar {
+  width: 100%;
+}
+
+.dish-search-input {
+  width: 100%;
+  padding: 8px 14px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #ffffff;
+  outline: none;
+}
+
+/* DISH GRID */
+.dish-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.dish-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.dish-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.dish-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dish-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dish-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8590c;
+  white-space: nowrap;
+}
+
+.dish-card-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.dish-meta-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.meal-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: #334155;
+  background-color: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.category-tag {
+  font-size: 11px;
+  color: #2563eb;
+  background-color: #eff6ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.dish-ingredients {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ing-tag {
+  font-size: 10px;
+  color: #64748b;
+  background-color: #f8fafc;
+  border: 1px solid #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.dish-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
+.avail-badge {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.avail-badge.available {
+  color: #16a34a;
+}
+
+.avail-badge.out-of-stock {
+  color: #dc2626;
+}
+
+.btn-dish-delete {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.btn-dish-delete:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+/* STATE BOXES */
+.panel-loading,
+.panel-empty,
+.compact-loading,
+.compact-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.panel-empty-box {
+  background-color: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.spinner-small {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #0f172a;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* MODALS */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal-sheet {
+  background-color: #ffffff;
+  border-radius: 12px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-sheet-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-sheet-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.btn-close:hover {
+  color: #0f172a;
+  background-color: #f1f5f9;
+}
+
+.modal-sheet-body {
   padding: 20px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.form-group {
+.form-item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.form-group label {
-  font-size: 0.85rem;
+.form-item label {
+  font-size: 12px;
   font-weight: 600;
+  color: #334155;
 }
 
-.form-row {
+.field-input,
+.field-select,
+.field-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.field-input:focus,
+.field-select:focus,
+.field-textarea:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 1px #0f172a;
+}
+
+.form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.modal-actions {
+.btn-preset-hint {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-preset-hint:hover {
+  text-decoration: underline;
+}
+
+.modal-sheet-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.btn-cancel {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-cancel:hover {
+  background-color: #f1f5f9;
+}
+
+/* RESPONSIVE */
+@media (max-width: 860px) {
+  .master-detail-layout {
+    grid-template-columns: 1fr;
+  }
+  .master-pane {
+    max-height: 240px;
+    position: static;
+  }
+  .topbar-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .nav-cluster {
+    overflow-x: auto;
+  }
 }
 </style>

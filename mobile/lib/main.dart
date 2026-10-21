@@ -611,7 +611,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
                   spacing: 8,
                   children: [
                     ChoiceChip(
-                      label: const Text('HVNN'),
+                      label: const Text('HVNN (Trâu Quỳ)'),
                       selected: (_lat == 21.0046 && _lon == 105.9387),
                       onSelected: (_) {
                         setState(() {
@@ -623,34 +623,34 @@ class _NearbyScreenState extends State<NearbyScreen> {
                     ),
                     const SizedBox(width: 8),
                     ChoiceChip(
-                      label: const Text('Hồ Gươm'),
-                      selected: (_lat == 21.0285 && _lon == 105.8542),
+                      label: const Text('Ocean Park 1'),
+                      selected: (_lat == 20.9950 && _lon == 105.9550),
                       onSelected: (_) {
                         setState(() {
-                          _lat = 21.0285;
-                          _lon = 105.8542;
+                          _lat = 20.9950;
+                          _lon = 105.9550;
                         });
                         _searchNearby();
                       },
                     ),
                     ChoiceChip(
-                      label: const Text('Cầu Giấy'),
-                      selected: (_lat == 21.0333 && _lon == 105.7994),
+                      label: const Text('Bát Tràng'),
+                      selected: (_lat == 20.9760 && _lon == 105.9080),
                       onSelected: (_) {
                         setState(() {
-                          _lat = 21.0333;
-                          _lon = 105.7994;
+                          _lat = 20.9760;
+                          _lon = 105.9080;
                         });
                         _searchNearby();
                       },
                     ),
                     ChoiceChip(
-                      label: const Text('Tây Hồ'),
-                      selected: (_lat == 21.0556 && _lon == 105.8200),
+                      label: const Text('Ninh Hiệp'),
+                      selected: (_lat == 21.1120 && _lon == 105.9360),
                       onSelected: (_) {
                         setState(() {
-                          _lat = 21.0556;
-                          _lon = 105.8200;
+                          _lat = 21.1120;
+                          _lon = 105.9360;
                         });
                         _searchNearby();
                       },
@@ -789,6 +789,72 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
   late final MapController _mapController;
   final _searchCtrl = TextEditingController();
 
+  // Bounding box giới hạn phạm vi bản đồ trong địa phận Huyện Gia Lâm, Hà Nội
+  static final giaLamBounds = LatLngBounds(
+    const LatLng(20.9250, 105.8600),
+    const LatLng(21.1300, 106.0400),
+  );
+
+  // Danh sách toạ độ đường gấp khúc ranh giới đa giác Huyện Gia Lâm ("Cắt miếng bánh")
+  static const List<LatLng> giaLamBoundaryPolygon = [
+    LatLng(21.1250, 105.9340), // Chóp cực bắc: Ninh Hiệp (giáp TX Từ Sơn, Bắc Ninh)
+    LatLng(21.1180, 105.9450), // Đông Ninh Hiệp
+    LatLng(21.1080, 105.9520), // Đình Xuyên giáp Tiên Du
+    LatLng(21.0960, 105.9600), // Bờ bắc sông Đuống - Phù Đổng
+    LatLng(21.0820, 105.9720), // Đền Gióng - Phù Đổng
+    LatLng(21.0720, 105.9860), // Ven sông Đuống - Trung Mầu
+    LatLng(21.0600, 106.0020), // Mỏm đông bắc bờ bắc sông Đuống (Trung Mầu giáp Thuận Thành)
+    LatLng(21.0480, 106.0120), // Qua sông Đuống sang bờ nam Kim Sơn
+    LatLng(21.0360, 106.0240), // Đê Lệ Chi
+    LatLng(21.0260, 106.0350), // Chóp cực đông Gia Lâm: Lệ Chi
+    LatLng(21.0180, 106.0280), // Nam Lệ Chi - Dương Quang
+    LatLng(21.0080, 106.0160), // Dương Quang giáp Như Quỳnh, Hưng Yên
+    LatLng(20.9990, 106.0020), // Dương Xá (QL5 giáp Như Quỳnh)
+    LatLng(20.9920, 105.9880), // Dương Xá giáp Kiêu Kỵ
+    LatLng(20.9820, 105.9780), // Kiêu Kỵ giáp Hưng Yên
+    LatLng(20.9700, 105.9640), // Cực nam Kiêu Kỵ giáp Văn Giang
+    LatLng(20.9620, 105.9480), // Đa Tốn (giáp Ecopark, Văn Giang)
+    LatLng(20.9480, 105.9380), // Đa Tốn - Văn Đức
+    LatLng(20.9380, 105.9300), // Đông Văn Đức giáp Văn Giang
+    LatLng(20.9270, 105.9220), // Chóp cực nam Gia Lâm: Bãi bồi ven sông Hồng xã Văn Đức
+    LatLng(20.9340, 105.9140), // Bờ sông Hồng xã Kim Lan
+    LatLng(20.9480, 105.9080), // Kim Lan (nhìn sang Thanh Trì)
+    LatLng(20.9620, 105.9050), // Bờ sông Hồng làng gốm Bát Tràng
+    LatLng(20.9780, 105.9020), // Đê Bát Tràng - cống Xuân Quan
+    LatLng(20.9900, 105.9040), // Bờ đê Đông Dư (giáp Cự Khối, Long Biên)
+    LatLng(21.0020, 105.9120), // Chân cầu Thanh Trì (Đông Dư - Thạch Bàn)
+    LatLng(21.0140, 105.9160), // Trâu Quỳ giáp Thạch Bàn
+    LatLng(21.0260, 105.9140), // Cổ Bi giáp Phúc Lợi, Long Biên
+    LatLng(21.0360, 105.9100), // Cổ Bi giáp bờ nam sông Đuống (Giang Biên, Long Biên)
+    LatLng(21.0480, 105.9040), // Đặng Xá ven sông Đuống
+    LatLng(21.0580, 105.8960), // Chân cầu Đuống (giáp Thượng Thanh, Long Biên)
+    LatLng(21.0700, 105.8870), // TT. Yên Viên (ga Yên Viên giáp Long Biên)
+    LatLng(21.0820, 105.8800), // Yên Viên - Yên Thường (giáp Đông Anh)
+    LatLng(21.0950, 105.8820), // Xã Yên Thường (giáp Dục Tú, Đông Anh)
+    LatLng(21.1080, 105.8920), // Bắc Yên Thường (giáp Đông Anh)
+    LatLng(21.1180, 105.9120), // Ranh giới Đông Anh - Gia Lâm - Bắc Ninh
+  ];
+
+  static bool isPointInGiaLam(LatLng point) {
+    int count = 0;
+    final n = giaLamBoundaryPolygon.length;
+    for (int i = 0; i < n; i++) {
+      final p1 = giaLamBoundaryPolygon[i];
+      final p2 = giaLamBoundaryPolygon[(i + 1) % n];
+      if ((p1.latitude <= point.latitude && point.latitude < p2.latitude) ||
+          (p2.latitude <= point.latitude && point.latitude < p1.latitude)) {
+        if (point.longitude <
+            (p2.longitude - p1.longitude) *
+                    (point.latitude - p1.latitude) /
+                    (p2.latitude - p1.latitude) +
+                p1.longitude) {
+          count++;
+        }
+      }
+    }
+    return (count % 2) == 1;
+  }
+
   LatLng _currentCenter = const LatLng(21.0046, 105.9387); // Mặc định Học viện Nông nghiệp Việt Nam (HVNN)
   LatLng? _pinnedLocation;
   String? _pinnedAddress;
@@ -832,8 +898,10 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
     try {
       final list = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: 5.0);
       if (mounted) {
+        // Chỉ giữ lại các quán nằm trong miếng bánh Gia Lâm, bỏ toàn bộ quán thừa bên ngoài
+        final giaLamOnly = list.where((r) => isPointInGiaLam(LatLng(r.latitude, r.longitude))).toList();
         setState(() {
-          _nearbyRestaurants = list;
+          _nearbyRestaurants = giaLamOnly;
         });
       }
     } catch (_) {}
@@ -851,8 +919,10 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
 
     try {
       final res = await widget.api.searchMap(q);
+      // Lọc bỏ các kết quả ngoài Gia Lâm
+      final inGiaLam = res.where((p) => isPointInGiaLam(LatLng(p.latitude, p.longitude))).toList();
       setState(() {
-        _places = res;
+        _places = inGiaLam.isNotEmpty ? inGiaLam : res.take(2).toList();
       });
     } catch (e) {
       setState(() {
@@ -866,6 +936,15 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
   }
 
   Future<void> _onMapTap(LatLng point) async {
+    if (!isPointInGiaLam(point)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vị trí nằm ngoài địa phận Huyện Gia Lâm!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     setState(() {
       _pinnedLocation = point;
       _selectedRestaurant = null;
@@ -893,6 +972,15 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
 
   void _selectPlace(GeocodePlace p) {
     final pos = LatLng(p.latitude, p.longitude);
+    if (!isPointInGiaLam(pos)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Địa điểm này nằm ngoài địa phận Huyện Gia Lâm!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     setState(() {
       _pinnedLocation = pos;
       _pinnedAddress = p.displayName;
@@ -937,6 +1025,11 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
             options: MapOptions(
               initialCenter: _currentCenter,
               initialZoom: 14.0,
+              minZoom: 11.5,
+              maxZoom: 18.0,
+              cameraConstraint: CameraConstraint.containCenter(
+                bounds: giaLamBounds,
+              ),
               onTap: (tapPosition, point) => _onMapTap(point),
             ),
             children: [
@@ -944,6 +1037,35 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
                 urlTemplate: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                 subdomains: const ['a', 'b', 'c'],
                 userAgentPackageName: 'com.ptc1.mobile',
+                tileBounds: giaLamBounds,
+              ),
+              // 1.1 MẶT NẠ "CẮT MIẾNG BÁNH" (INVERSE MASK POLYGON)
+              // Che đặc hoàn toàn 100% phần bản đồ thừa bên ngoài, chỉ hiển thị đúng miếng bánh Gia Lâm
+              PolygonLayer(
+                polygons: [
+                  Polygon(
+                    points: const [
+                      LatLng(25.0, 102.0),
+                      LatLng(25.0, 110.0),
+                      LatLng(17.0, 110.0),
+                      LatLng(17.0, 102.0),
+                    ],
+                    holePointsList: [giaLamBoundaryPolygon],
+                    color: const Color(0xFFFAFAFA), // 100% che đặc trùng màu nền Scaffold, xoá sạch phần thừa
+                    borderColor: Colors.transparent,
+                    borderStrokeWidth: 0,
+                  ),
+                ],
+              ),
+              // 1.2 ĐƯỜNG GẤP KHÚC RANH GIỚI "MIẾNG BÁNH" GIA LÂM
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: [...giaLamBoundaryPolygon, giaLamBoundaryPolygon.first],
+                    color: Colors.deepOrange,
+                    strokeWidth: 3.5,
+                  ),
+                ],
               ),
               MarkerLayer(
                 markers: [
@@ -1020,7 +1142,7 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
                         child: TextField(
                           controller: _searchCtrl,
                           decoration: const InputDecoration(
-                            hintText: 'Nhập địa chỉ (VD: Hồ Gươm, Hà Nội)...',
+                            hintText: 'Tìm kiếm địa điểm tại Gia Lâm (VD: Trâu Quỳ, Ocean Park)...',
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(vertical: 14),
                           ),
@@ -1064,34 +1186,42 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
                     children: [
                       ActionChip(
                         avatar: const Icon(Icons.school, size: 16, color: Colors.deepOrange),
-                        label: const Text('HVNN (Nông Nghiệp)'),
+                        label: const Text('HVNN (Trâu Quỳ)'),
                         backgroundColor: Colors.white,
                         elevation: 2,
                         onPressed: () => _jumpTo(21.0046, 105.9387, 'Học viện Nông nghiệp Việt Nam (HVNN)'),
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.place, size: 16, color: Colors.deepOrange),
-                        label: const Text('Hồ Gươm'),
+                        avatar: const Icon(Icons.location_city, size: 16, color: Colors.deepOrange),
+                        label: const Text('Ocean Park 1'),
                         backgroundColor: Colors.white,
                         elevation: 2,
-                        onPressed: () => _jumpTo(21.0285, 105.8542, 'Hồ Gươm, Hoàn Kiếm, Hà Nội'),
+                        onPressed: () => _jumpTo(20.9950, 105.9550, 'Vinhomes Ocean Park 1, Gia Lâm'),
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.place, size: 16, color: Colors.deepOrange),
-                        label: const Text('Cầu Giấy'),
+                        avatar: const Icon(Icons.palette, size: 16, color: Colors.deepOrange),
+                        label: const Text('Làng gốm Bát Tràng'),
                         backgroundColor: Colors.white,
                         elevation: 2,
-                        onPressed: () => _jumpTo(21.0333, 105.7939, 'Cầu Giấy, Hà Nội'),
+                        onPressed: () => _jumpTo(20.9760, 105.9080, 'Làng gốm Bát Tràng, Gia Lâm'),
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.place, size: 16, color: Colors.deepOrange),
-                        label: const Text('Tây Hồ'),
+                        avatar: const Icon(Icons.store, size: 16, color: Colors.deepOrange),
+                        label: const Text('Chợ Ninh Hiệp'),
                         backgroundColor: Colors.white,
                         elevation: 2,
-                        onPressed: () => _jumpTo(21.0717, 105.8236, 'Tây Hồ, Hà Nội'),
+                        onPressed: () => _jumpTo(21.1120, 105.9360, 'Chợ Ninh Hiệp, Gia Lâm'),
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        avatar: const Icon(Icons.train, size: 16, color: Colors.deepOrange),
+                        label: const Text('TT. Yên Viên'),
+                        backgroundColor: Colors.white,
+                        elevation: 2,
+                        onPressed: () => _jumpTo(21.0830, 105.9020, 'Thị trấn Yên Viên, Gia Lâm'),
                       ),
                     ],
                   ),
