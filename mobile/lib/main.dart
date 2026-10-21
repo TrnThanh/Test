@@ -32,6 +32,20 @@ bool isOpenNow(String? openTime, String? closeTime) {
   }
 }
 
+
+/// Chuẩn hoá thông báo lỗi thân thiện với người dùng
+String formatErrorMessage(Object error) {
+  final str = error.toString().replaceAll('Exception: ', '');
+  final lower = str.toLowerCase();
+  if (lower.contains('failed to fetch') ||
+      lower.contains('connection refused') ||
+      lower.contains('socketexception') ||
+      lower.contains('clientexception')) {
+    return 'Chưa kết nối được tới máy chủ Backend (Cổng 8001/8000).\nVui lòng kiểm tra và chạy file "CHAY_SERVER.bat" để khởi động Backend!';
+  }
+  return str;
+}
+
 class Ptc1App extends StatelessWidget {
   final ApiService? apiService;
 
@@ -227,7 +241,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = formatErrorMessage(e);
       });
     } finally {
       setState(() {
@@ -525,7 +539,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = formatErrorMessage(e);
       });
     } finally {
       setState(() {
@@ -926,7 +940,7 @@ class _GeocodingScreenState extends State<GeocodingScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = formatErrorMessage(e);
       });
     } finally {
       setState(() {
@@ -1553,7 +1567,7 @@ class _AccountScreenState extends State<AccountScreen> {
       _loadRoleData();
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = formatErrorMessage(e);
       });
     } finally {
       setState(() {
