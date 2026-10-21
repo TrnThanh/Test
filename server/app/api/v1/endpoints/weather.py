@@ -1,12 +1,28 @@
-from typing import List
-from fastapi import APIRouter, Depends, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from server.app.db.session import get_db
-from server.app.schemas.weather import WeatherResponse, WeatherCreate
+from server.app.schemas.weather import WeatherResponse, WeatherCreate, CurrentWeatherResponse
 from server.app.services.weather_service import WeatherService
 
 router = APIRouter()
+
+
+@router.get(
+    "/current",
+    response_model=CurrentWeatherResponse,
+    summary="Lấy thời tiết thực tế hiện tại & danh mục món ăn phù hợp (OpenWeatherMap)",
+    description="Truy vấn dữ liệu thời tiết thời gian thực theo tọa độ (mặc định Học viện Nông nghiệp Việt Nam - HVNN), tự động chuẩn hóa và trả về các danh mục món ăn phù hợp.",
+)
+async def get_current_weather(
+    lat: Optional[float] = Query(None, description="Vĩ độ (mặc định: toạ độ HVNN 21.0046)"),
+    lon: Optional[float] = Query(None, description="Kinh độ (mặc định: toạ độ HVNN 105.9387)"),
+    db: Session = Depends(get_db),
+) -> CurrentWeatherResponse:
+    # Đảm bảo dữ liệu thời tiết mặc định đã được khởi tạo
+    WeatherService.seed_default_weathers(db)
+    return await WeatherService.fetch_current_weather(db=db, lat=lat, lon=lon)
 
 
 @router.get(
