@@ -156,21 +156,21 @@ void main() {
     await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
     await tester.pumpAndSettle();
 
-    // 1. Kiểm tra màn hình Khám phá ban đầu
+    // 1. Kiểm tra màn hình Trang chủ (Khám phá) ban đầu
     expect(find.text('PTC1 Khám Phá Quán Ăn'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
     expect(find.text('Bún Chả Đắc Kim'), findsOneWidget);
 
-    // 2. Chuyển sang Tab "Gần đây"
-    await tester.tap(find.text('Gần đây'));
+    // 2. Chuyển sang Tab "Bản đồ"
+    await tester.tap(find.text('Bản đồ'));
     await tester.pumpAndSettle();
-    expect(find.text('Quán Ăn Lân Cận (PostGIS)'), findsOneWidget);
-    expect(find.text('Bán kính tìm kiếm:'), findsOneWidget);
+    expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
 
-    // 3. Chuyển sang Tab "Bản đồ OSM"
-    await tester.tap(find.text('Bản đồ OSM'));
+    // 3. Chuyển sang Tab "Yêu thích"
+    await tester.tap(find.text('Yêu thích'));
     await tester.pumpAndSettle();
-    expect(find.text('Bản Đồ & Geocoding OSM'), findsOneWidget);
+    expect(find.text('Món Ăn Yêu Thích'), findsOneWidget);
+    expect(find.text('Lưu Giữ Món Ăn Bạn Yêu Thích'), findsOneWidget);
 
     // 4. Chuyển sang Tab "Tài khoản"
     await tester.tap(find.text('Tài khoản'));
@@ -197,7 +197,7 @@ void main() {
     expect(find.text('Phở Tái Lăn'), findsOneWidget);
 
     // Bấm nút Trái Tim (❤) yêu thích món ăn khi chưa đăng nhập
-    final heartBtn = find.byIcon(Icons.favorite_border).first;
+    final heartBtn = find.byTooltip('Thích món này');
     await tester.tap(heartBtn);
     await tester.pumpAndSettle();
 

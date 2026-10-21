@@ -5,7 +5,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from server.app.models.user import User
-from server.app.models.user_profile import UserProfile
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
 from server.app.core.security import hash_password
@@ -49,7 +48,7 @@ def test_category(db_session: Session) -> Category:
 
 
 def test_get_or_create_profile_default(client: TestClient, test_user: User):
-    """Kiểm tra truy vấn profile lần đầu tiên: tự động khởi tạo mặc định."""
+    """Kiểm tra truy vấn profile lần đầu tiên: trả về giá trị mặc định từ bảng users."""
     response = client.get(f"/api/v1/users/{test_user.id}/profile")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
@@ -66,7 +65,7 @@ def test_get_or_create_profile_default(client: TestClient, test_user: User):
 
 
 def test_update_profile_physical_and_bmi(client: TestClient, test_user: User):
-    """Kiểm tra cập nhật chỉ số thể chất và tính toán BMI tự động."""
+    """Kiểm tra cập nhật chỉ số thể chất trực tiếp trên User và tính toán BMI tự động."""
     payload = {
         "height_cm": 175.0,
         "weight_kg": 70.0,
@@ -92,7 +91,7 @@ def test_update_profile_physical_and_bmi(client: TestClient, test_user: User):
 def test_update_profile_preferences_and_onboarding(
     client: TestClient, test_user: User, test_category: Category
 ):
-    """Kiểm tra cập nhật sở thích món ăn, dị ứng, khẩu vị cay và hoàn thành onboarding."""
+    """Kiểm tra cập nhật sở thích món ăn, dị ứng, khẩu vị cay và hoàn thành onboarding trực tiếp trên User."""
     payload = {
         "favorite_category_ids": [test_category.id],
         "dietary_preferences": ["healthy", "low_carb"],
@@ -130,20 +129,19 @@ def test_validation_constraints(client: TestClient, test_user: User):
     assert res2.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
-def test_cascade_delete_user_deletes_profile(
+def test_delete_user_cleans_up_data(
     client: TestClient, db_session: Session, test_user: User
 ):
-    """Kiểm tra khi xóa User thì UserProfile tương ứng tự động bị xóa theo (CASCADE)."""
-    # Khởi tạo profile trước
-    res = client.get(f"/api/v1/users/{test_user.id}/profile")
-    assert res.status_code == status.HTTP_200_OK
-    profile_id = res.json()["id"]
+    """Kiểm tra khi xóa User thì toàn bộ dữ liệu người dùng và hồ sơ được dọn dẹp sạch sẽ."""
+    user_id = test_user.id
+    # Cập nhật thông tin trước
+    client.put(f"/api/v1/users/{user_id}/profile", json={"height_cm": 170.0, "weight_kg": 65.0})
 
-    # Xóa user
+    # Xóa user khỏi cơ sở dữ liệu
     db_session.delete(test_user)
     db_session.commit()
 
-    # Kiểm tra profile trong DB
-    stmt = select(UserProfile).where(UserProfile.id == profile_id)
-    profile_in_db = db_session.scalar(stmt)
-    assert profile_in_db is None
+    # Truy vấn lại endpoint profile phải trả về 404
+    res = client.get(f"/api/v1/users/{user_id}/profile")
+    assert res.status_code == status.HTTP_404_NOT_FOUND
+    assert db_session.get(User, user_id) is None

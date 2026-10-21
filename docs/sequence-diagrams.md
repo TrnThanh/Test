@@ -427,7 +427,7 @@ sequenceDiagram
     participant Mobile as 📱 Flutter Mobile (main.dart)
     participant API as 🚪 FastAPI Router (user_profiles.py)
     participant Svc as ⚙️ UserProfileService
-    participant DB as 🗄️ PostgreSQL (user_profiles table)
+    participant DB as 🗄️ PostgreSQL (users table)
 
     Note over User, DB: Giai đoạn 1: Đăng nhập & Kiểm tra Onboarding
     User->>Mobile: Đăng nhập thành công vào ứng dụng
@@ -435,11 +435,8 @@ sequenceDiagram
     activate API
     API->>Svc: get_or_create_profile(db, user_id)
     activate Svc
-    Svc->>DB: select(UserProfile).where(user_id == user_id)
-    alt Chưa có profile
-        Svc->>DB: INSERT INTO user_profiles(user_id, is_onboarded=False)
-    end
-    DB-->>Svc: UserProfile instance
+    Svc->>DB: db.get(User, user_id)
+    DB-->>Svc: User entity (tích hợp hồ sơ)
     deactivate Svc
     API-->>Mobile: HTTP 200 OK (UserProfileResponse: is_onboarded=False)
     deactivate API
@@ -451,14 +448,14 @@ sequenceDiagram
     User->>Mobile: Bước 3: Chọn độ cay (cay vừa), dị ứng (hải sản), ngân sách
     User->>Mobile: Nhấn nút [Lưu & Hoàn tất]
 
-    Note over Mobile, DB: Giai đoạn 3: Lưu trữ & Tính toán BMI động
+    Note over Mobile, DB: Giai đoạn 3: Lưu trữ trực tiếp & Tính toán BMI động
     Mobile->>API: PUT /api/v1/users/{user_id}/profile {height_cm, weight_kg, complete_onboarding: true, ...}
     activate API
     API->>Svc: update_profile(db, user_id, payload)
     activate Svc
     Svc->>Svc: Kiểm tra ràng buộc (height BETWEEN 50 AND 260, weight BETWEEN 10 AND 500)
-    Svc->>Svc: Gán is_onboarded = True, onboarded_at = now()
-    Svc->>DB: UPDATE user_profiles SET ... (db.commit + db.refresh)
+    Svc->>Svc: Gán is_onboarded = True, onboarded_at = now(), updated_at = now()
+    Svc->>DB: UPDATE users SET ... (db.commit + db.refresh)
     DB-->>Svc: Cập nhật thành công
     deactivate Svc
     API->>API: Tính toán tự động: bmi = 70 / (1.75^2) = 22.9, bmi_category = 'normal'
@@ -467,5 +464,7 @@ sequenceDiagram
 
     Mobile->>User: Đóng Dialog, thông báo hoàn tất & hiển thị thẻ Hồ Sơ Sức Khỏe trên Tab Tài Khoản
 ```
-
-</details>
+
+
+</details>
+

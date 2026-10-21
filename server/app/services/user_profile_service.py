@@ -5,36 +5,26 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from server.app.models.user import User
-from server.app.models.user_profile import UserProfile
 from server.app.models.category import Category
 from server.app.schemas.user_profile import UserProfileUpdate
 
 
 class UserProfileService:
     @staticmethod
-    def get_or_create_profile(db: Session, user_id: int) -> UserProfile:
-        """Lấy hồ sơ người dùng. Nếu chưa tồn tại, tự động tạo mới (idempotent get-or-create)."""
+    def get_or_create_profile(db: Session, user_id: int) -> User:
+        """Lấy hồ sơ người dùng trực tiếp từ bảng users."""
         user = db.get(User, user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy người dùng với ID {user_id}.",
             )
-
-        stmt = select(UserProfile).where(UserProfile.user_id == user_id)
-        profile = db.scalar(stmt)
-        if not profile:
-            profile = UserProfile(user_id=user_id)
-            db.add(profile)
-            db.commit()
-            db.refresh(profile)
-
-        return profile
+        return user
 
     @staticmethod
-    def update_profile(db: Session, user_id: int, data: UserProfileUpdate) -> UserProfile:
-        """Cập nhật thông tin hồ sơ sức khỏe & sở thích ẩm thực của người dùng."""
-        profile = UserProfileService.get_or_create_profile(db, user_id)
+    def update_profile(db: Session, user_id: int, data: UserProfileUpdate) -> User:
+        """Cập nhật thông tin hồ sơ sức khỏe & sở thích ẩm thực trực tiếp vào bảng users."""
+        user = UserProfileService.get_or_create_profile(db, user_id)
 
         update_data = data.model_dump(exclude_unset=True, exclude={"complete_onboarding"})
 
@@ -57,13 +47,14 @@ class UserProfileService:
 
         # Cập nhật các trường
         for field, value in update_data.items():
-            setattr(profile, field, value)
+            setattr(user, field, value)
 
         # Xử lý cờ hoàn thành Onboarding
-        if data.complete_onboarding and not profile.is_onboarded:
-            profile.is_onboarded = True
-            profile.onboarded_at = datetime.now(timezone.utc)
+        if data.complete_onboarding and not user.is_onboarded:
+            user.is_onboarded = True
+            user.onboarded_at = datetime.now(timezone.utc)
 
+        user.updated_at = datetime.now(timezone.utc)
         db.commit()
-        db.refresh(profile)
-        return profile
+        db.refresh(user)
+        return user

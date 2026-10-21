@@ -9,7 +9,6 @@ from server.app.models.meal_type import MealType
 from server.app.models.weather import Weather
 from server.app.models.option_user import OptionUser
 from server.app.models.weather_category import WeatherCategory
-from server.app.models.user_profile import UserProfile
 
 __all__ = [
     "User",
@@ -22,5 +21,4 @@ __all__ = [
     "Weather",
     "OptionUser",
     "WeatherCategory",
-    "UserProfile",
 ]
