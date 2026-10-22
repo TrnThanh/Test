@@ -11,7 +11,7 @@ Tài liệu này tổng hợp chi tiết toàn bộ các tính năng đã đư�
 ### 1.1. Xác thực & Phiên làm việc (Authentication & Session)
 - **Đăng nhập & Đăng ký tài khoản (`User`):** Đăng ký tài khoản người dùng với email và mật khẩu (băm mật khẩu PBKDF2 an toàn).
 - **Chế độ Khách vãng lai (Guest Mode):** Cho phép người dùng trải nghiệm tra cứu quán ăn, duyệt menu và xem bản đồ ngay lập tức mà không bắt buộc phải đăng nhập.
-- **Quản lý phiên làm việc tự động:** Lưu trữ `access_token` và thông tin định danh vào bộ nhớ cục bộ, tự động phục hồi phiên khi mở lại ứng dụng.
+- **Quản lý phiên làm việc tự động:** Lưu trữ `session_id` và thông tin định danh vào bộ nhớ cục bộ, tự động phục hồi phiên khi mở lại ứng dụng.
 - **Đăng xuất an toàn:** Thu hồi phiên và đưa người dùng về trạng thái khách vãng lai.
 
 ### 1.2. Khảo sát Onboarding & Mở rộng Hồ sơ Thực khách (Health & Dietary Profile)
@@ -75,7 +75,7 @@ Tài liệu này tổng hợp chi tiết toàn bộ các tính năng đã đư�
 
 ### 2.1. Xác thực Quản trị viên (Admin Authentication)
 - Màn hình đăng nhập bảo mật dành riêng cho Quản trị viên ([`AdminLogin.vue`](../web/src/components/AdminLogin.vue)).
-- Phân tách vai trò độc lập (Role Separation), lưu trữ phiên làm việc `access_token` và bảo vệ toàn bộ API quản trị.
+- Phân tách vai trò độc lập (Role Separation), lưu trữ phiên làm việc `session_id` và bảo vệ toàn bộ API quản trị.
 
 ### 2.2. Tab 1: Tổng quan Nền tảng (Dashboard Overview)
 - **Thẻ Chỉ số Hiệu suất Chính (KPI Stat Cards):**

@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from server.app.db.session import get_db
@@ -55,5 +56,6 @@ def login_user(
     return RoleLoginResponse(
         message="User login successful",
         role="user",
+        session_id=uuid.uuid4().hex,
         data=user_dict,
     )

@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from server.app.db.session import get_db
@@ -36,5 +37,6 @@ def login_admin(
     return RoleLoginResponse(
         message="Admin login successful",
         role="admin",
+        session_id=uuid.uuid4().hex,
         data=admin_dict,
     )

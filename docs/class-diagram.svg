@@ -1,0 +1,335 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 1200" width="100%" height="100%" style="background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <style>
+      .title { font-size: 26px; font-weight: bold; fill: #0f172a; }
+      .subtitle { font-size: 14px; fill: #475569; }
+      .section-title { font-size: 16px; font-weight: bold; fill: #1e293b; letter-spacing: 0.5px; }
+      .class-box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 8; ry: 8; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05)); }
+      .class-header { font-size: 14px; font-weight: bold; fill: #ffffff; }
+      .stereotype { font-size: 11px; font-style: italic; fill: rgba(255,255,255,0.85); }
+      .field-text { font-size: 12px; fill: #334155; font-family: 'Consolas', 'Courier New', monospace; }
+      .method-text { font-size: 12px; fill: #0f766e; font-family: 'Consolas', 'Courier New', monospace; }
+      .badge-new { fill: #10b981; }
+      .badge-text { font-size: 10px; font-weight: bold; fill: #ffffff; }
+      .rel-line { stroke: #64748b; stroke-width: 1.5; fill: none; }
+      .rel-dashed { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 5,4; fill: none; }
+      .rel-text { font-size: 11px; fill: #475569; font-weight: 500; }
+      .cardinality { font-size: 11px; font-weight: bold; fill: #0284c7; }
+    </style>
+    
+    <!-- Markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-dashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="diamond" viewBox="0 0 12 12" refX="0" refY="6" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 6 L 6 1 L 12 6 L 6 11 z" fill="#475569" stroke="#475569"/>
+    </marker>
+    <marker id="inheritance" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 6 L 0 11 z" fill="#ffffff" stroke="#64748b" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <!-- Banner -->
+  <rect x="30" y="25" width="1640" height="70" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="60" y="58" class="title">PTC1 — Sơ đồ Lớp Hệ thống (UML Class Diagram 2.5)</text>
+  <text x="60" y="80" class="subtitle">Mô tả cấu trúc thực thể ORM (Domain Models), Tầng nghiệp vụ (Services) và DTOs (Pydantic v2) bám sát 100% mã nguồn thực tế</text>
+
+  <!-- ========================================== -->
+  <!-- VÙNG 1: DOMAIN MODELS (SQLAlchemy ORM)      -->
+  <!-- ========================================== -->
+  <rect x="30" y="115" width="1070" height="730" rx="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4,4"/>
+  <rect x="50" y="103" width="310" height="26" rx="4" fill="#3b82f6"/>
+  <text x="60" y="121" font-size="13" font-weight="bold" fill="#ffffff">DOMAIN MODELS (server/app/models/)</text>
+
+  <!-- CLASS: Restaurant -->
+  <g transform="translate(60, 150)">
+    <rect width="280" height="280" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 272 0 Q 280 0 280 8 L 280 40 L 0 40 Z" fill="#2563eb"/>
+    <text x="140" y="18" text-anchor="middle" class="stereotype">&lt;&lt;Model - Entity&gt;&gt;</text>
+    <text x="140" y="34" text-anchor="middle" class="class-header">Restaurant</text>
+    <line x1="0" y1="40" x2="280" y2="40" stroke="#cbd5e1"/>
+    
+    <text x="15" y="60" class="field-text">+ id: int (PK)</text>
+    <text x="15" y="78" class="field-text">+ name: str</text>
+    <text x="15" y="96" class="field-text">+ address: str</text>
+    <text x="15" y="114" class="field-text">+ latitude: float</text>
+    <text x="15" y="132" class="field-text">+ longitude: float</text>
+    <text x="15" y="150" class="field-text">+ location: Geography(Point, 4326)</text>
+    <text x="15" y="168" class="field-text">+ phone_number: str</text>
+    <text x="15" y="186" class="field-text">+ open_time, close_time: time</text>
+    <text x="15" y="204" class="field-text">+ is_active: bool</text>
+    <text x="15" y="222" class="field-text" font-weight="bold" fill="#047857">+ is_sponsor: bool = False ★</text>
+    <text x="15" y="240" class="field-text">+ created_at, updated_at: datetime</text>
+    <line x1="0" y1="250" x2="280" y2="250" stroke="#f1f5f9"/>
+    <text x="15" y="268" class="method-text">+ dishes: relationship[List[Dish]]</text>
+  </g>
+
+  <!-- CLASS: Category (Global) -->
+  <g transform="translate(420, 150)">
+    <rect width="270" height="210" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 262 0 Q 270 0 270 8 L 270 40 L 0 40 Z" fill="#0284c7"/>
+    <text x="135" y="18" text-anchor="middle" class="stereotype">&lt;&lt;Global Entity&gt;&gt;</text>
+    <text x="135" y="34" text-anchor="middle" class="class-header">Category</text>
+    <line x1="0" y1="40" x2="270" y2="40" stroke="#cbd5e1"/>
+
+    <text x="15" y="62" class="field-text">+ id: int (PK)</text>
+    <text x="15" y="82" class="field-text">+ name: str (Unique Global)</text>
+    <text x="15" y="102" class="field-text">+ description: str</text>
+    <text x="15" y="122" class="field-text">+ display_order: int</text>
+    <text x="15" y="142" class="field-text">+ is_active: bool</text>
+    <text x="15" y="162" class="field-text">+ created_at, updated_at: datetime</text>
+    <line x1="0" y1="172" x2="270" y2="172" stroke="#f1f5f9"/>
+    <text x="15" y="194" class="method-text">+ dishes: relationship[List[Dish]]</text>
+    
+    <!-- Badge Bỏ restaurant_id -->
+    <rect x="150" y="6" width="112" height="18" rx="4" fill="#059669"/>
+    <text x="206" y="18" text-anchor="middle" class="badge-text">Global - No RestId</text>
+  </g>
+
+  <!-- CLASS: Dish -->
+  <g transform="translate(760, 150)">
+    <rect width="310" height="320" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 302 0 Q 310 0 310 8 L 310 40 L 0 40 Z" fill="#d97706"/>
+    <text x="155" y="18" text-anchor="middle" class="stereotype">&lt;&lt;Model - Entity&gt;&gt;</text>
+    <text x="155" y="34" text-anchor="middle" class="class-header">Dish</text>
+    <line x1="0" y1="40" x2="310" y2="40" stroke="#cbd5e1"/>
+
+    <text x="15" y="60" class="field-text">+ id: int (PK)</text>
+    <text x="15" y="78" class="field-text">+ restaurant_id: int (FK -&gt; restaurants.id)</text>
+    <text x="15" y="96" class="field-text">+ category_id: int? (FK -&gt; categories.id)</text>
+    <text x="15" y="114" class="field-text">+ name: str</text>
+    <text x="15" y="132" class="field-text">+ price: int (&gt;= 0)</text>
+    <text x="15" y="150" class="field-text">+ description, image_url: str</text>
+    <text x="15" y="168" class="field-text">+ is_available: bool = True</text>
+    <text x="15" y="186" class="field-text" font-weight="bold" fill="#b45309">+ spicy_level: int (0..3) ★</text>
+    <text x="15" y="204" class="field-text" font-weight="bold" fill="#b45309">+ dietary_tags: List[str] ★</text>
+    <text x="15" y="222" class="field-text" font-weight="bold" fill="#b45309">+ meal_types: List[str] ★</text>
+    <text x="15" y="240" class="field-text" font-weight="bold" fill="#b45309">+ allergens: List[str] ★</text>
+    <text x="15" y="258" class="field-text">+ ingredients: List[str]</text>
+    <text x="15" y="276" class="field-text">+ created_at, updated_at: datetime</text>
+    <line x1="0" y1="284" x2="310" y2="284" stroke="#f1f5f9"/>
+    <text x="15" y="304" class="method-text">+ restaurant, category: rel</text>
+  </g>
+
+  <!-- CLASS: User -->
+  <g transform="translate(60, 480)">
+    <rect width="320" height="340" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 312 0 Q 320 0 320 8 L 320 40 L 0 40 Z" fill="#4f46e5"/>
+    <text x="160" y="18" text-anchor="middle" class="stereotype">&lt;&lt;Model - Entity&gt;&gt;</text>
+    <text x="160" y="34" text-anchor="middle" class="class-header">User (Thực khách / Khách hàng)</text>
+    <line x1="0" y1="40" x2="320" y2="40" stroke="#cbd5e1"/>
+
+    <text x="15" y="60" class="field-text">+ id: int (PK)</text>
+    <text x="15" y="78" class="field-text">+ email: str (Unique)</text>
+    <text x="15" y="96" class="field-text">+ password_hash: str (PBKDF2-HMAC)</text>
+    <text x="15" y="114" class="field-text">+ full_name: str</text>
+    <text x="15" y="132" class="field-text">+ is_active: bool = True</text>
+    <text x="15" y="150" class="field-text">+ height_cm: float, weight_kg: float</text>
+    <text x="15" y="168" class="field-text">+ gender: str, birth_year: int</text>
+    <text x="15" y="186" class="field-text">+ target_goal, spicy_tolerance: str</text>
+    <text x="15" y="204" class="field-text">+ budget_range: str</text>
+    <text x="15" y="222" class="field-text">+ dietary_preferences: List[str]</text>
+    <text x="15" y="240" class="field-text">+ allergies: List[str]</text>
+    <text x="15" y="258" class="field-text">+ favorite_category_ids: List[int]</text>
+    <text x="15" y="276" class="field-text">+ is_onboarded: bool</text>
+    <line x1="0" y1="284" x2="320" y2="284" stroke="#f1f5f9"/>
+    <text x="15" y="304" class="method-text">+ calculate_bmi() float</text>
+    <text x="15" y="324" class="method-text">+ get_bmi_category() str</text>
+  </g>
+
+  <!-- CLASS: Admin -->
+  <g transform="translate(420, 480)">
+    <rect width="270" height="160" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 262 0 Q 270 0 270 8 L 270 40 L 0 40 Z" fill="#334155"/>
+    <text x="135" y="18" text-anchor="middle" class="stereotype">&lt;&lt;Model - Entity&gt;&gt;</text>
+    <text x="135" y="34" text-anchor="middle" class="class-header">Admin (Quản trị viên)</text>
+    <line x1="0" y1="40" x2="270" y2="40" stroke="#cbd5e1"/>
+
+    <text x="15" y="62" class="field-text">+ id: int (PK)</text>
+    <text x="15" y="82" class="field-text">+ email: str (Unique)</text>
+    <text x="15" y="102" class="field-text">+ password_hash: str</text>
+    <text x="15" y="122" class="field-text">+ role_level: int = 1</text>
+    <text x="15" y="142" class="field-text">+ is_active: bool = True</text>
+  </g>
+
+  <!-- CLASS: FavouriteDish -->
+  <g transform="translate(760, 520)">
+    <rect width="260" height="110" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 252 0 Q 260 0 260 8 L 260 36 L 0 36 Z" fill="#e11d48"/>
+    <text x="130" y="16" text-anchor="middle" class="stereotype">&lt;&lt;Association&gt;&gt;</text>
+    <text x="130" y="30" text-anchor="middle" class="class-header">FavouriteDish</text>
+    <line x1="0" y1="36" x2="260" y2="36" stroke="#cbd5e1"/>
+    <text x="15" y="58" class="field-text">+ id: int (PK)</text>
+    <text x="15" y="78" class="field-text">+ user_id: int (FK -&gt; users.id)</text>
+    <text x="15" y="98" class="field-text">+ dish_id: int (FK -&gt; dishes.id)</text>
+  </g>
+
+  <!-- CLASS: Weather & WeatherCategory & OptionUser (Compact) -->
+  <g transform="translate(420, 670)">
+    <rect width="300" height="150" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 292 0 Q 300 0 300 8 L 300 36 L 0 36 Z" fill="#0891b2"/>
+    <text x="150" y="16" text-anchor="middle" class="stereotype">&lt;&lt;Auxiliary Models&gt;&gt;</text>
+    <text x="150" y="30" text-anchor="middle" class="class-header">WeatherCategory &amp; OptionUser</text>
+    <line x1="0" y1="36" x2="300" y2="36" stroke="#cbd5e1"/>
+    <text x="15" y="58" class="field-text">WeatherCategory: weather_id, category_id</text>
+    <text x="15" y="78" class="field-text">OptionUser: user_id, category_id, is_hidden</text>
+    <text x="15" y="98" class="field-text">MealType: id, code, name, icon</text>
+    <text x="15" y="118" class="field-text">Weather: id, code, name, icon</text>
+    <text x="15" y="138" class="field-text">All CASCADE on delete parent entities</text>
+  </g>
+
+  <!-- Model Relationship Lines -->
+  <!-- Restaurant to Dish (1 to N) -->
+  <path d="M 340 280 L 760 280" class="rel-line" marker-start="url(#diamond)" marker-end="url(#arrow)"/>
+  <text x="350" y="272" class="cardinality">1</text>
+  <text x="540" y="272" class="rel-text">contains (CASCADE)</text>
+  <text x="740" y="272" class="cardinality">0..*</text>
+
+  <!-- Category to Dish (1 to N, SET NULL) -->
+  <path d="M 690 200 L 760 200" class="rel-line" marker-end="url(#arrow)"/>
+  <text x="695" y="192" class="cardinality">1</text>
+  <text x="702" y="214" class="rel-text">classifies</text>
+  <text x="740" y="192" class="cardinality">0..*</text>
+
+  <!-- User to FavouriteDish -->
+  <path d="M 380 580 L 760 580" class="rel-line" marker-start="url(#diamond)" marker-end="url(#arrow)"/>
+  <text x="390" y="572" class="cardinality">1</text>
+  <text x="560" y="572" class="rel-text">saves favourites</text>
+  <text x="740" y="572" class="cardinality">0..*</text>
+
+  <!-- Dish to FavouriteDish -->
+  <path d="M 890 470 L 890 520" class="rel-line" marker-end="url(#arrow)"/>
+  <text x="900" y="500" class="rel-text">target</text>
+
+  <!-- ========================================== -->
+  <!-- VÙNG 2: SERVICE LAYER                       -->
+  <!-- ========================================== -->
+  <rect x="1130" y="115" width="540" height="490" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="4,4"/>
+  <rect x="1150" y="103" width="280" height="26" rx="4" fill="#059669"/>
+  <text x="1160" y="121" font-size="13" font-weight="bold" fill="#ffffff">SERVICE LAYER (server/app/services/)</text>
+
+  <!-- DishService -->
+  <g transform="translate(1150, 150)">
+    <rect width="500" height="130" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 492 0 Q 500 0 500 8 L 500 32 L 0 32 Z" fill="#047857"/>
+    <text x="250" y="22" text-anchor="middle" class="class-header">DishService</text>
+    <line x1="0" y1="32" x2="500" y2="32" stroke="#cbd5e1"/>
+    <text x="15" y="52" class="method-text">+ create_dish(db, restaurant_id, data: DishCreate) -&gt; Dish</text>
+    <text x="15" y="70" class="method-text">+ get_dishes_by_restaurant(db, restaurant_id, filters...) -&gt; List[Dish]</text>
+    <text x="15" y="88" class="method-text">+ update_dish(db, dish_id, data: DishUpdate) -&gt; Dish</text>
+    <text x="15" y="106" class="method-text">+ add_favourite_dish(db, user_id, dish_id) -&gt; FavouriteDish (Idempotent)</text>
+    <text x="15" y="122" class="method-text">+ remove_favourite_dish(db, user_id, dish_id) -&gt; bool</text>
+  </g>
+
+  <!-- CategoryService & RestaurantService -->
+  <g transform="translate(1150, 300)">
+    <rect width="500" height="130" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 492 0 Q 500 0 500 8 L 500 32 L 0 32 Z" fill="#047857"/>
+    <text x="250" y="22" text-anchor="middle" class="class-header">CategoryService &amp; RestaurantService</text>
+    <line x1="0" y1="32" x2="500" y2="32" stroke="#cbd5e1"/>
+    <text x="15" y="52" class="method-text">+ CategoryService.create_category(db, data: CategoryCreate) -&gt; Category</text>
+    <text x="15" y="70" class="method-text">+ CategoryService.get_categories(db, is_active_only) -&gt; List[Category]</text>
+    <text x="15" y="88" class="method-text">+ RestaurantService.create_restaurant(db, data: RestaurantCreate)</text>
+    <text x="15" y="106" class="method-text">+ RestaurantService.find_nearby(db, lat, lon, radius) -&gt; PostGIS ST_DWithin</text>
+    <text x="15" y="122" class="method-text">+ RestaurantService.get_distance(db, restaurant_id, lat, lon)</text>
+  </g>
+
+  <!-- MapService & WeatherService -->
+  <g transform="translate(1150, 450)">
+    <rect width="500" height="130" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 492 0 Q 500 0 500 8 L 500 32 L 0 32 Z" fill="#047857"/>
+    <text x="250" y="22" text-anchor="middle" class="class-header">MapService &amp; WeatherService</text>
+    <line x1="0" y1="32" x2="500" y2="32" stroke="#cbd5e1"/>
+    <text x="15" y="52" class="method-text">+ MapService.get_ip_location(ip) -&gt; IpLocationResponse (Zero GPS)</text>
+    <text x="15" y="70" class="method-text">+ MapService.search_places(query, limit) -&gt; Nominatim Geocoding</text>
+    <text x="15" y="88" class="method-text">+ WeatherService.fetch_current_weather(lat, lon) -&gt; OpenWeatherMap</text>
+    <text x="15" y="106" class="method-text">+ WeatherService.map_condition_to_code(condition) -&gt; 4 Weather Codes</text>
+    <text x="15" y="122" class="method-text">+ UserProfileService.calculate_bmi(height, weight) -&gt; float &amp; category</text>
+  </g>
+
+  <!-- ========================================== -->
+  <!-- VÙNG 3: SCHEMAS & DTOS                      -->
+  <!-- ========================================== -->
+  <rect x="30" y="870" width="1640" height="300" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="4,4"/>
+  <rect x="50" y="858" width="350" height="26" rx="4" fill="#7c3aed"/>
+  <text x="60" y="876" font-size="13" font-weight="bold" fill="#ffffff">SCHEMAS &amp; CONTRACT DTOS (server/app/schemas/)</text>
+
+  <!-- RoleLoginResponse (Session ID) -->
+  <g transform="translate(60, 900)">
+    <rect width="360" height="160" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 352 0 Q 360 0 360 8 L 360 36 L 0 36 Z" fill="#6d28d9"/>
+    <text x="180" y="16" text-anchor="middle" class="stereotype">&lt;&lt;Response DTO&gt;&gt;</text>
+    <text x="180" y="30" text-anchor="middle" class="class-header">RoleLoginResponse</text>
+    <line x1="0" y1="36" x2="360" y2="36" stroke="#cbd5e1"/>
+    <text x="15" y="58" class="field-text">+ message: str = "Login successful"</text>
+    <text x="15" y="80" class="field-text">+ role: str = "user" | "admin"</text>
+    <text x="15" y="104" class="field-text" font-weight="bold" fill="#7c3aed">+ session_id: str = uuid4().hex ★</text>
+    <text x="15" y="126" class="field-text">+ data: Dict[str, Any] (user / admin info)</text>
+    <rect x="235" y="9" width="115" height="18" rx="4" fill="#10b981"/>
+    <text x="292" y="21" text-anchor="middle" class="badge-text">Session Management</text>
+  </g>
+
+  <!-- DishCreate & DishResponse -->
+  <g transform="translate(460, 900)">
+    <rect width="390" height="240" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 382 0 Q 390 0 390 8 L 390 36 L 0 36 Z" fill="#b45309"/>
+    <text x="195" y="16" text-anchor="middle" class="stereotype">&lt;&lt;Contract DTO&gt;&gt;</text>
+    <text x="195" y="30" text-anchor="middle" class="class-header">DishCreate &amp; DishResponse</text>
+    <line x1="0" y1="36" x2="390" y2="36" stroke="#cbd5e1"/>
+    <text x="15" y="58" class="field-text">+ name: str, price: int (&gt;= 0)</text>
+    <text x="15" y="78" class="field-text">+ category_id: Optional[int] (Global Category)</text>
+    <text x="15" y="98" class="field-text" font-weight="bold" fill="#b45309">+ spicy_level: int = 0 (0: none, 1: mild, 2: med, 3: hot)</text>
+    <text x="15" y="118" class="field-text" font-weight="bold" fill="#b45309">+ dietary_tags: List[str] = [] (vegan, halal, keto...)</text>
+    <text x="15" y="138" class="field-text" font-weight="bold" fill="#b45309">+ meal_types: List[str] = ['all_day'] (breakfast, lunch...)</text>
+    <text x="15" y="158" class="field-text" font-weight="bold" fill="#b45309">+ allergens: List[str] = [] (peanut, seafood, dairy...)</text>
+    <text x="15" y="178" class="field-text">+ ingredients: List[str] = []</text>
+    <text x="15" y="198" class="field-text">+ is_available: bool = True</text>
+    <text x="15" y="218" class="field-text">+ DishResponse adds: id, restaurant_id, timestamps</text>
+  </g>
+
+  <!-- RestaurantCreate & RestaurantResponse -->
+  <g transform="translate(890, 900)">
+    <rect width="380" height="240" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 372 0 Q 380 0 380 8 L 380 36 L 0 36 Z" fill="#1d4ed8"/>
+    <text x="190" y="16" text-anchor="middle" class="stereotype">&lt;&lt;Contract DTO&gt;&gt;</text>
+    <text x="190" y="30" text-anchor="middle" class="class-header">RestaurantCreate / Response</text>
+    <line x1="0" y1="36" x2="380" y2="36" stroke="#cbd5e1"/>
+    <text x="15" y="58" class="field-text">+ name: str, address: str</text>
+    <text x="15" y="78" class="field-text">+ latitude: float, longitude: float</text>
+    <text x="15" y="98" class="field-text">+ phone_number: str</text>
+    <text x="15" y="118" class="field-text">+ open_time, close_time: str (HH:MM)</text>
+    <text x="15" y="138" class="field-text" font-weight="bold" fill="#1d4ed8">+ is_sponsor: bool = False ★ (Priority Badge)</text>
+    <text x="15" y="158" class="field-text">+ is_active: bool = True</text>
+    <text x="15" y="178" class="field-text">+ NearbyRestaurantResponse extends:</text>
+    <text x="25" y="198" class="field-text">- distance_meters: float</text>
+    <text x="25" y="218" class="field-text">- distance_km: float</text>
+  </g>
+
+  <!-- Category & Profile Schemas -->
+  <g transform="translate(1310, 900)">
+    <rect width="340" height="240" class="class-box"/>
+    <path d="M 0 8 Q 0 0 8 0 L 332 0 Q 340 0 340 8 L 340 36 L 0 36 Z" fill="#0e7490"/>
+    <text x="170" y="16" text-anchor="middle" class="stereotype">&lt;&lt;Contract DTO&gt;&gt;</text>
+    <text x="170" y="30" text-anchor="middle" class="class-header">Category &amp; Profile DTOs</text>
+    <line x1="0" y1="36" x2="340" y2="36" stroke="#cbd5e1"/>
+    <text x="15" y="58" class="field-text">CategoryCreate: name, desc, order</text>
+    <text x="15" y="78" class="field-text">CategoryResponse: adds id, dish_count</text>
+    <text x="15" y="104" class="field-text" font-weight="bold">UserProfileResponse:</text>
+    <text x="25" y="124" class="field-text">- height_cm, weight_kg, gender</text>
+    <text x="25" y="144" class="field-text">- bmi: float (Computed dynamic)</text>
+    <text x="25" y="164" class="field-text">- bmi_category: str (Gầy/Bình thường/Thừa)</text>
+    <text x="25" y="184" class="field-text">- target_goal, spicy_tolerance, budget</text>
+    <text x="25" y="204" class="field-text">- dietary_preferences, allergies</text>
+    <text x="25" y="224" class="field-text">- is_onboarded: bool</text>
+  </g>
+
+  <!-- Dashed lines connecting Services/DTOs -->
+  <path d="M 1150 200 L 1070 200" class="rel-dashed" marker-end="url(#arrow-dashed)"/>
+  <text x="1080" y="190" class="rel-text">operates</text>
+
+  <path d="M 650 900 L 650 840 L 1150 350" class="rel-dashed" marker-end="url(#arrow-dashed)"/>
+  <text x="750" y="855" class="rel-text">Service inputs &amp; outputs</text>
+</svg>

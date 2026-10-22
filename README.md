@@ -52,6 +52,7 @@ cd mobile && flutter run -d chrome --web-port=3000
 ## 📚 Tài Liệu Dự Án (Documentation)
 
 - 📋 [**Danh sách Tính năng Đa nền tảng (Feature List)**](docs/features.md): Bảng tính năng chi tiết của Mobile App (Thực khách) và Web Admin Console (Quản trị).
+- 📐 [**Sơ đồ Lớp Hệ thống Chuẩn UML (Class Diagram)**](docs/class-diagram.md): Mô tả cấu trúc hướng đối tượng các Models, Services và Schemas/DTOs kèm bản vẽ vector SVG sắc nét.
 - 🗄️ [**Thiết kế Cơ sở Dữ liệu & ERD (Database Design)**](docs/database.md): Sơ đồ thực thể liên kết ERD vector SVG và Data Dictionary.
 - 🎯 [**Đặc tả Use Case Chuẩn UML (Use Cases)**](docs/use-cases.md): Toàn bộ tác nhân và sơ đồ use case chuẩn quốc tế.
 - 🔄 [**Sơ đồ Tuần tự (Sequence Diagrams)**](docs/sequence-diagrams.md): Luồng xử lý kỹ thuật chi tiết của hệ thống.
@@ -63,7 +64,7 @@ cd mobile && flutter run -d chrome --web-port=3000
 ```powershell
 .\.venv\Scripts\pytest server/tests -v
 ```
-*(Toàn bộ 36 test cases kiểm thử Auth, Map OpenStreetMap, Quán ăn, PostGIS Spatial queries và OpenAPI docs)*
+*(Toàn bộ 82 test cases kiểm thử Auth, Map OpenStreetMap, Quán ăn, PostGIS Spatial queries và OpenAPI docs)*
 
 ---
 

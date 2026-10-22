@@ -66,6 +66,7 @@ class RoleLoginResponse {
   final String? fullName;
   final String? shopName;
   final String? phone;
+  final String sessionId;
   final String accessToken;
 
   RoleLoginResponse({
@@ -75,13 +76,20 @@ class RoleLoginResponse {
     this.fullName,
     this.shopName,
     this.phone,
-    required this.accessToken,
-  });
+    required this.sessionId,
+    String? accessToken,
+  }) : accessToken = accessToken ?? sessionId;
 
   factory RoleLoginResponse.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic> data = (json['data'] != null && json['data'] is Map<String, dynamic>)
         ? json['data'] as Map<String, dynamic>
         : json;
+
+    final String sid = (json['session_id'] ??
+        data['session_id'] ??
+        json['access_token'] ??
+        data['access_token'] ??
+        '') as String;
 
     return RoleLoginResponse(
       role: json['role'] as String? ?? 'user',
@@ -90,7 +98,8 @@ class RoleLoginResponse {
       fullName: (data['full_name'] ?? json['full_name']) as String?,
       shopName: (data['shop_name'] ?? json['shop_name']) as String?,
       phone: (data['phone'] ?? json['phone']) as String?,
-      accessToken: (json['access_token'] ?? data['access_token'] ?? '') as String,
+      sessionId: sid,
+      accessToken: sid,
     );
   }
 }

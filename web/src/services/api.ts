@@ -42,10 +42,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    const sid = res.session_id || res.access_token || '';
     return {
       role: res.role || 'user',
       ...(res.data || {}),
-      access_token: res.access_token || '',
+      session_id: sid,
+      access_token: sid,
     } as RoleLoginResponse;
   },
 
@@ -54,10 +56,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    const sid = res.session_id || res.access_token || '';
     return {
       role: res.role || 'user',
       ...(res.data || {}),
-      access_token: res.access_token || '',
+      session_id: sid,
+      access_token: sid,
     } as RoleLoginResponse;
   },
 
@@ -66,10 +70,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    const sid = res.session_id || res.access_token || '';
     return {
       role: res.role || 'admin',
       ...(res.data || {}),
-      access_token: res.access_token || '',
+      session_id: sid,
+      access_token: sid,
     } as RoleLoginResponse;
   },
 

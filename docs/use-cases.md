@@ -55,8 +55,8 @@ Dành cho **Khách vãng lai (Guest)** và **Khách hàng (User)** tra cứu qu�
 
 ---
 
-### 2.5. Phân hệ 5: Quản lý Danh mục Món ăn (Categories)
-Dành cho **Quản trị viên (Admin)** tổ chức các nhóm danh mục món ăn cho từng quán và **Khách hàng (User/Guest)** duyệt xem nhóm món.
+### 2.5. Phân hệ 5: Quản lý Danh mục Món ăn Toàn cục (Global Categories)
+Dành cho **Quản trị viên (Admin)** tổ chức các nhóm danh mục món ăn toàn cục (dùng chung cho toàn hệ thống) và **Khách hàng (User/Guest)** duyệt xem nhóm món.
 
 ![Sơ đồ Use Case Quản lý Danh mục Chuẩn UML](uml-uc-categories.svg)
 
@@ -183,7 +183,7 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
 #### UC-REST-01: Tạo mới quán ăn
 - **Actor chính:** Quản trị viên (Admin).
 - **Luồng chính:**
-  1. Admin nhập: `name`, `address`, `latitude`, `longitude`, `phone` (tùy chọn), `description` (tùy chọn), `open_time`, `close_time`.
+  1. Admin nhập: `name`, `address`, `latitude`, `longitude`, `phone_number` (tùy chọn), `description` (tùy chọn), `open_time`, `close_time`, `is_sponsor` (boolean, tùy chọn).
   2. Router kiểm tra ràng buộc tọa độ WGS84 (-90 <= lat <= 90; -180 <= lon <= 180).
   3. Service insert vào bảng `restaurants`.
   4. PostGIS tự động tính toán cột computed `location` dạng `geography(POINT, 4326)`.
@@ -194,7 +194,7 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
 - **Actor chính:** Quản trị viên (Admin).
 - **Tiền điều kiện:** Quán ăn tồn tại trong hệ thống.
 - **Luồng chính:**
-  1. Admin gửi thông tin cần cập nhật: `name`, `address`, `latitude`, `longitude`, `phone`, `description`, `open_time`, `close_time`, `is_active`.
+  1. Admin gửi thông tin cần cập nhật: `name`, `address`, `latitude`, `longitude`, `phone_number`, `description`, `open_time`, `close_time`, `is_active`, `is_sponsor`.
   2. Cập nhật các trường và lưu vào DB. Cột `location` PostGIS tự động cập nhật nếu tọa độ thay đổi.
   3. Trả về thông tin quán sau khi cập nhật (HTTP 200).
 - **API Endpoint:** `PUT /api/v1/restaurants/{restaurant_id}`.
@@ -210,31 +210,29 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
 
 ---
 
-### 3.5. Phân hệ 5: Quản lý Danh mục Món ăn (Categories Management)
+### 3.5. Phân hệ 5: Quản lý Danh mục Món ăn Toàn cục (Global Categories Management)
 
-#### UC-CAT-01: Tạo mới nhóm danh mục món ăn cho quán
+#### UC-CAT-01: Tạo mới nhóm danh mục món ăn toàn cục
 - **Actor chính:** Quản trị viên (Admin).
-- **Tiền điều kiện:** Quán ăn (`restaurant_id`) tồn tại trong hệ thống.
-- **Hậu điều kiện:** Bản ghi mới được lưu vào bảng `categories`.
+- **Tiền điều kiện:** Tên danh mục chưa tồn tại trên toàn hệ thống (không phân biệt hoa thường).
+- **Hậu điều kiện:** Bản ghi mới được lưu vào bảng `categories` toàn cục (không còn cột `restaurant_id`).
 - **Luồng chính:**
-  1. Admin gửi thông tin: `restaurant_id` và body JSON `CategoryCreate` (`name`, `description`, `display_order`, `is_active`).
-  2. `CategoryService` kiểm tra sự tồn tại của quán ăn.
-  3. Chuẩn hóa tên danh mục (strip khoảng trắng thừa).
-  4. Kiểm tra ràng buộc duy nhất tên danh mục trong phạm vi quán ăn (`restaurant_id`, `name`).
-  5. Thêm bản ghi vào DB, `commit`, và trả về `CategoryResponse` (HTTP 201 Created).
+  1. Admin gửi body JSON `CategoryCreate` (`name`, `description`, `display_order`, `is_active`).
+  2. `CategoryService` chuẩn hóa tên danh mục (strip khoảng trắng thừa).
+  3. Kiểm tra ràng buộc duy nhất tên danh mục trên phạm vi toàn cầu: `lower(Category.name) == lower(name)`.
+  4. Thêm bản ghi vào DB, `commit`, và trả về `CategoryResponse` (HTTP 201 Created).
 - **Luồng ngoại lệ:**
-  - *Quán ăn không tồn tại:* Trả về HTTP `404 Not Found` ("Không tìm thấy quán ăn.").
-  - *Trùng tên danh mục trong quán:* Trả về HTTP `400 Bad Request` ("Danh mục món ăn với tên này đã tồn tại trong quán.").
-- **API Endpoint:** `POST /api/v1/restaurants/{restaurant_id}/categories`.
+  - *Trùng tên danh mục toàn cục:* Trả về HTTP `400 Bad Request` ("Danh mục với tên này đã tồn tại.").
+- **API Endpoint:** `POST /api/v1/categories`.
 
-#### UC-CAT-02: Xem danh sách các nhóm danh mục của quán ăn
+#### UC-CAT-02: Xem danh sách các nhóm danh mục toàn cục
 - **Actor chính:** Khách vãng lai (Guest), Khách hàng (User), Quản trị viên (Admin).
 - **Luồng chính:**
-  1. Client gửi `restaurant_id` kèm query param tuỳ chọn `is_active_only` (mặc định False).
-  2. `CategoryService` truy vấn bảng `categories` theo `restaurant_id`, sắp xếp tăng dần theo `display_order`, sau đó theo `id`.
+  1. Client gửi query param tuỳ chọn `is_active_only` (mặc định False).
+  2. `CategoryService` truy vấn bảng `categories` toàn cục, sắp xếp tăng dần theo `display_order`, sau đó theo `id`.
   3. Với mỗi category, hệ thống đếm số lượng món ăn liên kết (`dish_count`) qua quan hệ `dishes`.
   4. Trả về danh sách `List[CategoryResponse]` (HTTP 200 OK).
-- **API Endpoint:** `GET /api/v1/restaurants/{restaurant_id}/categories`.
+- **API Endpoint:** `GET /api/v1/categories`.
 
 #### UC-CAT-03: Xem chi tiết một danh mục
 - **Actor chính:** Guest, User, Admin.
@@ -242,25 +240,26 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
 - **Luồng ngoại lệ:** Nếu không tồn tại -> Trả về HTTP `404 Not Found`.
 - **API Endpoint:** `GET /api/v1/categories/{category_id}`.
 
-#### UC-CAT-04: Cập nhật thông tin danh mục món ăn
+#### UC-CAT-04: Cập nhật thông tin danh mục toàn cục
 - **Actor chính:** Quản trị viên (Admin).
 - **Tiền điều kiện:** Danh mục tồn tại trong hệ thống.
 - **Luồng chính:**
   1. Admin gửi `category_id` và payload cập nhật (`name`, `description`, `display_order`, `is_active`).
-  2. Nếu đổi `name`, kiểm tra trùng lặp với các danh mục khác của cùng quán ăn.
+  2. Nếu đổi `name`, kiểm tra trùng lặp tên trên toàn hệ thống (`lower(name)`).
   3. Cập nhật và lưu DB. Trả về `CategoryResponse` (HTTP 200 OK).
 - **Luồng ngoại lệ:**
   - *Không tìm thấy danh mục:* HTTP `404 Not Found`.
   - *Tên mới bị trùng lặp:* HTTP `400 Bad Request`.
 - **API Endpoint:** `PUT /api/v1/categories/{category_id}`.
 
-#### UC-CAT-05: Xóa danh mục
+#### UC-CAT-05: Xóa danh mục toàn cục
 - **Actor chính:** Quản trị viên (Admin).
 - **Tiền điều kiện:** Danh mục tồn tại trong hệ thống.
 - **Luồng chính:**
   1. Admin gửi yêu cầu xóa với `category_id`.
-  2. Xóa danh mục; các món ăn liên quan được giữ nguyên và gán `category_id = NULL` (SET NULL).
-  3. Trả về HTTP 200 OK.
+  2. Xóa danh mục; các món ăn liên quan trên toàn hệ thống được giữ nguyên và tự động gán `category_id = NULL` (SET NULL).
+  3. Tự động xóa liên kết trong `weather_categories` và `option_user` qua ràng buộc CASCADE.
+  4. Trả về HTTP 200 OK {"message": "Xóa danh mục thành công"}.
 - **API Endpoint:** `DELETE /api/v1/categories/{category_id}`.
 
 ---
@@ -269,32 +268,33 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
 
 #### UC-DISH-01: Tạo món ăn mới vào thực đơn quán
 - **Actor chính:** Quản trị viên (Admin).
-- **Tiền điều kiện:** Quán ăn tồn tại trong hệ thống. Nếu có chỉ định `category_id` thì danh mục đó phải thuộc cùng quán ăn.
-- **Hậu điều kiện:** Món ăn mới được tạo trong bảng `dishes`.
+- **Tiền điều kiện:** Quán ăn tồn tại trong hệ thống. Nếu có chỉ định `category_id` thì danh mục toàn cục đó phải tồn tại.
+- **Hậu điều kiện:** Món ăn mới được tạo trong bảng `dishes` với đầy đủ các thuộc tính phân loại đa chiều.
 - **Luồng chính:**
   1. Admin gửi `restaurant_id` và thông tin món ăn:
      - Bắt buộc: `name`, `price >= 0`.
-     - Tuỳ chọn: `description`, `image_url`, `category_id`, `category` (chuỗi), `meal_type_id`, `meal_type` (enum: breakfast, lunch, dinner, snack, all_day), `ingredients` (danh sách nguyên liệu), `is_available`.
+     - Tuỳ chọn: `description`, `image_url`, `category_id` (ID danh mục toàn cục), `spicy_level` (0-3), `dietary_tags` (mảng nhãn ăn kiêng: vegetarian, vegan, halal, keto...), `meal_types` (mảng loại bữa: breakfast, lunch, dinner, snack, all_day), `allergens` (mảng dị ứng: peanut, seafood, dairy...), `ingredients` (danh sách nguyên liệu), `is_available`.
   2. Hệ thống kiểm tra quán ăn trong DB.
-  3. Nếu có `category_id`, kiểm tra danh mục tồn tại và đảm bảo `category.restaurant_id == restaurant_id`.
-  4. Nếu có `meal_type_id`, kiểm tra loại bữa ăn hợp lệ.
+  3. Nếu có `category_id`, kiểm tra danh mục toàn cục tồn tại trong DB.
+  4. Chuẩn hóa và xác thực: `spicy_level` từ 0 đến 3; `meal_types` hợp lệ.
   5. Insert vào bảng `dishes`, `commit`, và trả về `DishResponse` (HTTP 201 Created).
 - **Luồng ngoại lệ:**
-  - *Quán không tồn tại:* HTTP `404 Not Found`.
+  - *Quán không tồn tại:* HTTP `404 Not Found` ("Không tìm thấy quán ăn.").
+  - *Category không tồn tại:* HTTP `404 Not Found` ("Không tìm thấy danh mục món ăn.").
   - *Giá âm hoặc sai định dạng:* HTTP `422 Unprocessable Entity`.
-  - *Category không thuộc cùng quán ăn:* HTTP `400 Bad Request` ("Danh mục không thuộc về quán ăn này.").
 - **API Endpoint:** `POST /api/v1/restaurants/{restaurant_id}/dishes`.
 
 #### UC-DISH-02: Xem và lọc thực đơn món ăn của quán
 - **Actor chính:** Khách vãng lai (Guest), Khách hàng (User), Quản trị viên (Admin).
 - **Luồng chính:**
   1. Client gửi `restaurant_id` kèm các tiêu chí lọc linh hoạt:
-     - `category_id`: Lọc theo ID danh mục cụ thể.
+     - `category_id`: Lọc theo ID danh mục toàn cục.
      - `category`: Lọc theo tên nhóm món (chuỗi).
-     - `meal_type_id`: Lọc theo ID bữa ăn.
-     - `meal_type`: Lọc theo bữa ăn (enum).
-     - `tag`: Lọc theo nhãn (khớp cột `tag` hoặc phần tử trong mảng `tags`).
-     - `ingredient`: Lọc theo nguyên liệu (sử dụng toán tử ANY trên mảng `ingredients`).
+     - `spicy_level`: Lọc theo độ cay (0, 1, 2, 3).
+     - `dietary_tag`: Lọc theo nhãn chế độ ăn (khớp phần tử trong mảng `dietary_tags`).
+     - `meal_type`: Lọc theo loại bữa ăn (khớp phần tử trong mảng `meal_types`).
+     - `allergen`: Lọc theo chất dị ứng (khớp phần tử trong mảng `allergens`).
+     - `ingredient`: Lọc theo nguyên liệu (khớp phần tử trong mảng `ingredients`).
      - `available_only`: Chỉ lấy món đang sẵn sàng phục vụ (mặc định True).
      - Phân trang: `skip` (mặc định 0), `limit` (mặc định 100, tối đa 200).
   2. `DishService` dựng câu lệnh truy vấn kết hợp các điều kiện lọc với toán tử AND.

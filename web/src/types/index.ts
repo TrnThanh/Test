@@ -39,7 +39,8 @@ export interface RoleLoginResponse {
   id: number;
   email: string;
   full_name?: string | null;
-  access_token: string;
+  session_id: string;
+  access_token?: string;
 }
 
 export interface Category {

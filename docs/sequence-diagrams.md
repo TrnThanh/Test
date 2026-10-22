@@ -63,7 +63,7 @@ sequenceDiagram
     Sec-->>Svc: True (khớp mật khẩu)
     Svc-->>API: User (is_active = True)
     deactivate Svc
-    API-->>User: HTTP 200 OK (RoleLoginResponse role='user')
+    API-->>User: HTTP 200 OK (RoleLoginResponse role='user', session_id=uuid.uuid4().hex)
     deactivate API
 ```
 </details>
@@ -77,7 +77,7 @@ sequenceDiagram
 2. **Đăng nhập:**
    - Client gửi `email` và `password`.
    - `UserService` tìm user trong DB -> Kiểm tra chuỗi băm bằng `verify_password`. Nếu sai -> Trả về `401 Unauthorized`.
-   - Kiểm tra `is_active` -> Trả về `RoleLoginResponse` với thông tin User và `role: "user"`.
+   - Kiểm tra `is_active` -> Trả về `RoleLoginResponse` với thông tin User, `role: "user"` và mã phiên `session_id` (UUID4 hex ngẫu nhiên 32 ký tự).
 
 ---
 
@@ -98,7 +98,7 @@ sequenceDiagram
     participant Svc as RestaurantService (restaurant_service.py)
     participant DB as PostgreSQL + PostGIS (restaurants table)
 
-    Admin->>API: POST /api/v1/restaurants {name, address, lat, lon, phone, open_time, close_time}
+    Admin->>API: POST /api/v1/restaurants {name, address, lat, lon, phone_number, open_time, close_time, is_sponsor}
     activate API
     API->>Svc: create_restaurant(db, payload)
     activate Svc
@@ -223,9 +223,9 @@ sequenceDiagram
     actor Admin as Quản trị viên (Admin)
     participant API as Dish Router (dishes.py)
     participant Svc as DishService (dish_service.py)
-    participant DB as PostgreSQL (dishes, restaurants, categories, meal_types)
+    participant DB as PostgreSQL (dishes, restaurants, categories)
 
-    Admin->>API: POST /api/v1/restaurants/{id}/dishes {name, price, tag, tags, ingredients, category_id, meal_type_id}
+    Admin->>API: POST /api/v1/restaurants/{id}/dishes {name, price, category_id, spicy_level, dietary_tags, meal_types, allergens, ingredients}
     activate API
     API->>Svc: create_dish(db, restaurant_id, data)
     activate Svc
@@ -240,29 +240,20 @@ sequenceDiagram
     opt Có truyền category_id
         Svc->>DB: db.get(Category, category_id)
         DB-->>Svc: Category entity
-        alt category.restaurant_id != restaurant_id
-            Svc-->>API: HTTPException 400 (Danh mục không thuộc về quán ăn này)
-            API-->>Admin: HTTP 400 Bad Request
-        end
-    end
-
-    opt Có truyền meal_type_id
-        Svc->>DB: db.get(MealType, meal_type_id)
-        DB-->>Svc: MealType entity
-        alt meal_type không tồn tại
-            Svc-->>API: HTTPException 404 (Không tìm thấy loại bữa ăn)
+        alt Category toàn cục không tồn tại
+            Svc-->>API: HTTPException 404 (Không tìm thấy danh mục món ăn)
             API-->>Admin: HTTP 404 Not Found
         end
     end
 
-    Note over Svc: Chuẩn hóa dữ liệu:<br/>- Chuẩn hóa mảng `ingredients`<br/>- Gán mặc định meal_type='all_day' nếu chưa có
+    Note over Svc: Xác thực & Chuẩn hóa đa chiều:<br/>- spicy_level BETWEEN 0 AND 3<br/>- meal_types ⊆ {breakfast, lunch, dinner, snack, all_day}<br/>- Chuẩn hóa mảng dietary_tags, allergens, ingredients
 
-    Svc->>DB: INSERT INTO dishes (restaurant_id, name, price, ingredients, ...)
+    Svc->>DB: INSERT INTO dishes (restaurant_id, category_id, name, price, spicy_level, dietary_tags, meal_types, allergens, ingredients)
     activate DB
     DB-->>Svc: db.commit() + db.refresh() -> Dish (id, created_at)
     deactivate DB
 
-    Svc->>Svc: to_dish_response(dish) (nạp quan hệ category_rel, meal_type_rel)
+    Svc->>Svc: to_dish_response(dish) (nạp category_name từ quan hệ category_rel)
     Svc-->>API: DishResponse
     deactivate Svc
     API-->>Admin: HTTP 201 Created (DishResponse)
@@ -271,12 +262,12 @@ sequenceDiagram
 </details>
 
 ### Diễn giải chi tiết:
-1. Quản trị viên gửi yêu cầu tạo món ăn kèm các thông số: tên, giá tiền, mảng nguyên liệu (`ingredients`), mã danh mục (`category_id`), và mã loại bữa ăn (`meal_type_id`).
-2. Tầng Controller Pydantic xác thực dữ liệu: `price >= 0`, `meal_type` thuộc các giá trị hợp lệ.
-3. `DishService` thực hiện kiểm tra đa tầng:
+1. Quản trị viên gửi yêu cầu tạo món ăn kèm các thông số đa chiều: tên, giá tiền, ID danh mục toàn cục (`category_id`), độ cay (`spicy_level`: 0..3), mảng chế độ ăn (`dietary_tags`), mảng loại bữa ăn (`meal_types`), mảng chất gây dị ứng (`allergens`), và mảng nguyên liệu (`ingredients`).
+2. Tầng Controller Pydantic xác thực dữ liệu: `price >= 0`, `spicy_level` từ 0 đến 3.
+3. `DishService` thực hiện kiểm tra:
    - Kiểm tra quán ăn tồn tại trong DB.
-   - Nếu có `category_id`: kiểm tra danh mục tồn tại và bắt buộc phải thuộc cùng quán ăn (`category.restaurant_id == restaurant_id`) để tránh gán nhầm danh mục của quán khác.
-   - Nếu có `meal_type_id`: kiểm tra loại bữa ăn hợp lệ.
+   - Nếu có `category_id`: kiểm tra danh mục toàn cục tồn tại trong DB (không còn ràng buộc theo quán).
+   - Xác thực mảng `meal_types` thuộc tập hợp chuẩn: `breakfast`, `lunch`, `dinner`, `snack`, `all_day`.
 4. Thực thi lệnh INSERT vào bảng `dishes`.
 5. Trả về `DishResponse` với HTTP 201 Created.
 
@@ -299,7 +290,7 @@ sequenceDiagram
     participant Svc as DishService (dish_service.py)
     participant DB as PostgreSQL (dishes table, GIN Indexes)
 
-    Client->>API: GET /api/v1/restaurants/{id}/dishes?category_id=1&meal_type=lunch&tag=signature&ingredient=Thịt bò
+    Client->>API: GET /api/v1/restaurants/{id}/dishes?category_id=1&spicy_level=2&meal_type=lunch&dietary_tag=healthy&ingredient=Thịt bò
     activate API
     API->>Svc: get_dishes_by_restaurant(db, restaurant_id, category_id, meal_type, tag, ingredient...)
     activate Svc
@@ -413,6 +404,72 @@ sequenceDiagram
    - Hệ thống tìm và xoá bản ghi khỏi bảng `favourite_dishes`. Nếu không tìm thấy trả về HTTP 404 Not Found.
 3. **Cascade Integrity:** Khi món ăn (`Dish`) hoặc tài khoản khách hàng (`User`) bị xoá, toàn bộ các bản ghi `favourite_dishes` liên quan sẽ tự động được xoá theo nhờ cơ chế `ON DELETE CASCADE`.
 
+
+---
+
+
+
+---
+
+## 8. Luồng 8: Quản trị viên Quản lý Danh mục Toàn cục (Global Categories Management)
+
+Áp dụng cho module: `server/app/api/v1/endpoints/categories.py` & `server/app/services/category_service.py`.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 🛡️ Quản trị viên (Admin)
+    participant API as 🚪 Categories Router (categories.py)
+    participant Svc as ⚙️ CategoryService (category_service.py)
+    participant DB as 🗄️ PostgreSQL (categories, dishes tables)
+
+    Note over Admin, DB: Thao tác 1: Tạo Danh mục Toàn cục mới (Global Category)
+    Admin->>API: POST /api/v1/categories {name: "Món Chay", description: "Món ăn thuần thực vật", display_order: 1}
+    activate API
+    API->>Svc: create_category(db, payload)
+    activate Svc
+    Svc->>Svc: Chuẩn hóa tên: name.strip()
+    Svc->>DB: SELECT * FROM categories WHERE lower(name) = lower('Món Chay')
+    DB-->>Svc: None (chưa tồn tại)
+    Svc->>DB: INSERT INTO categories (name, description, display_order, is_active)
+    activate DB
+    DB-->>Svc: db.commit() + db.refresh() -> Category (id, created_at)
+    deactivate DB
+    Svc-->>API: Category entity
+    deactivate Svc
+    API-->>Admin: HTTP 201 Created (CategoryResponse)
+    deactivate API
+
+    Note over Admin, DB: Thao tác 2: Xóa Danh mục Toàn cục & An toàn Dữ liệu (SET NULL)
+    Admin->>API: DELETE /api/v1/categories/{category_id}
+    activate API
+    API->>Svc: delete_category(db, category_id)
+    activate Svc
+    Svc->>DB: db.get(Category, category_id)
+    DB-->>Svc: Category record
+    alt Danh mục không tồn tại
+        Svc-->>API: HTTPException 404 (Không tìm thấy danh mục món ăn)
+        API-->>Admin: HTTP 404 Not Found
+    else Tìm thấy danh mục
+        Svc->>DB: DELETE FROM categories WHERE id = category_id
+        activate DB
+        Note right of DB: Ràng buộc ON DELETE SET NULL:<br/>Mọi dishes.category_id trỏ tới danh mục này<br/>được tự động cập nhật về NULL (Không mất món ăn)
+        DB-->>Svc: commit() thành công
+        deactivate DB
+        Svc-->>API: True
+        API-->>Admin: HTTP 200 OK {"message": "Xóa danh mục thành công"}
+    end
+    deactivate Svc
+    deactivate API
+```
+
+### Diễn giải chi tiết:
+1. **Tạo danh mục toàn cục:**
+   - Quản trị viên gửi tên danh mục (`name`), mô tả (`description`), thứ tự hiển thị (`display_order`). Không cần cung cấp `restaurant_id`.
+   - `CategoryService` kiểm tra ràng buộc duy nhất toàn cục không phân biệt hoa thường (`lower(name)`). Nếu đã tồn tại trả về `400 Bad Request`.
+   - Tạo bản ghi và trả về `CategoryResponse` (HTTP 201 Created).
+2. **Xóa danh mục an toàn (SET NULL):**
+   - Khi xóa danh mục, khóa ngoại `dishes.category_id` tự động nhận giá trị `NULL` nhờ cơ chế `ON DELETE SET NULL`. Toàn bộ món ăn của các quán vẫn được bảo toàn nguyên vẹn trong thực đơn.
 
 ---
 

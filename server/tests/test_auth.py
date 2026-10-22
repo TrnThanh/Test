@@ -57,6 +57,7 @@ def test_login_user_success(client: TestClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["role"] == "user"
+    assert "session_id" in data and len(data["session_id"]) >= 32
     assert data["data"]["email"] == "login_user@example.com"
 
 
@@ -114,6 +115,7 @@ def test_login_admin_default_success(client: TestClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["role"] == "admin"
+    assert "session_id" in data and len(data["session_id"]) >= 32
     assert data["data"]["email"] == "admin@example.com"
     assert data["data"]["role_level"] == 1
 
