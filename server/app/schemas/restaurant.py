@@ -29,6 +29,7 @@ class RestaurantBase(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả quán ăn")
     open_time: Optional[HHMMTime] = Field(None, description="Thời gian mở cửa (HH:MM)")
     close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
+    is_sponsor: bool = Field(False, description="Đánh dấu quán ăn là nhà tài trợ")
 
 
 class RestaurantCreate(RestaurantBase):
@@ -44,6 +45,7 @@ class RestaurantUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả quán ăn")
     open_time: Optional[HHMMTime] = Field(None, description="Thời gian mở cửa (HH:MM)")
     close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
+    is_sponsor: Optional[bool] = Field(None, description="Đánh dấu quán ăn là nhà tài trợ")
     is_active: Optional[bool] = Field(None, description="Trạng thái hoạt động")
 
 

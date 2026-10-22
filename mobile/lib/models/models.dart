@@ -8,6 +8,7 @@ class Restaurant {
   final String? closeTime;
   final double latitude;
   final double longitude;
+  final bool isSponsor;
   final bool isActive;
   final double? distanceMeters;
   final double? distanceKm;
@@ -22,6 +23,7 @@ class Restaurant {
     this.closeTime,
     required this.latitude,
     required this.longitude,
+    this.isSponsor = false,
     this.isActive = true,
     this.distanceMeters,
     this.distanceKm,
@@ -49,6 +51,7 @@ class Restaurant {
       closeTime: json['close_time'] as String?,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      isSponsor: json['is_sponsor'] as bool? ?? false,
       isActive: json['is_active'] as bool? ?? true,
       distanceMeters: distM,
       distanceKm: distKm,
@@ -149,7 +152,7 @@ class IpLocation {
 
 class Category {
   final int id;
-  final int restaurantId;
+  final int? restaurantId;
   final String name;
   final String? description;
   final int displayOrder;
@@ -158,7 +161,7 @@ class Category {
 
   Category({
     required this.id,
-    required this.restaurantId,
+    this.restaurantId,
     required this.name,
     this.description,
     this.displayOrder = 0,
@@ -169,7 +172,7 @@ class Category {
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       id: json['id'] as int,
-      restaurantId: json['restaurant_id'] as int,
+      restaurantId: json['restaurant_id'] as int?,
       name: json['name'] as String,
       description: json['description'] as String?,
       displayOrder: json['display_order'] as int? ?? 0,
@@ -261,6 +264,10 @@ class Dish {
   final double price;
   final String? description;
   final String? imageUrl;
+  final int spicyLevel;
+  final List<String> dietaryTags;
+  final List<String> mealTypes;
+  final List<String> allergens;
   final String mealType;
   final List<String> ingredients;
   final bool isAvailable;
@@ -277,6 +284,10 @@ class Dish {
     required this.price,
     this.description,
     this.imageUrl,
+    this.spicyLevel = 0,
+    this.dietaryTags = const [],
+    this.mealTypes = const [],
+    this.allergens = const [],
     this.mealType = 'all_day',
     this.ingredients = const [],
     this.isAvailable = true,
@@ -288,6 +299,28 @@ class Dish {
     if (rawIngredients is List) {
       ingredientsList = rawIngredients.map((e) => e.toString()).toList();
     }
+
+    var rawDietary = json['dietary_tags'];
+    List<String> dietaryList = [];
+    if (rawDietary is List) {
+      dietaryList = rawDietary.map((e) => e.toString()).toList();
+    }
+
+    var rawMealTypes = json['meal_types'];
+    List<String> mealTypesList = [];
+    if (rawMealTypes is List) {
+      mealTypesList = rawMealTypes.map((e) => e.toString()).toList();
+    }
+
+    var rawAllergens = json['allergens'];
+    List<String> allergensList = [];
+    if (rawAllergens is List) {
+      allergensList = rawAllergens.map((e) => e.toString()).toList();
+    }
+
+    String derivedMealType = json['meal_type'] as String? ??
+        (mealTypesList.isNotEmpty ? mealTypesList.first : 'all_day');
+
     return Dish(
       id: json['id'] as int,
       restaurantId: json['restaurant_id'] as int,
@@ -300,7 +333,11 @@ class Dish {
       price: (json['price'] as num).toDouble(),
       description: json['description'] as String?,
       imageUrl: json['image_url'] as String?,
-      mealType: json['meal_type'] as String? ?? 'all_day',
+      spicyLevel: json['spicy_level'] as int? ?? 0,
+      dietaryTags: dietaryList,
+      mealTypes: mealTypesList,
+      allergens: allergensList,
+      mealType: derivedMealType,
       ingredients: ingredientsList,
       isAvailable: json['is_available'] as bool? ?? true,
     );

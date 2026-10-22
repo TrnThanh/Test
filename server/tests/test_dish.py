@@ -42,13 +42,16 @@ def test_user(db_session: Session) -> User:
 def test_create_dish_with_category_meal_type_and_ingredients(
     client: TestClient, test_restaurant: Restaurant
 ):
-    """Kiểm tra tạo món ăn mới có category, meal_type và ingredients mảng chuỗi."""
+    """Kiểm tra tạo món ăn mới có category, spicy_level, dietary_tags, meal_types, allergens và ingredients."""
     payload = {
         "name": "Phở Bò Tái Lăn",
         "price": 65000.0,
         "description": "Thịt bò tươi xào lăn đậm đà, nước dùng thơm ngọt.",
         "category": "Món chính",
-        "meal_type": "breakfast",
+        "spicy_level": 1,
+        "dietary_tags": ["halal"],
+        "meal_types": ["breakfast", "lunch"],
+        "allergens": ["peanut"],
         "ingredients": ["Thịt bò tươi", "Bánh phở", "Hành hoa"],
     }
     response = client.post(
@@ -60,7 +63,11 @@ def test_create_dish_with_category_meal_type_and_ingredients(
     assert data["name"] == "Phở Bò Tái Lăn"
     assert data["price"] == 65000.0
     assert data["category"] == "Món chính"
-    assert data["meal_type"] == "breakfast"
+    assert data["spicy_level"] == 1
+    assert "halal" in data["dietary_tags"]
+    assert "breakfast" in data["meal_types"]
+    assert "lunch" in data["meal_types"]
+    assert "peanut" in data["allergens"]
     assert "Thịt bò tươi" in data["ingredients"]
     assert "Bánh phở" in data["ingredients"]
     assert data["restaurant_id"] == test_restaurant.id
@@ -70,28 +77,37 @@ def test_create_dish_with_category_meal_type_and_ingredients(
 def test_filter_dishes_by_category_and_meal_type(
     client: TestClient, test_restaurant: Restaurant
 ):
-    """Kiểm tra tra cứu và lọc món ăn theo category và meal_type."""
+    """Kiểm tra tra cứu và lọc món ăn theo category, meal_type, spicy_level, dietary_tag, allergen."""
     # Tạo 3 món ăn với đặc tính khác nhau
     dishes = [
         {
             "name": "Phở Tái Bắp",
             "price": 60000.0,
             "category": "Món chính",
-            "meal_type": "breakfast",
+            "spicy_level": 1,
+            "dietary_tags": ["halal"],
+            "meal_types": ["breakfast"],
+            "allergens": [],
             "ingredients": ["Thịt bò", "Bánh phở"],
         },
         {
             "name": "Cơm Rang Dưa Bò",
             "price": 55000.0,
             "category": "Món chính",
-            "meal_type": "lunch",
+            "spicy_level": 0,
+            "dietary_tags": [],
+            "meal_types": ["lunch"],
+            "allergens": ["seafood"],
             "ingredients": ["Cơm", "Dưa chua", "Thịt bò"],
         },
         {
             "name": "Trà Chanh Hoa Nhài",
             "price": 20000.0,
             "category": "Đồ uống",
-            "meal_type": "all_day",
+            "spicy_level": 0,
+            "dietary_tags": ["vegetarian", "vegan"],
+            "meal_types": ["all_day"],
+            "allergens": [],
             "ingredients": ["Trà xanh", "Chanh", "Hoa nhài"],
         },
     ]
@@ -112,14 +128,44 @@ def test_filter_dishes_by_category_and_meal_type(
     assert len(items_cat) == 1
     assert items_cat[0]["name"] == "Trà Chanh Hoa Nhài"
 
-    # 2. Lọc theo meal_type = "breakfast" (nhận cả breakfast và all_day)
+    # 2. Lọc theo meal_type = "breakfast"
     res_meal = client.get(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         params={"meal_type": "breakfast"},
     )
     assert res_meal.status_code == status.HTTP_200_OK
     items_meal = res_meal.json()
-    assert len(items_meal) == 2  # Phở Tái Bắp và Trà Chanh (all_day)
+    assert len(items_meal) == 1
+    assert items_meal[0]["name"] == "Phở Tái Bắp"
+
+    # 3. Lọc theo spicy_level = 1
+    res_spicy = client.get(
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
+        params={"spicy_level": 1},
+    )
+    assert res_spicy.status_code == status.HTTP_200_OK
+    items_spicy = res_spicy.json()
+    assert len(items_spicy) == 1
+    assert items_spicy[0]["name"] == "Phở Tái Bắp"
+
+    # 4. Lọc theo dietary_tag = "vegan"
+    res_diet = client.get(
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
+        params={"dietary_tag": "vegan"},
+    )
+    assert res_diet.status_code == status.HTTP_200_OK
+    assert len(res_diet.json()) == 1
+    assert res_diet.json()[0]["name"] == "Trà Chanh Hoa Nhài"
+
+    # 5. Loại trừ dị ứng allergen = "seafood"
+    res_allergen = client.get(
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
+        params={"allergen": "seafood"},
+    )
+    assert res_allergen.status_code == status.HTTP_200_OK
+    # Không được chứa "Cơm Rang Dưa Bò" (có seafood)
+    names = [i["name"] for i in res_allergen.json()]
+    assert "Cơm Rang Dưa Bò" not in names
 
 
 def test_get_distinct_dish_categories(
@@ -179,13 +225,19 @@ def test_update_and_delete_dish(
 def test_dish_validation_errors(
     client: TestClient, test_restaurant: Restaurant
 ):
-    """Kiểm tra bắt lỗi validate khi truyền meal_type hoặc price không hợp lệ."""
-    # 1. meal_type không nằm trong danh sách cho phép
-    err_meal = client.post(
+    """Kiểm tra bắt lỗi validate khi truyền spicy_level hoặc price không hợp lệ."""
+    # 1. spicy_level ngoài khoảng 0..3
+    err_spicy = client.post(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes",
-        json={"name": "Món Lỗi Bữa Ăn", "price": 50000.0, "meal_type": "midnight_snack"},
+        json={"name": "Món Quá Cay", "price": 50000.0, "spicy_level": 5},
     )
-    assert err_meal.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert err_spicy.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    err_spicy_neg = client.post(
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
+        json={"name": "Món Cay Âm", "price": 50000.0, "spicy_level": -1},
+    )
+    assert err_spicy_neg.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     # 2. price âm
     err_price = client.post(

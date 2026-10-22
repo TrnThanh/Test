@@ -1,8 +1,6 @@
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Optional, List
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-MealType = Literal["breakfast", "lunch", "dinner", "snack", "all_day"]
 
 
 class DishBase(BaseModel):
@@ -12,8 +10,10 @@ class DishBase(BaseModel):
     image_url: Optional[str] = Field(None, max_length=1000, description="Đường dẫn ảnh minh hoạ")
     category_id: Optional[int] = Field(None, description="ID nhóm danh mục (Foreign Key)")
     category: Optional[str] = Field(None, max_length=100, description="Nhóm món (vd: Món chính, Khai vị, Đồ uống)")
-    meal_type_id: Optional[int] = Field(None, description="ID loại bữa ăn (Foreign Key)")
-    meal_type: MealType = Field("all_day", description="Bữa ăn: breakfast, lunch, dinner, snack, all_day")
+    spicy_level: int = Field(0, ge=0, le=3, description="Mức độ cay (0: không cay, 1: cay nhẹ, 2: cay vừa, 3: rất cay)")
+    dietary_tags: List[str] = Field(default_factory=list, description="Mảng chế độ ăn (vegetarian, vegan, halal, keto...)")
+    meal_types: List[str] = Field(default_factory=list, description="Mảng bữa ăn (breakfast, lunch, dinner, snack, all_day)")
+    allergens: List[str] = Field(default_factory=list, description="Mảng dị ứng thực phẩm (peanut, seafood, dairy...)")
     ingredients: List[str] = Field(default_factory=list, description="Danh sách nguyên liệu món ăn (vd: ['Thịt bò', 'Hành lá'])")
     is_available: bool = Field(True, description="Trạng thái còn món / tạm hết món")
 
@@ -25,9 +25,9 @@ class DishBase(BaseModel):
             return v if v else None
         return None
 
-    @field_validator("ingredients")
+    @field_validator("ingredients", "dietary_tags", "meal_types", "allergens")
     @classmethod
-    def normalize_ingredients_list(cls, v: List[str]) -> List[str]:
+    def normalize_string_list(cls, v: List[str]) -> List[str]:
         cleaned: List[str] = []
         for t in v:
             t = t.strip()
@@ -47,8 +47,10 @@ class DishUpdate(BaseModel):
     image_url: Optional[str] = Field(None, max_length=1000, description="Ảnh minh hoạ")
     category_id: Optional[int] = Field(None, description="ID nhóm danh mục")
     category: Optional[str] = Field(None, max_length=100, description="Nhóm món")
-    meal_type_id: Optional[int] = Field(None, description="ID loại bữa ăn")
-    meal_type: Optional[MealType] = Field(None, description="Bữa ăn")
+    spicy_level: Optional[int] = Field(None, ge=0, le=3, description="Mức độ cay (0 đến 3)")
+    dietary_tags: Optional[List[str]] = Field(None, description="Mảng chế độ ăn")
+    meal_types: Optional[List[str]] = Field(None, description="Mảng bữa ăn")
+    allergens: Optional[List[str]] = Field(None, description="Mảng dị ứng thực phẩm")
     ingredients: Optional[List[str]] = Field(None, description="Danh sách nguyên liệu")
     is_available: Optional[bool] = Field(None, description="Trạng thái còn món")
 
@@ -60,9 +62,9 @@ class DishUpdate(BaseModel):
             return v if v else None
         return None
 
-    @field_validator("ingredients")
+    @field_validator("ingredients", "dietary_tags", "meal_types", "allergens")
     @classmethod
-    def normalize_ingredients_list(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def normalize_string_list(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         if v is not None:
             cleaned: List[str] = []
             for t in v:
@@ -77,7 +79,7 @@ class DishResponse(DishBase):
     id: int
     restaurant_id: int
     category_name: Optional[str] = Field(None, description="Tên nhóm danh mục liên kết")
-    meal_type_name: Optional[str] = Field(None, description="Tên loại bữa ăn liên kết")
+    meal_type_name: Optional[str] = Field(None, description="Tên loại bữa ăn liên kết (nếu có)")
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

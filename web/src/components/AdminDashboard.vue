@@ -479,7 +479,8 @@ const filteredUsers = computed(() => {
 });
 
 // Helper chuyển meal type sang tiếng Việt
-function formatMealType(mt: MealType): string {
+function formatMealType(mt?: MealType | string | null): string {
+  if (!mt) return 'Cả ngày';
   switch (mt) {
     case 'breakfast':
       return 'Bữa sáng';
@@ -980,8 +981,9 @@ onMounted(() => {
                     <p v-if="d.description" class="dish-card-desc">{{ d.description }}</p>
 
                     <div class="dish-meta-row">
-                      <span class="meal-tag">{{ formatMealType(d.meal_type) }}</span>
+                      <span class="meal-tag">{{ formatMealType((d.meal_types && d.meal_types.length > 0) ? d.meal_types[0] : d.meal_type) }}</span>
                       <span v-if="d.category_name" class="category-tag">{{ d.category_name }}</span>
+                      <span v-if="d.spicy_level && d.spicy_level > 0" class="spicy-tag">🌶️ {{ d.spicy_level === 1 ? 'Cay nhẹ' : d.spicy_level === 2 ? 'Cay vừa' : 'Rất cay' }}</span>
                     </div>
 
                     <div v-if="d.ingredients && d.ingredients.length > 0" class="dish-ingredients">

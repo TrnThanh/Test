@@ -18,6 +18,7 @@ export interface Restaurant {
   close_time?: string | null;
   latitude: number;
   longitude: number;
+  is_sponsor?: boolean;
   is_active: boolean;
   distance_meters?: number | null;
   distance_km?: number | null;
@@ -43,7 +44,7 @@ export interface RoleLoginResponse {
 
 export interface Category {
   id: number;
-  restaurant_id: number;
+  restaurant_id?: number | null;
   name: string;
   description?: string | null;
   display_order: number;
@@ -92,7 +93,11 @@ export interface Dish {
   price: number;
   description?: string | null;
   image_url?: string | null;
-  meal_type: MealType;
+  spicy_level?: number;
+  dietary_tags?: string[];
+  meal_types?: string[];
+  allergens?: string[];
+  meal_type?: MealType;
   ingredients?: string[];
   is_available: boolean;
   created_at?: string;

@@ -24,7 +24,7 @@ def create_dish(
     """
     Tạo món ăn mới cho quán ăn:
     - Bắt buộc: `name`, `price >= 0`.
-    - Tuỳ chọn: `category_id` (ID nhóm danh mục), `category` (nhóm món), `meal_type_id`, `meal_type`, `tags`, `ingredients`.
+    - Tuỳ chọn: `category_id`, `category`, `spicy_level`, `dietary_tags`, `meal_types`, `allergens`, `ingredients`.
     """
     dish = DishService.create_dish(
         db=db,
@@ -37,14 +37,16 @@ def create_dish(
 @router.get(
     "/restaurants/{restaurant_id}/dishes",
     response_model=List[DishResponse],
-    summary="Lấy thực đơn của quán ăn (Có bộ lọc category_id, category, meal_type_id, meal_type, ingredient)",
+    summary="Lấy thực đơn của quán ăn (Có bộ lọc category_id, category, spicy_level, dietary_tag, meal_type, allergen, ingredient)",
 )
 def get_restaurant_dishes(
     restaurant_id: int = Path(..., description="ID quán ăn"),
     category_id: Optional[int] = Query(None, description="Lọc theo ID nhóm danh mục"),
     category: Optional[str] = Query(None, description="Lọc theo tên nhóm món (vd: Món chính, Đồ uống)"),
-    meal_type_id: Optional[int] = Query(None, description="Lọc theo ID loại bữa ăn"),
+    spicy_level: Optional[int] = Query(None, ge=0, le=3, description="Lọc theo độ cay (0 đến 3)"),
+    dietary_tag: Optional[str] = Query(None, description="Lọc món theo chế độ ăn (vegetarian, vegan, halal...)"),
     meal_type: Optional[str] = Query(None, description="Lọc theo bữa ăn (breakfast, lunch, dinner, snack, all_day)"),
+    allergen: Optional[str] = Query(None, description="Loại trừ món có thành phần gây dị ứng này"),
     ingredient: Optional[str] = Query(None, description="Lọc theo nguyên liệu món ăn (vd: Thịt bò, Nấm)"),
     available_only: bool = Query(True, description="Chỉ lấy món đang còn phục vụ"),
     skip: int = Query(0, ge=0),
@@ -57,8 +59,10 @@ def get_restaurant_dishes(
         restaurant_id=restaurant_id,
         category_id=category_id,
         category=category,
-        meal_type_id=meal_type_id,
+        spicy_level=spicy_level,
+        dietary_tag=dietary_tag,
         meal_type=meal_type,
+        allergen=allergen,
         ingredient=ingredient,
         available_only=available_only,
         skip=skip,

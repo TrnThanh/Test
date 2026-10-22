@@ -43,6 +43,67 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             conn.execute(text("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN NOT NULL DEFAULT FALSE;"))
             conn.execute(text("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMPTZ DEFAULT NULL;"))
             conn.execute(text("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();"))
+
+            # --- TASK-038: Cải tổ Schema: Categories toàn cục, Dish đa dạng phân loại & Restaurant tài trợ ---
+            conn.execute(text("ALTER TABLE IF EXISTS restaurants ADD COLUMN IF NOT EXISTS is_sponsor BOOLEAN NOT NULL DEFAULT FALSE;"))
+            conn.execute(text("ALTER TABLE IF EXISTS dishes ADD COLUMN IF NOT EXISTS spicy_level SMALLINT NOT NULL DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE IF EXISTS dishes ADD COLUMN IF NOT EXISTS dietary_tags TEXT[] NOT NULL DEFAULT '{}';"))
+            conn.execute(text("ALTER TABLE IF EXISTS dishes ADD COLUMN IF NOT EXISTS meal_types TEXT[] NOT NULL DEFAULT '{}';"))
+            conn.execute(text("ALTER TABLE IF EXISTS dishes ADD COLUMN IF NOT EXISTS allergens TEXT[] NOT NULL DEFAULT '{}';"))
+
+            conn.execute(text("""
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='meal_type') THEN
+                        UPDATE dishes SET meal_types = ARRAY[meal_type] WHERE (meal_types IS NULL OR cardinality(meal_types) = 0) AND meal_type IS NOT NULL;
+                    END IF;
+                END $$;
+            """))
+
+            conn.execute(text("""
+                DO $$
+                DECLARE
+                    rec RECORD;
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='categories' AND column_name='restaurant_id') THEN
+                        FOR rec IN 
+                            SELECT lower(name) AS l_name, min(id) AS keep_id, array_agg(id) AS all_ids 
+                            FROM categories 
+                            GROUP BY lower(name) 
+                            HAVING count(*) > 1
+                        LOOP
+                            UPDATE dishes SET category_id = rec.keep_id WHERE category_id = ANY(rec.all_ids) AND category_id != rec.keep_id;
+                            UPDATE weather_categories SET category_id = rec.keep_id WHERE category_id = ANY(rec.all_ids) AND category_id != rec.keep_id;
+                            DELETE FROM categories WHERE id = ANY(rec.all_ids) AND id != rec.keep_id;
+                        END LOOP;
+                    END IF;
+                END $$;
+            """))
+
+            conn.execute(text("""
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='categories' AND column_name='restaurant_id') THEN
+                        ALTER TABLE categories DROP CONSTRAINT IF EXISTS uq_restaurant_category_name;
+                        ALTER TABLE categories DROP COLUMN IF EXISTS restaurant_id CASCADE;
+                    END IF;
+                END $$;
+            """))
+
+            conn.execute(text("""
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='meal_type') THEN
+                        ALTER TABLE dishes DROP CONSTRAINT IF EXISTS ck_dishes_meal_type;
+                        ALTER TABLE dishes DROP COLUMN IF EXISTS meal_type CASCADE;
+                    END IF;
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='meal_type_id') THEN
+                        ALTER TABLE dishes DROP COLUMN IF EXISTS meal_type_id CASCADE;
+                    END IF;
+                END $$;
+            """))
+
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_categories_name_lower ON categories (lower(name));"))
         Base.metadata.create_all(bind=engine)
         # Tự động seed tài khoản Admin, MealTypes và Weathers mặc định
         with SessionLocal() as db:

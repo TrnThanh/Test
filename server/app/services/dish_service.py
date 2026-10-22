@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session, joinedload
 from server.app.models.user import User
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
-from server.app.models.meal_type import MealType
 from server.app.models.dish import Dish
 from server.app.models.favourite_dish import FavouriteDish
 from server.app.schemas.dish import DishCreate, DishUpdate, DishResponse
@@ -16,10 +15,9 @@ class DishService:
     @staticmethod
     def to_dish_response(dish: Dish) -> DishResponse:
         cat_name = dish.category_rel.name if dish.category_rel else dish.category
-        meal_name = dish.meal_type_rel.name if dish.meal_type_rel else None
         res = DishResponse.model_validate(dish)
         res.category_name = cat_name
-        res.meal_type_name = meal_name
+        res.meal_type_name = ", ".join(dish.meal_types) if dish.meal_types else None
         return res
 
     @classmethod
@@ -29,7 +27,7 @@ class DishService:
         restaurant_id: int,
         data: DishCreate,
     ) -> Dish:
-        """Tạo món ăn mới thuộc quán, kiểm tra tính hợp lệ của Category."""
+        """Tạo món ăn mới thuộc quán, liên kết danh mục toàn cục nếu có."""
         restaurant = db.get(Restaurant, restaurant_id)
         if not restaurant:
             raise HTTPException(
@@ -45,36 +43,22 @@ class DishService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Không tìm thấy danh mục món ăn với ID {data.category_id}.",
                 )
-            if category.restaurant_id != restaurant_id:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Danh mục món ăn không thuộc quán ăn này.",
-                )
             if not category_str:
                 category_str = category.name
 
-        meal_type_val = data.meal_type
-        if data.meal_type_id is not None:
-            meal_type_obj = db.get(MealType, data.meal_type_id)
-            if not meal_type_obj:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Không tìm thấy loại bữa ăn với ID {data.meal_type_id}.",
-                )
-            if (meal_type_val == "all_day" or not meal_type_val) and meal_type_obj.code in ["breakfast", "lunch", "dinner", "snack", "all_day"]:
-                meal_type_val = meal_type_obj.code
-
-        tags_raw = getattr(data, "tags", None)
-        cleaned_tags = [t.strip() for t in tags_raw if t.strip()] if tags_raw else []
-        ingredients_raw = getattr(data, "ingredients", None)
-        cleaned_ingredients = [i.strip() for i in ingredients_raw if i.strip()] if ingredients_raw else []
+        cleaned_ingredients = [i.strip() for i in data.ingredients if i.strip()] if data.ingredients else []
+        cleaned_dietary = [d.strip() for d in data.dietary_tags if d.strip()] if data.dietary_tags else []
+        cleaned_meal_types = [m.strip() for m in data.meal_types if m.strip()] if data.meal_types else []
+        cleaned_allergens = [a.strip() for a in data.allergens if a.strip()] if data.allergens else []
 
         dish = Dish(
             restaurant_id=restaurant_id,
             category_id=data.category_id,
             category=category_str,
-            meal_type_id=data.meal_type_id,
-            meal_type=meal_type_val,
+            spicy_level=data.spicy_level,
+            dietary_tags=cleaned_dietary,
+            meal_types=cleaned_meal_types,
+            allergens=cleaned_allergens,
             ingredients=cleaned_ingredients,
             name=data.name.strip(),
             price=data.price,
@@ -93,8 +77,10 @@ class DishService:
         restaurant_id: int,
         category_id: Optional[int] = None,
         category: Optional[str] = None,
-        meal_type_id: Optional[int] = None,
+        spicy_level: Optional[int] = None,
+        dietary_tag: Optional[str] = None,
         meal_type: Optional[str] = None,
+        allergen: Optional[str] = None,
         ingredient: Optional[str] = None,
         available_only: bool = True,
         skip: int = 0,
@@ -110,7 +96,7 @@ class DishService:
 
         stmt = (
             select(Dish)
-            .options(joinedload(Dish.category_rel), joinedload(Dish.meal_type_rel))
+            .options(joinedload(Dish.category_rel))
             .where(Dish.restaurant_id == restaurant_id)
         )
         if available_only:
@@ -119,10 +105,15 @@ class DishService:
             stmt = stmt.where(Dish.category_id == category_id)
         if category:
             stmt = stmt.where(Dish.category == category.strip())
-        if meal_type_id is not None:
-            stmt = stmt.where(Dish.meal_type_id == meal_type_id)
+        if spicy_level is not None:
+            stmt = stmt.where(Dish.spicy_level == spicy_level)
+        if dietary_tag:
+            stmt = stmt.where(Dish.dietary_tags.contains([dietary_tag.strip()]))
         if meal_type:
-            stmt = stmt.where(Dish.meal_type.in_([meal_type, "all_day"]))
+            stmt = stmt.where(Dish.meal_types.contains([meal_type.strip()]))
+        if allergen:
+            # Loại trừ món có chứa dị ứng này
+            stmt = stmt.where(~Dish.allergens.contains([allergen.strip()]))
         if ingredient:
             stmt = stmt.where(Dish.ingredients.contains([ingredient.strip()]))
 
@@ -134,7 +125,7 @@ class DishService:
         """Lấy chi tiết một món ăn theo ID."""
         stmt = (
             select(Dish)
-            .options(joinedload(Dish.category_rel), joinedload(Dish.meal_type_rel))
+            .options(joinedload(Dish.category_rel))
             .where(Dish.id == dish_id)
         )
         dish = db.scalar(stmt)
@@ -170,34 +161,14 @@ class DishService:
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"Không tìm thấy danh mục món ăn với ID {cat_id}.",
                     )
-                if cat.restaurant_id != dish.restaurant_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Danh mục món ăn không thuộc quán ăn này.",
-                    )
                 if "category" not in update_data or not update_data["category"]:
                     dish.category = cat.name
+                dish.category_id = cat_id
             else:
                 dish.category_id = None
 
-        if "meal_type_id" in update_data:
-            mt_id = update_data["meal_type_id"]
-            if mt_id is not None:
-                mt = db.get(MealType, mt_id)
-                if not mt:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Không tìm thấy loại bữa ăn với ID {mt_id}.",
-                    )
-                if ("meal_type" not in update_data or not update_data["meal_type"]) and mt.code in [
-                    "breakfast", "lunch", "dinner", "snack", "all_day"
-                ]:
-                    dish.meal_type = mt.code
-            else:
-                dish.meal_type_id = None
-
         for key, value in update_data.items():
-            if key in ["category_id", "meal_type_id"]:
+            if key in ["category_id"]:
                 continue
             if isinstance(value, str):
                 value = value.strip()
@@ -317,7 +288,6 @@ class DishService:
             select(FavouriteDish)
             .options(
                 joinedload(FavouriteDish.dish).joinedload(Dish.category_rel),
-                joinedload(FavouriteDish.dish).joinedload(Dish.meal_type_rel),
                 joinedload(FavouriteDish.dish).joinedload(Dish.restaurant),
             )
             .where(FavouriteDish.user_id == user_id)

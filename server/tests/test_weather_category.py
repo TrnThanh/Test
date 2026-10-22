@@ -22,13 +22,11 @@ def sample_data(db_session: Session):
     db_session.flush()
 
     cat1 = Category(
-        restaurant_id=restaurant.id,
         name="Món Lẩu Nóng",
         description="Các món lẩu nghi ngút khói thích hợp ngày lạnh",
         display_order=1,
     )
     cat2 = Category(
-        restaurant_id=restaurant.id,
         name="Đồ Uống Mát Lạnh",
         description="Trà sữa, nước ngọt, kem cho ngày nắng nóng",
         display_order=2,

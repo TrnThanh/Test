@@ -39,9 +39,8 @@ def test_restaurant(db_session: Session) -> Restaurant:
 
 
 @pytest.fixture
-def test_category(db_session: Session, test_restaurant: Restaurant) -> Category:
+def test_category(db_session: Session) -> Category:
     cat = Category(
-        restaurant_id=test_restaurant.id,
         name="Hải sản cay",
         description="Các món hải sản nhiều ớt",
     )

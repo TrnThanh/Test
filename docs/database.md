@@ -57,7 +57,6 @@ erDiagram
         int role_level "Cấp độ quyền (Default: 1)"
     }
 
-    RESTAURANTS ||--o{ CATEGORIES : "has (1-N, cascade delete)"
     RESTAURANTS ||--o{ DISHES : "offers (1-N, cascade delete)"
     RESTAURANTS {
         int id PK "Khóa chính tự tăng"
@@ -69,6 +68,7 @@ erDiagram
         string description "Mô tả quán ăn (Nullable)"
         time open_time "Giờ mở cửa HH:MM (Nullable)"
         time close_time "Giờ đóng cửa HH:MM (Nullable)"
+        boolean is_sponsor "Nhà tài trợ (Default: false, Index)"
         boolean is_active "Trạng thái hoạt động (Default: true)"
         timestamp created_at "Thời điểm tạo quán (UTC)"
         geography location "PostGIS POINT(SRID 4326) - Cột tính toán tự động"
@@ -77,15 +77,13 @@ erDiagram
     CATEGORIES ||--o{ DISHES : "categorizes (1-N, set null)"
     CATEGORIES {
         int id PK "Khóa chính tự tăng"
-        int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id) ON DELETE CASCADE"
-        string name "Tên nhóm danh mục (Unique theo quán)"
+        string name UK "Tên nhóm danh mục (Unique toàn hệ thống, lower index)"
         string description "Mô tả danh mục (Nullable)"
         int display_order "Thứ tự sắp xếp hiển thị (Default: 0)"
         boolean is_active "Trạng thái hiển thị (Default: true)"
         timestamp created_at "Thời điểm tạo (UTC)"
     }
 
-    MEAL_TYPES ||--o{ DISHES : "classifies (1-N, set null)"
     MEAL_TYPES {
         int id PK "Khóa chính tự tăng"
         string code UK "Mã bữa ăn (Unique, Index)"
@@ -117,13 +115,15 @@ erDiagram
         int id PK "Khóa chính tự tăng"
         int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id) ON DELETE CASCADE"
         int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) ON DELETE SET NULL"
-        int meal_type_id FK "Khóa ngoại trỏ về MEAL_TYPES(id) ON DELETE SET NULL"
         string name "Tên món ăn"
         numeric price "Giá bán (>= 0)"
         string description "Mô tả món ăn (Nullable)"
         string image_url "Đường dẫn ảnh món (Nullable)"
         string category "Tên nhóm món dự phòng (Nullable)"
-        string meal_type "Bữa ăn: breakfast, lunch, dinner, snack, all_day"
+        int spicy_level "Độ cay: 0-không cay, 1-nhẹ, 2-vừa, 3-rất cay"
+        string dietary_tags "Mảng chế độ ăn ARRAY(Text): vegetarian, vegan..."
+        string meal_types "Mảng loại bữa ăn ARRAY(Text): breakfast, lunch..."
+        string allergens "Mảng dị ứng ARRAY(Text): peanut, seafood..."
         string ingredients "Mảng nguyên liệu món ăn ARRAY(Text)"
         boolean is_available "Trạng thái còn món (Default: true)"
         timestamp created_at "Thời điểm tạo món (UTC)"
@@ -154,7 +154,6 @@ erDiagram
         int dish_id FK "Khóa ngoại trỏ về DISHES(id) ON DELETE CASCADE"
         timestamp created_at "Thời điểm yêu thích món (UTC)"
     }
-
 ```
 </details>
 
@@ -221,20 +220,20 @@ Model ORM: `server/app/models/restaurant.py`.
 | `phone` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL` | Số điện thoại quán ăn |
 | `description` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Giới thiệu quán ăn |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái mở/đóng cửa |
+| `is_sponsor` | `BOOLEAN` | `NOT NULL`, Default: `FALSE`, `INDEX` | Đánh dấu quán là nhà tài trợ (ưu tiên hiển thị) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Ngày tạo quán |
 | `location` | `GEOGRAPHY(POINT, 4326)` | `GENERATED ALWAYS AS (...) STORED`, `SPATIAL INDEX` | Tọa độ PostGIS phục vụ tìm quán lân cận |
 
 ---
 
-### 3.4. Bảng `categories` (Nhóm món / Danh mục thực đơn của Quán)
+### 3.4. Bảng `categories` (Nhóm món / Danh mục thực đơn toàn cục)
 Model ORM: `server/app/models/category.py`.
-Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Categories). Mỗi món ăn có thể thuộc 1 Category (`dishes.category_id`).
+Quan hệ: Danh mục toàn cục dùng chung hệ thống (Master Catalog). Món ăn từ bất kỳ quán nào cũng có thể liên kết (`dishes.category_id`).
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
 | :--- | :--- | :--- | :--- |
 | `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính định danh danh mục |
-| `restaurant_id` | `INTEGER` | `NOT NULL`, `FK(restaurants.id ON DELETE CASCADE)`, `INDEX` | Quán ăn sở hữu nhóm danh mục này |
-| `name` | `VARCHAR(100)` | `NOT NULL`, `UNIQUE(restaurant_id, name)` | Tên nhóm danh mục (vd: "Cơm đĩa", "Khai vị", "Đồ uống") |
+| `name` | `VARCHAR(100)` | `NOT NULL`, `UNIQUE(lower(name))` | Tên nhóm danh mục toàn hệ thống (vd: "Cơm đĩa", "Khai vị", "Đồ uống") |
 | `description` | `VARCHAR(500)` | `NULLABLE`, Default: `NULL` | Mô tả nhóm món |
 | `display_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự hiển thị menu |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái hiển thị danh mục |
@@ -251,13 +250,15 @@ Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Dishes), liên
 | `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính định danh món ăn |
 | `restaurant_id` | `INTEGER` | `NOT NULL`, `FK(restaurants.id ON DELETE CASCADE)`, `INDEX` | Quán ăn sở hữu món này |
 | `category_id` | `INTEGER` | `NULLABLE`, `FK(categories.id ON DELETE SET NULL)`, `INDEX` | **Khóa ngoại trỏ về `categories.id`**: Nhóm danh mục của món. Khi xóa danh mục, món ăn không bị xóa mà chuyển thành NULL (chưa phân loại). |
-| `meal_type_id` | `INTEGER` | `NULLABLE`, `FK(meal_types.id ON DELETE SET NULL)`, `INDEX` | **Khóa ngoại trỏ về `meal_types.id`**: Xác định bữa ăn chuẩn (Sáng, Trưa, Tối...). Khi xóa loại bữa ăn, món ăn chuyển thành NULL. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | Tên món ăn (vd: "Cơm tấm sườn nướng") |
 | `price` | `DOUBLE PRECISION` / `NUMERIC` | `NOT NULL`, `CHECK (price >= 0)` | Đơn giá món ăn |
 | `description` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Giới thiệu, nguyên liệu, hương vị món ăn |
 | `image_url` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Đường dẫn ảnh minh họa món ăn |
 | `category` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Tên nhóm món dạng chuỗi (dự phòng tương thích ngược) |
-| `meal_type` | `VARCHAR(20)` | `NOT NULL`, Default: `'all_day'`, `CHECK (meal_type IN ('breakfast','lunch','dinner','snack','all_day'))` | Bữa ăn phù hợp |
+| `spicy_level` | `SMALLINT` / `INTEGER` | `NOT NULL`, Default: `0`, `CHECK (spicy_level BETWEEN 0 AND 3)` | Mức độ cay: 0-không cay, 1-nhẹ, 2-vừa, 3-rất cay |
+| `dietary_tags` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng chế độ ăn (vd: `['vegetarian', 'vegan', 'halal', 'keto']`) |
+| `meal_types` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng loại bữa ăn (vd: `['breakfast', 'lunch', 'dinner', 'snack', 'all_day']`) |
+| `allergens` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng thành phần gây dị ứng thực phẩm (vd: `['peanut', 'seafood', 'dairy']`) |
 | `ingredients` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Mảng nguyên liệu món ăn (vd: `['Thịt bò', 'Bánh phở', 'Hành lá']`) |
 | `is_available` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái món (còn món / tạm hết món) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo món (UTC) |

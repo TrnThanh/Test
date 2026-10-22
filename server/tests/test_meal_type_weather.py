@@ -97,12 +97,12 @@ def test_create_dish_with_ingredients_and_meal_type_id(
     meal_resp = client.get("/api/v1/meal-types")
     breakfast_id = next(item["id"] for item in meal_resp.json() if item["code"] == "breakfast")
 
-    # 3. Tạo món ăn với ingredients và meal_type_id
+    # 3. Tạo món ăn với ingredients và meal_types
     dish_payload = {
         "name": "Bún Bò Giò Heo Đặc Biệt",
         "price": 55000.0,
         "description": "Nước dùng đậm đà hương sả ruốc",
-        "meal_type_id": breakfast_id,
+        "meal_types": ["breakfast"],
         "ingredients": ["Thịt bắp bò", "Giò heo", "Chả cua", "Bún tươi", "Hành hoa", "Rau sống"],
         "is_available": True,
     }
@@ -113,16 +113,14 @@ def test_create_dish_with_ingredients_and_meal_type_id(
     assert dish_resp.status_code == 201
     dish_data = dish_resp.json()
     assert dish_data["name"] == "Bún Bò Giò Heo Đặc Biệt"
-    assert dish_data["meal_type_id"] == breakfast_id
-    assert dish_data["meal_type"] == "breakfast"
-    assert dish_data["meal_type_name"] == "Bữa sáng"
+    assert "breakfast" in dish_data["meal_types"]
     assert len(dish_data["ingredients"]) == 6
     assert "Thịt bắp bò" in dish_data["ingredients"]
 
-    # 4. Kiểm tra lọc món ăn theo meal_type_id và ingredient
+    # 4. Kiểm tra lọc món ăn theo meal_type và ingredient
     filter_resp = client.get(
         f"/api/v1/restaurants/{restaurant_id}/dishes",
-        params={"meal_type_id": breakfast_id, "ingredient": "Giò heo"},
+        params={"meal_type": "breakfast", "ingredient": "Giò heo"},
     )
     assert filter_resp.status_code == 200
     matched_dishes = filter_resp.json()

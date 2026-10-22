@@ -124,7 +124,6 @@ def test_current_weather_includes_recommended_categories(client: TestClient, db_
     db_session.refresh(rest)
 
     cat = Category(
-        restaurant_id=rest.id,
         name="Món Nước & Canh Nóng",
         description="Thích hợp ngày mưa mát",
         display_order=1,

@@ -41,7 +41,6 @@ class CategoryUpdate(BaseModel):
 
 class CategoryResponse(CategoryBase):
     id: int
-    restaurant_id: int
     created_at: datetime
     dish_count: Optional[int] = Field(0, description="Số lượng món trong danh mục")
 

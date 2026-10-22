@@ -187,10 +187,21 @@ export const api = {
   },
 
   // --- CATEGORIES ---
+  getAllCategories: (isActiveOnly = false) =>
+    request<import('../types').Category[]>(`/categories?is_active_only=${isActiveOnly}`),
+
   getRestaurantCategories: (restaurantId: number, isActiveOnly = false) =>
     request<import('../types').Category[]>(
       `/restaurants/${restaurantId}/categories?is_active_only=${isActiveOnly}`
     ),
+
+  createGlobalCategory: (
+    data: { name: string; description?: string; display_order?: number; is_active?: boolean }
+  ) =>
+    request<import('../types').Category>(`/categories`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   createCategory: (
     restaurantId: number,
@@ -221,13 +232,24 @@ export const api = {
   // --- DISHES ---
   getRestaurantDishes: (
     restaurantId: number,
-    params?: { category_id?: number; category?: string; meal_type?: string; tag?: string }
+    params?: {
+      category_id?: number;
+      category?: string;
+      meal_type?: string;
+      spicy_level?: number;
+      dietary_tag?: string;
+      allergen?: string;
+      ingredient?: string;
+    }
   ) => {
     const query = new URLSearchParams();
     if (params?.category_id != null) query.append('category_id', String(params.category_id));
     if (params?.category) query.append('category', params.category);
     if (params?.meal_type) query.append('meal_type', params.meal_type);
-    if (params?.tag) query.append('tag', params.tag);
+    if (params?.spicy_level != null) query.append('spicy_level', String(params.spicy_level));
+    if (params?.dietary_tag) query.append('dietary_tag', params.dietary_tag);
+    if (params?.allergen) query.append('allergen', params.allergen);
+    if (params?.ingredient) query.append('ingredient', params.ingredient);
     const qs = query.toString() ? `?${query.toString()}` : '';
     return request<import('../types').Dish[]>(`/restaurants/${restaurantId}/dishes${qs}`);
   },

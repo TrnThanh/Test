@@ -4,10 +4,6 @@ from sqlalchemy import String, Boolean, DateTime, Time, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from server.app.db.base import Base
 
-if TYPE_CHECKING:
-    from server.app.models.dish import Dish
-
-
 class MealType(Base):
     """Bảng loại bữa ăn (MealType): Sáng, Trưa, Tối, Ăn vặt, Cả ngày..."""
     __tablename__ = "meal_types"
@@ -26,5 +22,3 @@ class MealType(Base):
         server_default=func.now(),
         nullable=False,
     )
-
-    dishes: Mapped[List["Dish"]] = relationship("Dish", back_populates="meal_type_rel")

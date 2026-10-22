@@ -37,7 +37,6 @@ def test_category(db_session: Session) -> Category:
     db_session.refresh(restaurant)
 
     category = Category(
-        restaurant_id=restaurant.id,
         name="Món Nướng & Lẩu",
         description="Đồ nướng và lẩu gia đình",
     )

@@ -49,11 +49,13 @@ def test_admin_restaurant_management(client: TestClient) -> None:
             "latitude": 21.0285,
             "longitude": 105.8542,
             "phone": "0987654321",
+            "is_sponsor": True,
         },
     )
     assert rest_resp.status_code == 201
     rest_id = rest_resp.json()["id"]
     assert rest_resp.json()["is_active"] is True
+    assert rest_resp.json()["is_sponsor"] is True
 
     # 2. Admin toggle status
     patch_resp = client.patch(
@@ -66,11 +68,12 @@ def test_admin_restaurant_management(client: TestClient) -> None:
     # 3. Admin update restaurant details
     put_resp = client.put(
         f"/api/v1/admin/restaurants/{rest_id}",
-        json={"name": "Quán Quản Trị Đã Cập Nhật", "is_active": True},
+        json={"name": "Quán Quản Trị Đã Cập Nhật", "is_active": True, "is_sponsor": False},
     )
     assert put_resp.status_code == 200
     assert put_resp.json()["name"] == "Quán Quản Trị Đã Cập Nhật"
     assert put_resp.json()["is_active"] is True
+    assert put_resp.json()["is_sponsor"] is False
 
     # 4. Admin delete restaurant
     del_resp = client.delete(f"/api/v1/admin/restaurants/{rest_id}")

@@ -7,7 +7,6 @@ from server.app.db.base import Base
 
 if TYPE_CHECKING:
     from server.app.models.dish import Dish
-    from server.app.models.category import Category
 
 
 class Restaurant(Base):
@@ -17,6 +16,7 @@ class Restaurant(Base):
         CheckConstraint("latitude >= -90.0 AND latitude <= 90.0", name="ck_restaurant_latitude"),
         CheckConstraint("longitude >= -180.0 AND longitude <= 180.0", name="ck_restaurant_longitude"),
         Index("ix_restaurants_lat_lon", "latitude", "longitude"),
+        Index("ix_restaurants_is_sponsor", "is_sponsor"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -28,6 +28,7 @@ class Restaurant(Base):
     description: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True, default=None)
     open_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True, default=None)
     close_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True, default=None)
+    is_sponsor: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -46,9 +47,6 @@ class Restaurant(Base):
         deferred=True,
     )
 
-    categories: Mapped[List["Category"]] = relationship(
-        "Category", back_populates="restaurant", cascade="all, delete-orphan"
-    )
     dishes: Mapped[List["Dish"]] = relationship(
         "Dish", back_populates="restaurant", cascade="all, delete-orphan"
     )

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Index, CheckConstraint, Text, text
+from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Index, CheckConstraint, Text, text, SmallInteger
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from server.app.db.base import Base
@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from server.app.models.restaurant import Restaurant
     from server.app.models.favourite_dish import FavouriteDish
     from server.app.models.category import Category
-    from server.app.models.meal_type import MealType
 
 
 class Dish(Base):
@@ -17,12 +16,12 @@ class Dish(Base):
     __tablename__ = "dishes"
     __table_args__ = (
         CheckConstraint("price >= 0", name="ck_dish_price"),
-        CheckConstraint(
-            "meal_type IN ('breakfast', 'lunch', 'dinner', 'snack', 'all_day')",
-            name="ck_dishes_meal_type",
-        ),
+        CheckConstraint("spicy_level >= 0 AND spicy_level <= 3", name="ck_dishes_spicy_level"),
         Index("ix_dishes_restaurant_category", "restaurant_id", "category"),
         Index("ix_dishes_ingredients_gin", "ingredients", postgresql_using="gin"),
+        Index("ix_dishes_dietary_tags_gin", "dietary_tags", postgresql_using="gin"),
+        Index("ix_dishes_meal_types_gin", "meal_types", postgresql_using="gin"),
+        Index("ix_dishes_allergens_gin", "allergens", postgresql_using="gin"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -37,11 +36,17 @@ class Dish(Base):
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True, index=True
     )
     category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None, index=True)
-    meal_type_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("meal_types.id", ondelete="SET NULL"), nullable=True, index=True
+    spicy_level: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default="0"
     )
-    meal_type: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="all_day", server_default="all_day", index=True
+    dietary_tags: Mapped[List[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
+    )
+    meal_types: Mapped[List[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
+    )
+    allergens: Mapped[List[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
     )
     ingredients: Mapped[List[str]] = mapped_column(
         ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
@@ -55,7 +60,6 @@ class Dish(Base):
 
     restaurant: Mapped["Restaurant"] = relationship("Restaurant", back_populates="dishes")
     category_rel: Mapped[Optional["Category"]] = relationship("Category", back_populates="dishes")
-    meal_type_rel: Mapped[Optional["MealType"]] = relationship("MealType", back_populates="dishes")
     favourite_users: Mapped[List["FavouriteDish"]] = relationship(
         "FavouriteDish", back_populates="dish", cascade="all, delete-orphan"
     )
