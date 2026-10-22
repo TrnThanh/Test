@@ -1,5 +1,7 @@
 # Tài liệu Đặc tả Use Case: Hệ thống PTC1
 
+> 💡 *Để xem bảng gạch đầu dòng tính năng chi tiết cho Mobile App và Web Admin, vui lòng xem [Danh sách Tính năng (features.md)](features.md)*
+
 Tài liệu này tổng hợp toàn bộ các **Tác nhân (Actors)**, **Sơ đồ Use Case** và **Đặc tả chi tiết từng trường hợp sử dụng (Use Cases)** của hệ thống PTC1, bám sát **100% mã nguồn thực tế hiện có** tại `server/app/`.
 
 ---
