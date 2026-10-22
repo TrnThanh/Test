@@ -1,34 +1,38 @@
 # Sơ đồ Lớp Hệ thống (UML Class Diagram) - PTC1
 
-Tài liệu này mô tả chi tiết kiến trúc hướng đối tượng (Object-Oriented Design) và **Sơ đồ Lớp (UML Class Diagram)** chuẩn UML 2.5 của hệ sinh thái **PTC1**, phản ánh chính xác 100% cấu trúc mã nguồn thực tế tại thư mục `server/app/`.
+Tài liệu này lưu trữ toàn bộ thiết kế hướng đối tượng (Object-Oriented Design), **Sơ đồ Lớp Hệ thống (UML Class Diagram 2.5)**, từ điển thuộc tính & phương thức (Class Dictionary) bám sát **100% mã nguồn thực tế** tại thư mục `server/app/`.
 
 ---
 
-## 1. Tổng quan Kiến trúc Phần mềm
+## 1. Tổng quan Thiết kế
 
-Hệ thống backend PTC1 được thiết kế theo mô hình phân tầng chặt chẽ (**Layered Architecture**):
-1. **Tầng Thực thể Cơ sở dữ liệu (Domain Models - SQLAlchemy ORM):** Ánh xạ trực tiếp tới các bảng quan hệ trong PostgreSQL 14 và trường hình học PostGIS (`GEOGRAPHY(POINT, 4326)`).
-2. **Tầng Xử lý Nghiệp vụ (Service Layer):** Đóng gói toàn bộ logic nghiệp vụ, xác thực toàn vẹn dữ liệu, các phép tính toán không gian và điều phối tương tác cơ sở dữ liệu.
-3. **Tầng Biểu diễn Dữ liệu & Hợp đồng API (Schemas / DTOs - Pydantic v2):** Định nghĩa cấu trúc dữ liệu đầu vào (Input Request) và đầu ra (Output Response), thực thi xác thực kiểu dữ liệu nghiêm ngặt.
-
-![Sơ đồ Lớp Hệ thống PTC1](class-diagram.svg)
-
-> 💡 *Bạn có thể xem bản vẽ vector SVG sắc nét phóng to không vỡ nét tại [class-diagram.svg](class-diagram.svg)*
+- **Chuẩn UML 2.5 Quốc tế:** Sử dụng đúng cú pháp và biểu tượng UML Class Diagram (`classDiagram`), bao gồm:
+  - **Tên lớp (PascalCase):** `User`, `Admin`, `Restaurant`, `Category`, `Dish`, `UserService`, `DishService`...
+  - **Ký hiệu phạm vi truy cập (Visibility):** `+` (public), `-` (private), `#` (protected).
+  - **Kế thừa / Khái quát hóa (Generalization):** `BaseModelMixin <|-- Restaurant`, `BaseModelMixin <|-- Category`, `BaseModelMixin <|-- Dish`.
+  - **Kết hợp & Chứa đựng (Composition / Aggregation):** `Restaurant "1" *-- "0..*" Dish`, `Category "1" o-- "0..*" Dish`.
+  - **Phụ thuộc nghiệp vụ (Dependency):** `DishService ..> Dish`, `UserService ..> RoleLoginResponse`.
+- **Phân tách 3 tầng kiến trúc:**
+  1. **Domain Models (SQLAlchemy ORM):** Ánh xạ bảng quan hệ và kiểu không gian PostGIS (`GEOGRAPHY(POINT, 4326)`).
+  2. **Service Layer:** Logic nghiệp vụ, validation và điều phối cơ sở dữ liệu.
+  3. **Schemas & DTOs (Pydantic v2):** Hợp đồng dữ liệu API request và response.
+- **Xác thực phiên (Session Management):** Phản hồi đăng nhập qua `RoleLoginResponse` với mã phiên ngẫu nhiên `session_id` (UUID4 hex 32 ký tự).
 
 ---
 
-## 2. Sơ đồ Lớp Chi tiết (Mermaid UML Class Diagram)
+## 2. Sơ đồ Lớp Hệ thống (UML Class Diagram)
+
+![Sơ đồ Lớp Hệ thống PTC1](class-diagram.png)
+
+> 💡 *Bạn có thể xem bản vẽ vector sắc nét, phóng to không vỡ nét tại [class-diagram.svg](class-diagram.svg)*
 
 <details open>
-<summary><b>Nhấn vào đây để xem mã nguồn sơ đồ Mermaid</b></summary>
+<summary><b>Nhấn vào đây để xem mã nguồn sơ đồ (Mermaid code)</b></summary>
 
 ```mermaid
 classDiagram
     direction TB
 
-    %% ==========================================
-    %% NAMESPACE: DOMAIN MODELS (SQLAlchemy ORM)
-    %% ==========================================
     class BaseModelMixin {
         <<abstract>>
         +int id
@@ -48,11 +52,11 @@ classDiagram
         +int birth_year
         +str activity_level
         +str target_goal
-        +List~int~ favorite_category_ids
-        +List~str~ dietary_preferences
         +str spicy_tolerance
-        +List~str~ allergies
         +str budget_range
+        +List~str~ dietary_preferences
+        +List~str~ allergies
+        +List~int~ favorite_category_ids
         +bool is_onboarded
         +datetime onboarded_at
         +datetime created_at
@@ -83,8 +87,8 @@ classDiagram
         +str description
         +time open_time
         +time close_time
-        +bool is_active
         +bool is_sponsor
+        +bool is_active
         +datetime created_at
         +datetime updated_at
     }
@@ -124,6 +128,8 @@ classDiagram
         +str icon
         +str description
         +int display_order
+        +bool is_active
+        +datetime created_at
     }
 
     class Weather {
@@ -133,11 +139,15 @@ classDiagram
         +str icon
         +str description
         +int display_order
+        +bool is_active
+        +datetime created_at
     }
 
     class WeatherCategory {
+        +int id
         +int weather_id
         +int category_id
+        +datetime created_at
     }
 
     class OptionUser {
@@ -155,85 +165,6 @@ classDiagram
         +datetime created_at
     }
 
-    %% Kế thừa & Quan hệ Model
-    BaseModelMixin <|-- Restaurant
-    BaseModelMixin <|-- Category
-    BaseModelMixin <|-- Dish
-    Restaurant "1" *-- "0..*" Dish : contains
-    Category "1" o-- "0..*" Dish : classifies
-    User "1" *-- "0..*" FavouriteDish : saves
-    Dish "1" *-- "0..*" FavouriteDish : referenced
-    User "1" *-- "0..*" OptionUser : preferences
-    Category "1" *-- "0..*" OptionUser : toggled
-    Weather "1" *-- "0..*" WeatherCategory : maps
-    Category "1" *-- "0..*" WeatherCategory : mapped
-
-    %% ==========================================
-    %% NAMESPACE: SERVICE LAYER
-    %% ==========================================
-    class UserService {
-        +authenticate(db, email, password) User
-        +register(db, payload) User
-        +get_user_by_id(db, user_id) User
-        +get_all_users(db, skip, limit) List~User~
-    }
-
-    class AdminService {
-        +authenticate(db, email, password) Admin
-        +get_platform_stats(db) dict
-        +get_admin_by_id(db, admin_id) Admin
-    }
-
-    class RestaurantService {
-        +create_restaurant(db, payload) Restaurant
-        +get_restaurant_by_id(db, id) Restaurant
-        +get_restaurants(db, skip, limit, active_only) List~Restaurant~
-        +find_nearby(db, lat, lon, radius) List~dict~
-        +update_restaurant(db, id, payload) Restaurant
-        +delete_restaurant(db, id) bool
-    }
-
-    class DishService {
-        +create_dish(db, restaurant_id, payload) Dish
-        +get_dishes_by_restaurant(db, restaurant_id, ...) List~Dish~
-        +get_dish_by_id(db, id) Dish
-        +update_dish(db, id, payload) Dish
-        +delete_dish(db, id) bool
-        +add_favourite_dish(db, user_id, dish_id) FavouriteDish
-        +remove_favourite_dish(db, user_id, dish_id) bool
-    }
-
-    class CategoryService {
-        +create_category(db, payload) Category
-        +get_categories(db, is_active_only) List~Category~
-        +get_category_by_id(db, id) Category
-        +update_category(db, id, payload) Category
-        +delete_category(db, id) bool
-    }
-
-    class MapService {
-        +search_places(query, limit) MapSearchResponse
-        +reverse_geocode(lat, lon) ReverseGeocodeResponse
-        +get_ip_location(client_ip) IpLocationResponse
-    }
-
-    class WeatherService {
-        +fetch_current_weather(lat, lon) CurrentWeatherResponse
-        +get_weather_list(db) List~Weather~
-    }
-
-    %% Service Phụ thuộc Models
-    UserService ..> User : manages
-    AdminService ..> Admin : manages
-    RestaurantService ..> Restaurant : manages
-    DishService ..> Dish : manages
-    DishService ..> Category : checks
-    CategoryService ..> Category : manages
-    WeatherService ..> WeatherCategory : reads
-
-    %% ==========================================
-    %% NAMESPACE: SCHEMAS & DTOS (Pydantic v2)
-    %% ==========================================
     class RoleLoginResponse {
         +str message
         +str role
@@ -282,8 +213,8 @@ classDiagram
         +str description
         +time open_time
         +time close_time
-        +bool is_active
         +bool is_sponsor
+        +bool is_active
     }
 
     class RestaurantResponse {
@@ -296,8 +227,8 @@ classDiagram
         +str description
         +time open_time
         +time close_time
-        +bool is_active
         +bool is_sponsor
+        +bool is_active
         +datetime created_at
         +datetime updated_at
     }
@@ -320,80 +251,173 @@ classDiagram
         +datetime updated_at
     }
 
-    class UserProfileResponse {
-        +int id
-        +str email
-        +str full_name
-        +float height_cm
-        +float weight_kg
-        +float bmi
-        +str bmi_category
-        +str target_goal
-        +str spicy_tolerance
-        +str budget_range
-        +List~str~ dietary_preferences
-        +List~str~ allergies
-        +bool is_onboarded
+    class UserService {
+        +register(db, payload) User
+        +authenticate(db, email, password) User
+        +get_user_by_id(db, user_id) User
+        +get_all_users(db, skip, limit) List~User~
     }
 
-    %% DTO Phụ thuộc Services & Models
-    DishService ..> DishCreate : accepts
-    DishService ..> DishResponse : returns
+    class AdminService {
+        +authenticate(db, email, password) Admin
+        +get_platform_stats(db) dict
+    }
+
+    class RestaurantService {
+        +create_restaurant(db, data) Restaurant
+        +get_restaurant_by_id(db, id) Restaurant
+        +get_restaurants(db, skip, limit, active_only) List~Restaurant~
+        +find_nearby(db, lat, lon, radius) List~dict~
+        +update_restaurant(db, id, data) Restaurant
+        +delete_restaurant(db, id) bool
+    }
+
+    class DishService {
+        +create_dish(db, restaurant_id, data) Dish
+        +get_dishes_by_restaurant(db, restaurant_id, filters) List~Dish~
+        +get_dish_by_id(db, id) Dish
+        +update_dish(db, id, data) Dish
+        +delete_dish(db, id) bool
+        +add_favourite_dish(db, user_id, dish_id) FavouriteDish
+        +remove_favourite_dish(db, user_id, dish_id) bool
+    }
+
+    class CategoryService {
+        +create_category(db, data) Category
+        +get_categories(db, is_active_only) List~Category~
+        +get_category_by_id(db, id) Category
+        +update_category(db, id, data) Category
+        +delete_category(db, id) bool
+    }
+
+    class MapService {
+        +search_places(query, limit) MapSearchResponse
+        +reverse_geocode(lat, lon) ReverseGeocodeResponse
+        +get_ip_location(client_ip) IpLocationResponse
+    }
+
+    class WeatherService {
+        +fetch_current_weather(lat, lon) CurrentWeatherResponse
+        +map_condition_to_code(condition) str
+        +get_weather_list(db) List~Weather~
+    }
+
+    BaseModelMixin <|-- Restaurant : inherits
+    BaseModelMixin <|-- Category : inherits
+    BaseModelMixin <|-- Dish : inherits
+
+    Restaurant "1" *-- "0..*" Dish : contains
+    Category "1" o-- "0..*" Dish : classifies
+    User "1" *-- "0..*" FavouriteDish : saves
+    Dish "1" *-- "0..*" FavouriteDish : referenced
+    User "1" *-- "0..*" OptionUser : configures
+    Category "1" *-- "0..*" OptionUser : toggled
+    Weather "1" *-- "0..*" WeatherCategory : maps
+    Category "1" *-- "0..*" WeatherCategory : suggested
+
+    UserService ..> User : operates
+    UserService ..> RoleLoginResponse : returns
+    AdminService ..> Admin : operates
+    AdminService ..> RoleLoginResponse : returns
+    RestaurantService ..> Restaurant : operates
     RestaurantService ..> RestaurantCreate : accepts
     RestaurantService ..> RestaurantResponse : returns
+    DishService ..> Dish : operates
+    DishService ..> Category : checks
+    DishService ..> DishCreate : accepts
+    DishService ..> DishResponse : returns
+    CategoryService ..> Category : operates
     CategoryService ..> CategoryCreate : accepts
     CategoryService ..> CategoryResponse : returns
-    UserService ..> RoleLoginResponse : returns
-    AdminService ..> RoleLoginResponse : returns
 ```
 
 </details>
 
 ---
 
-## 3. Diễn giải Chi tiết các Mối quan hệ UML
+## 3. Đặc Tả Chi Tiết Từng Lớp (Class Specifications)
 
-### 3.1. Tầng Thực thể Dữ liệu (Domain Models)
-* **`Restaurant` 1 -- 0..* `Dish` (Composition / Aggregate):**
-  - Một quán ăn sở hữu nhiều món ăn trong thực đơn.
-  - Khi một quán ăn bị xoá (`DELETE /restaurants/{id}`), toàn bộ món ăn thuộc quán đó sẽ tự động bị xoá theo thông qua cơ chế `ON DELETE CASCADE`.
-* **`Category` 1 -- 0..* `Dish` (Loose Association / Nullable):**
-  - **Category đã được chuyển thành Danh mục toàn cục (Global Category):** Bảng `categories` hoàn toàn không còn trường `restaurant_id`. Danh mục được tạo bởi Quản trị viên và dùng chung trên toàn hệ thống.
-  - Cột `dishes.category_id` là khoá ngoại Nullable. Khi Quản trị viên xoá một danh mục, các món ăn thuộc danh mục đó sẽ được tự động gán về `NULL` (`ON DELETE SET NULL`), bảo toàn dữ liệu món ăn trong thực đơn của quán.
-* **`Dish` đa chiều phân loại:**
-  - Bỏ 2 cột đơn `meal_type` và `meal_type_id`.
-  - Thay thế bằng các mảng Postgres đa giá trị: `meal_types: List[str]`, `dietary_tags: List[str]`, `allergens: List[str]`, `ingredients: List[str]`, và chỉ số độ cay `spicy_level: int (0..3)`.
-* **`Restaurant` hỗ trợ ưu tiên tài trợ (`is_sponsor`):**
-  - Trường boolean `is_sponsor` (mặc định `false`) đánh dấu các quán ăn nhà tài trợ được ưu tiên nổi bật trên ứng dụng thực khách.
-* **`User` và Hồ sơ Sức khỏe / Khảo sát Onboarding:**
-  - Tích hợp trực tiếp các chỉ số thể chất (`height_cm`, `weight_kg`), khẩu vị (`spicy_tolerance`), ngân sách (`budget_range`), mục tiêu (`target_goal`), chế độ ăn (`dietary_preferences`), dị ứng (`allergens`) và tính toán BMI động.
+### 3.1. Lớp Thực thể Domain Models
 
-### 3.2. Tầng Nghiệp vụ (Service Layer) & Xác thực Phiên
-* **`UserService` & `AdminService` trả về `RoleLoginResponse`:**
-  - Đăng nhập xác thực mật khẩu qua thuật toán băm PBKDF2-HMAC-SHA256 (100.000 rounds).
-  - Phản hồi chứa mã định danh phiên làm việc **`session_id`** (UUID4 hex ngẫu nhiên) thay vì JWT Token vô trạng thái, khớp 100% với cơ chế quản lý phiên hiện tại của hệ sinh thái PTC1.
-* **`DishService` & `CategoryService`:**
-  - Kiểm tra tính duy nhất của tên danh mục trên phạm vi toàn cầu (`lower(name)`).
-  - Tạo món ăn liên kết trực tiếp vào quán ăn mà không còn ràng buộc đối chiếu danh mục theo quán.
+#### `User` (`server/app/models/user.py`)
+- **Vai trò:** Thực khách / Khách hàng sử dụng ứng dụng di động. Tích hợp chỉ số thể chất và khảo sát Onboarding.
+- **Thuộc tính:**
+  - `+id: int`: Định danh duy nhất (Primary Key).
+  - `+email: str`: Email đăng nhập (Unique Index).
+  - `+password_hash: str`: Mật khẩu băm an toàn PBKDF2-HMAC-SHA256 (100.000 rounds).
+  - `+full_name: str`: Họ và tên người dùng.
+  - `+is_active: bool`: Cờ trạng thái kích hoạt tài khoản.
+  - `+height_cm: float`: Chiều cao cơ thể (cm).
+  - `+weight_kg: float`: Cân nặng cơ thể (kg).
+  - `+gender: str`: Giới tính (`male`, `female`, `other`).
+  - `+birth_year: int`: Năm sinh.
+  - `+activity_level: str`: Mức độ vận động (`sedentary`, `light`, `active`).
+  - `+target_goal: str`: Mục tiêu vóc dáng (`maintain`, `lose_weight`, `gain_muscle`).
+  - `+spicy_tolerance: str`: Khẩu vị cay (`none`, `mild`, `medium`, `hot`).
+  - `+budget_range: str`: Khung chi tiêu (`budget`, `moderate`, `premium`).
+  - `+dietary_preferences: List[str]`: Mảng chế độ ăn kiêng (`vegetarian`, `vegan`, `halal`, `keto`...).
+  - `+allergies: List[str]`: Mảng chất gây dị ứng (`peanut`, `seafood`, `dairy`, `egg`...).
+  - `+favorite_category_ids: List[int]`: Mảng ID danh mục món ăn ưa thích.
+  - `+is_onboarded: bool`: Đã hoàn tất khảo sát hồ sơ ẩm thực.
+  - `+onboarded_at: datetime`: Thời điểm hoàn thành khảo sát.
+  - `+created_at, updated_at: datetime`: Dấu thời gian hệ thống.
+- **Phương thức nghiệp vụ:**
+  - `+calculate_bmi() -> float`: Tự động tính chỉ số khối cơ thể: $	ext{BMI} = 	ext{weight} / (	ext{height}/100)^2$.
+  - `+get_bmi_category() -> str`: Phân loại thể trạng: *Gầy* ($< 18.5$), *Bình thường* ($18.5 - 24.9$), *Thừa cân* ($\ge 25$).
+
+#### `Restaurant` (`server/app/models/restaurant.py`)
+- **Vai trò:** Quán ăn ẩm thực trên hệ thống. Hỗ trợ dữ liệu không gian PostGIS và nhãn Nhà tài trợ.
+- **Kế thừa:** `BaseModelMixin` (`id`, `created_at`, `updated_at`).
+- **Thuộc tính:**
+  - `+name: str`: Tên quán ăn.
+  - `+address: str`: Địa chỉ đường phố.
+  - `+latitude: float, +longitude: float`: Tọa độ địa lý WGS84.
+  - `+location: Geography`: Điểm hình học PostGIS `POINT(SRID 4326)` có GiST Index phục vụ truy vấn `ST_DWithin` và `ST_Distance`.
+  - `+phone_number: str`: Hotline liên hệ.
+  - `+description: str`: Giới thiệu quán ăn.
+  - `+open_time, close_time: time`: Giờ mở cửa và đóng cửa (`HH:MM`).
+  - `+is_sponsor: bool`: **Cờ Nhà tài trợ:** Quán được ưu tiên hiển thị lên đầu kết quả tìm kiếm.
+  - `+is_active: bool`: Trạng thái hoạt động.
+
+#### `Category` (`server/app/models/category.py`)
+- **Vai trò:** Nhóm danh mục món ăn toàn cục (Global Categories).
+- **Kế thừa:** `BaseModelMixin`.
+- **Đặc điểm kiến trúc:** Không chứa `restaurant_id`, được tạo bởi Quản trị viên và dùng chung cho toàn bộ quán ăn trên hệ thống. Ràng buộc `lower(name)` duy nhất toàn cầu.
+
+#### `Dish` (`server/app/models/dish.py`)
+- **Vai trò:** Món ăn trong thực đơn của quán ăn.
+- **Kế thừa:** `BaseModelMixin`.
+- **Thuộc tính:**
+  - `+restaurant_id: int`: Thuộc về quán ăn (Khóa ngoại `restaurants.id`, `ON DELETE CASCADE`).
+  - `+category_id: int`: Thuộc về danh mục toàn cục (Khóa ngoại Nullable `categories.id`, `ON DELETE SET NULL`).
+  - `+name: str`: Tên món ăn.
+  - `+price: int`: Giá bán ($\ge 0$ VNĐ).
+  - `+spicy_level: int`: Độ cay ($0$: không cay, $1$: cay nhẹ, $2$: cay vừa, $3$: rất cay).
+  - `+dietary_tags: List[str]`: Mảng chế độ ăn kiêng (Postgres `ARRAY(Text)`).
+  - `+meal_types: List[str]`: Mảng bữa ăn phù hợp (`breakfast`, `lunch`, `dinner`, `snack`, `all_day`).
+  - `+allergens: List[str]`: Mảng cảnh báo chất dị ứng (`peanut`, `seafood`, `dairy`, `egg`...).
+  - `+ingredients: List[str]`: Mảng nguyên liệu món ăn.
+  - `+is_available: bool`: Tình trạng sẵn sàng phục vụ.
 
 ---
 
-## 4. Bảng Tra cứu Đối chiếu Mã nguồn (Source Code Traceability)
+### 3.2. Lớp Dịch vụ Nghiệp vụ (Service Layer)
 
-| Lớp UML (Class) | File Mã Nguồn Thực tế | Vai trò trong Hệ thống |
-| :--- | :--- | :--- |
-| `Restaurant` | [`server/app/models/restaurant.py`](../server/app/models/restaurant.py) | Model quán ăn, toạ độ WGS84, cờ `is_sponsor` |
-| `Category` | [`server/app/models/category.py`](../server/app/models/category.py) | Model danh mục toàn cục (Global Categories) |
-| `Dish` | [`server/app/models/dish.py`](../server/app/models/dish.py) | Model món ăn đa nhãn (spicy, meal_types, allergens...) |
-| `User` | [`server/app/models/user.py`](../server/app/models/user.py) | Model khách hàng & hồ sơ thể chất / onboarding |
-| `Admin` | [`server/app/models/admin.py`](../server/app/models/admin.py) | Model quản trị viên hệ thống (`role_level`) |
-| `MealType` | [`server/app/models/meal_type.py`](../server/app/models/meal_type.py) | Model danh mục bữa ăn tham chiếu |
-| `Weather` | [`server/app/models/weather.py`](../server/app/models/weather.py) | Model danh mục thời tiết tham chiếu |
-| `WeatherCategory` | [`server/app/models/weather_category.py`](../server/app/models/weather_category.py) | Bảng quan hệ N-N giữa Thời tiết & Danh mục món |
-| `OptionUser` | [`server/app/models/option_user.py`](../server/app/models/option_user.py) | Tuỳ chọn ẩn/hiện danh mục theo cá nhân User |
-| `FavouriteDish` | [`server/app/models/favourite_dish.py`](../server/app/models/favourite_dish.py) | Danh sách món ăn yêu thích của thực khách |
-| `RoleLoginResponse` | [`server/app/schemas/common.py`](../server/app/schemas/common.py) | Schema phản hồi đăng nhập chứa `session_id` |
-| `DishService` | [`server/app/services/dish_service.py`](../server/app/services/dish_service.py) | Xử lý thực đơn, tìm kiếm đa tiêu chí & yêu thích |
-| `CategoryService` | [`server/app/services/category_service.py`](../server/app/services/category_service.py) | Xử lý danh mục toàn cục |
-| `RestaurantService` | [`server/app/services/restaurant_service.py`](../server/app/services/restaurant_service.py) | Quản lý quán ăn và tìm kiếm lân cận PostGIS |
-| `MapService` | [`server/app/services/map_service.py`](../server/app/services/map_service.py) | Định vị IP, Geocoding OpenStreetMap |
+- **`UserService`:** Đăng ký tài khoản mới kèm băm PBKDF2 muối ngẫu nhiên; xác thực đăng nhập; lấy thông tin người dùng.
+- **`RestaurantService`:** Thêm, sửa, xóa quán ăn; tìm kiếm lân cận qua hàm không gian PostGIS `ST_DWithin` và sắp xếp theo `ST_Distance`.
+- **`DishService`:** Thêm món ăn mới với mảng nhãn đa chiều; tìm kiếm và lọc món ăn đa tiêu chí (`category_id`, `spicy_level`, `meal_type`, `dietary_tag`, `ingredient`); quản lý món ăn yêu thích Idempotent.
+- **`CategoryService`:** Quản lý danh mục toàn cục, kiểm tra trùng tên không phân biệt hoa thường, dọn dẹp khóa ngoại SET NULL khi xóa.
+- **`MapService`:** Định vị trực tuyến qua IP (Zero GPS permission); Geocoding chuyển đổi địa chỉ qua OpenStreetMap Nominatim.
+- **`WeatherService`:** Tích hợp OpenWeatherMap API, ánh xạ điều kiện khí hậu về 4 mã chuẩn (`rainy`, `cold`, `hot`, `mild`) và truy vấn danh mục món ăn gợi ý tương ứng.
+
+---
+
+### 3.3. Lớp Đối tượng Truyền Dữ liệu (Schemas / DTOs)
+
+- **`RoleLoginResponse`:** Phản hồi đăng nhập hợp nhất cho cả User và Admin:
+  - `+message: str = "Login successful"`
+  - `+role: str = "user" | "admin"`
+  - `+session_id: str`: **Mã phiên ngẫu nhiên (UUID4 hex 32 ký tự)** giúp quản lý phiên làm việc chính xác và bảo mật.
+  - `+data: dict`: Dữ liệu tài khoản chi tiết.
+- **`DishCreate` & `DishResponse`:** DTO đầu vào và đầu ra cho món ăn với đầy đủ các mảng thuộc tính phân loại.
+- **`RestaurantCreate` & `RestaurantResponse`:** DTO quản trị quán ăn kèm cờ `is_sponsor`.
