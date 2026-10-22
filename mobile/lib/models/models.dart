@@ -112,6 +112,41 @@ class GeocodePlace {
   }
 }
 
+class IpLocation {
+  final double lat;
+  final double lon;
+  final String? city;
+  final String? region;
+  final String? country;
+  final String locationName;
+  final bool isFallback;
+  final String? ip;
+
+  IpLocation({
+    required this.lat,
+    required this.lon,
+    this.city,
+    this.region,
+    this.country,
+    required this.locationName,
+    required this.isFallback,
+    this.ip,
+  });
+
+  factory IpLocation.fromJson(Map<String, dynamic> json) {
+    return IpLocation(
+      lat: (json['lat'] as num).toDouble(),
+      lon: (json['lon'] as num).toDouble(),
+      city: json['city'] as String?,
+      region: json['region'] as String?,
+      country: json['country'] as String?,
+      locationName: json['location_name'] as String? ?? 'Vị trí hiện tại',
+      isFallback: json['is_fallback'] as bool? ?? false,
+      ip: json['ip'] as String?,
+    );
+  }
+}
+
 class Category {
   final int id;
   final int restaurantId;

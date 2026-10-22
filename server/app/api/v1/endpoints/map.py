@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, Query
-from server.app.schemas.map import MapSearchResponse, MapReverseResponse
+from fastapi import APIRouter, Depends, Query, Request
+from server.app.schemas.map import MapSearchResponse, MapReverseResponse, IpLocationResponse
 from server.app.services.map_service import MapService, map_service
 
 router = APIRouter()
@@ -7,6 +7,19 @@ router = APIRouter()
 
 def get_map_service() -> MapService:
     return map_service
+
+
+@router.get(
+    "/ip-location",
+    response_model=IpLocationResponse,
+    summary="Định vị toạ độ trực tuyến theo IP client (Online IP Geolocation)",
+    description="Tự động xác định toạ độ địa lý của người dùng qua mạng Internet. Tự động fallback về toạ độ Học viện Nông nghiệp Việt Nam khi chạy trên IP localhost/private hoặc lỗi mạng.",
+)
+async def get_ip_location(
+    request: Request,
+    service: MapService = Depends(get_map_service),
+) -> IpLocationResponse:
+    return await service.get_ip_location(request=request)
 
 
 @router.get("/search", response_model=MapSearchResponse, summary="Tìm kiếm địa điểm (Forward Geocoding)")

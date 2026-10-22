@@ -68,6 +68,20 @@ class FakeApiService extends ApiService {
   }
 
   @override
+  Future<IpLocation> getIpLocation() async {
+    return IpLocation(
+      lat: 21.0046,
+      lon: 105.9387,
+      city: 'Huyện Gia Lâm',
+      region: 'Hà Nội',
+      country: 'Vietnam',
+      locationName: 'Học viện Nông nghiệp Việt Nam (HVNN Gia Lâm, Hà Nội)',
+      isFallback: true,
+      ip: '127.0.0.1',
+    );
+  }
+
+  @override
   Future<List<Category>> getRestaurantCategories(int restaurantId) async {
     return [
       Category(
@@ -165,6 +179,8 @@ void main() {
     await tester.tap(find.text('Bản đồ'));
     await tester.pumpAndSettle();
     expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
+    expect(find.text('Vị trí của tôi'), findsOneWidget);
+    expect(find.byIcon(Icons.my_location), findsWidgets);
 
     // 3. Chuyển sang Tab "Yêu thích"
     await tester.tap(find.text('Yêu thích'));

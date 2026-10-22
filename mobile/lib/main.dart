@@ -704,6 +704,10 @@ class _MapScreenState extends State<MapScreen> {
   String? _pinnedAddress;
   double _radiusKm = 5.0;
 
+  LatLng? _userLocation;
+  String? _userLocationName;
+  bool _detectingLocation = false;
+
   List<GeocodePlace> _places = [];
   List<Restaurant> _nearbyRestaurants = [];
   Restaurant? _selectedRestaurant;
@@ -718,9 +722,61 @@ class _MapScreenState extends State<MapScreen> {
     _mapController = MapController();
     if (widget.initialLat != null && widget.initialLon != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLon!);
+      _pinnedLocation = _currentCenter;
+      _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
+    } else {
+      _pinnedLocation = _currentCenter;
+      _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
+      // Tự động định vị trực tuyến theo IP và đặt người dùng làm trung tâm
+      _detectUserLocation(moveToUser: true);
     }
-    _pinnedLocation = _currentCenter;
-    _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
+  }
+
+  Future<void> _detectUserLocation({bool moveToUser = true}) async {
+    if (_detectingLocation) return;
+    setState(() {
+      _detectingLocation = true;
+    });
+
+    try {
+      final loc = await widget.api.getIpLocation();
+      if (mounted) {
+        final pos = LatLng(loc.lat, loc.lon);
+        setState(() {
+          _userLocation = pos;
+          _userLocationName = loc.locationName;
+          _currentCenter = pos;
+          _pinnedLocation = pos;
+          _pinnedAddress = loc.locationName;
+          _searchCtrl.text = loc.locationName;
+          _selectedRestaurant = null;
+        });
+
+        if (moveToUser) {
+          _mapController.move(pos, 15.0);
+        }
+        _loadNearby(pos.latitude, pos.longitude);
+
+        if (!isPointInGiaLam(pos)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Vị trí của bạn: ${loc.locationName} (ngoài Gia Lâm). Các quán ăn tập trung tại Gia Lâm & lân cận.',
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      // Fallback an toàn giữ nguyên toạ độ mặc định HVNN
+    } finally {
+      if (mounted) {
+        setState(() {
+          _detectingLocation = false;
+        });
+      }
+    }
   }
 
   @override
@@ -1067,9 +1123,23 @@ class _MapScreenState extends State<MapScreen> {
             onPressed: _showRadiusPicker,
           ),
           IconButton(
-            tooltip: 'Về HVNN',
-            icon: const Icon(Icons.my_location),
-            onPressed: () => _jumpTo(21.0046, 105.9387, 'Học viện Nông nghiệp Việt Nam (HVNN)'),
+            tooltip: 'Vị trí của tôi (Định vị mạng IP)',
+            icon: _detectingLocation
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
+                : const Icon(Icons.my_location, color: Colors.blue),
+            onPressed: () {
+              if (_userLocation != null) {
+                _mapController.move(_userLocation!, 15.0);
+                setState(() {
+                  _pinnedLocation = _userLocation;
+                  _pinnedAddress = _userLocationName ?? 'Vị trí của bạn';
+                  _searchCtrl.text = _pinnedAddress!;
+                });
+                _loadNearby(_userLocation!.latitude, _userLocation!.longitude);
+              } else {
+                _detectUserLocation(moveToUser: true);
+              }
+            },
           ),
         ],
       ),
@@ -1122,7 +1192,41 @@ class _MapScreenState extends State<MapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  if (_pinnedLocation != null)
+                  if (_userLocation != null)
+                    Marker(
+                      point: _userLocation!,
+                      width: 52,
+                      height: 52,
+                      child: Tooltip(
+                        message: 'Vị trí của bạn: ${_userLocationName ?? "Định vị mạng IP"}',
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withAlpha(64),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.blue[600],
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 3),
+                                boxShadow: const [
+                                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (_pinnedLocation != null && _pinnedLocation != _userLocation)
                     Marker(
                       point: _pinnedLocation!,
                       width: 44,
@@ -1232,6 +1336,32 @@ class _MapScreenState extends State<MapScreen> {
                   child: Row(
                     children: [
                       ActionChip(
+                        avatar: _detectingLocation
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
+                            : const Icon(Icons.my_location, size: 16, color: Colors.blue),
+                        label: Text(
+                          _userLocation != null ? 'Vị trí của tôi' : 'Định vị của tôi',
+                          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                        ),
+                        backgroundColor: Colors.blue.shade50,
+                        elevation: 2,
+                        side: BorderSide(color: Colors.blue.shade200),
+                        onPressed: () {
+                          if (_userLocation != null) {
+                            _mapController.move(_userLocation!, 15.0);
+                            setState(() {
+                              _pinnedLocation = _userLocation;
+                              _pinnedAddress = _userLocationName ?? 'Vị trí của bạn';
+                              _searchCtrl.text = _pinnedAddress!;
+                            });
+                            _loadNearby(_userLocation!.latitude, _userLocation!.longitude);
+                          } else {
+                            _detectUserLocation(moveToUser: true);
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
                         avatar: const Icon(Icons.school, size: 16, color: Colors.deepOrange),
                         label: const Text('HVNN (Trâu Quỳ)'),
                         backgroundColor: Colors.white,
@@ -1314,13 +1444,36 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // 3. NÚT ĐIỀU KHIỂN ZOOM (+) (-)
+          // 3. NÚT ĐIỀU KHIỂN ZOOM (+) (-) & VỊ TRÍ CỦA TÔI
           Positioned(
             right: 16,
             bottom: (_selectedRestaurant != null || _pinnedAddress != null || _pinnedLocation != null) ? 140 : 24,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                FloatingActionButton.small(
+                  heroTag: 'map_my_location_btn',
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.blue[700],
+                  tooltip: 'Vị trí của tôi',
+                  onPressed: () {
+                    if (_userLocation != null) {
+                      _mapController.move(_userLocation!, 15.0);
+                      setState(() {
+                        _pinnedLocation = _userLocation;
+                        _pinnedAddress = _userLocationName ?? 'Vị trí của bạn';
+                        _searchCtrl.text = _pinnedAddress!;
+                      });
+                      _loadNearby(_userLocation!.latitude, _userLocation!.longitude);
+                    } else {
+                      _detectUserLocation(moveToUser: true);
+                    }
+                  },
+                  child: _detectingLocation
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
+                      : const Icon(Icons.my_location),
+                ),
+                const SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'map_zoom_in_btn',
                   backgroundColor: Colors.white,

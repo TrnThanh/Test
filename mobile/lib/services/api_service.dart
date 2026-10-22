@@ -134,6 +134,19 @@ class ApiService {
     throw Exception('Lỗi chuyển toạ độ');
   }
 
+  Future<IpLocation> getIpLocation() async {
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/map/ip-location');
+      return _client.get(uri).timeout(const Duration(seconds: 8));
+    });
+
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
+      return IpLocation.fromJson(data);
+    }
+    throw Exception('Không thể xác định vị trí qua IP');
+  }
+
   // --- CATEGORIES ---
   Future<List<Category>> getRestaurantCategories(int restaurantId) async {
     final res = await _requestWithFallback((base) {
