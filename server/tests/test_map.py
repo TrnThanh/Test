@@ -193,14 +193,55 @@ def test_map_error_bad_gateway_502(client: TestClient):
 
 
 def test_get_ip_location_loopback_fallback(client: TestClient):
-    """Kiểm tra IP loopback (127.0.0.1 / testclient) tự động fallback về toạ độ Học viện Nông nghiệp Việt Nam."""
-    res = client.get("/api/v1/map/ip-location")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["is_fallback"] is True
-    assert data["lat"] == pytest.approx(21.0046)
-    assert data["lon"] == pytest.approx(105.9387)
-    assert "Học viện Nông nghiệp Việt Nam" in data["location_name"]
+    """Kiểm tra IP loopback khi không kết nối được API ngoài sẽ fallback về toạ độ ước lượng Hà Nội (không gán cứng HVNN)."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="Service Unavailable")
+
+    mock_service = create_mock_map_service(handler)
+    app.dependency_overrides[get_map_service] = lambda: mock_service
+
+    try:
+        res = client.get("/api/v1/map/ip-location")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["is_fallback"] is True
+        assert data["lat"] == pytest.approx(21.0285)
+        assert data["lon"] == pytest.approx(105.8542)
+        assert "Hà Nội" in data["location_name"]
+    finally:
+        app.dependency_overrides.pop(get_map_service, None)
+
+
+def test_get_ip_location_loopback_resolves_host_ip(client: TestClient):
+    """Kiểm tra IP loopback trong môi trường dev tự động truy vấn public host IP thành công."""
+    mock_payload = {
+        "status": "success",
+        "country": "Vietnam",
+        "regionName": "Hanoi",
+        "city": "Hanoi",
+        "lat": 21.0184,
+        "lon": 105.8461,
+        "query": "58.187.74.79",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "ip-api.com" in str(request.url):
+            return httpx.Response(200, json=mock_payload)
+        return httpx.Response(404)
+
+    mock_service = create_mock_map_service(handler)
+    app.dependency_overrides[get_map_service] = lambda: mock_service
+
+    try:
+        res = client.get("/api/v1/map/ip-location")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["is_fallback"] is False
+        assert data["lat"] == pytest.approx(21.0184)
+        assert data["lon"] == pytest.approx(105.8461)
+        assert data["city"] == "Hanoi"
+    finally:
+        app.dependency_overrides.pop(get_map_service, None)
 
 
 def test_get_ip_location_mock_public_ip(client: TestClient):
@@ -237,7 +278,7 @@ def test_get_ip_location_mock_public_ip(client: TestClient):
 
 
 def test_get_ip_location_api_error_fallback(client: TestClient):
-    """Kiểm tra khi dịch vụ ngoài bị lỗi thì tự động fallback về toạ độ HVNN mà không làm sập request."""
+    """Kiểm tra khi dịch vụ ngoài bị lỗi thì tự động fallback về toạ độ ước lượng mà không làm sập request."""
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="Internal Server Error")
 
@@ -249,7 +290,8 @@ def test_get_ip_location_api_error_fallback(client: TestClient):
         assert res.status_code == 200
         data = res.json()
         assert data["is_fallback"] is True
-        assert data["lat"] == pytest.approx(21.0046)
-        assert data["lon"] == pytest.approx(105.9387)
+        assert data["lat"] == pytest.approx(21.0285)
+        assert data["lon"] == pytest.approx(105.8542)
+        assert "Hà Nội" in data["location_name"]
     finally:
         app.dependency_overrides.pop(get_map_service, None)

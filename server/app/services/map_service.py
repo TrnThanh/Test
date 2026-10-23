@@ -14,14 +14,14 @@ _IP_CACHE_TTL = 3600.0  # 1 giờ
 
 
 def fallback_ip_location(ip: Optional[str] = None) -> IpLocationResponse:
-    """Trả về toạ độ dự phòng mặc định Học viện Nông nghiệp Việt Nam (HVNN Gia Lâm, Hà Nội)."""
+    """Trả về toạ độ dự phòng ước lượng khi không lấy được IP hoặc mất kết nối mạng (Hà Nội, không gán cứng HVNN)."""
     return IpLocationResponse(
-        lat=settings.DEFAULT_WEATHER_LAT,
-        lon=settings.DEFAULT_WEATHER_LON,
-        city="Huyện Gia Lâm",
+        lat=21.0285,
+        lon=105.8542,
+        city="Hà Nội",
         region="Hà Nội",
         country="Vietnam",
-        location_name=settings.DEFAULT_WEATHER_LOCATION_NAME,
+        location_name="Hà Nội, Việt Nam (Vị trí ước lượng)",
         is_fallback=True,
         ip=ip,
     )
@@ -176,15 +176,15 @@ class MapService:
         - Khi có lỗi mạng hoặc API gián đoạn -> tự động fallback an toàn về toạ độ mặc định HVNN.
         """
         ip = get_client_ip(request)
-        if not ip or not is_public_ip(ip):
-            return fallback_ip_location(ip)
+        is_pub = is_public_ip(ip) if ip else False
+        cache_key = ip if is_pub else "__host_ip__"
 
         now = time.time()
-        hit = _IP_LOCATION_CACHE.get(ip)
+        hit = _IP_LOCATION_CACHE.get(cache_key)
         if hit and (now - hit[0]) < _IP_CACHE_TTL:
             return hit[1]
 
-        url = f"http://ip-api.com/json/{ip}"
+        url = f"http://ip-api.com/json/{ip}" if is_pub else "http://ip-api.com/json"
         params = {"fields": "status,message,country,regionName,city,lat,lon,query"}
         try:
             if client is not None:
@@ -211,9 +211,9 @@ class MapService:
                         country=country,
                         location_name=loc_name,
                         is_fallback=False,
-                        ip=ip,
+                        ip=data.get("query") or ip,
                     )
-                    _IP_LOCATION_CACHE[ip] = (now, result)
+                    _IP_LOCATION_CACHE[cache_key] = (now, result)
                     return result
         except Exception as exc:
             logger.warning("Lỗi tra cứu IP geolocation (%s): %s", ip, exc)

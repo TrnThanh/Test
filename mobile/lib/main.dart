@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'models/models.dart';
 import 'services/api_service.dart';
+import 'services/location_service.dart';
 
 void main() {
   runApp(const Ptc1App());
@@ -699,7 +700,7 @@ class _MapScreenState extends State<MapScreen> {
     return (count % 2) == 1;
   }
 
-  LatLng _currentCenter = const LatLng(21.0046, 105.9387); // Mặc định HVNN
+  LatLng _currentCenter = const LatLng(21.0285, 105.8542); // Khởi tạo trung tâm Hà Nội
   LatLng? _pinnedLocation;
   String? _pinnedAddress;
   double _radiusKm = 5.0;
@@ -727,7 +728,7 @@ class _MapScreenState extends State<MapScreen> {
     } else {
       _pinnedLocation = _currentCenter;
       _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
-      // Tự động định vị trực tuyến theo IP và đặt người dùng làm trung tâm
+      // Tự động định vị vị trí thực tế của người dùng (GPS thiết bị / IP trực tuyến)
       _detectUserLocation(moveToUser: true);
     }
   }
@@ -739,37 +740,44 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     try {
-      final loc = await widget.api.getIpLocation();
+      LatLng? pos;
+      String? name;
+
+      // 1. Thử xin quyền & lấy toạ độ GPS chính xác từ thiết bị / trình duyệt
+      final devPos = await LocationService.getDeviceLocation();
+      if (devPos != null) {
+        pos = LatLng(devPos['lat']!, devPos['lon']!);
+        name = 'Vị trí của bạn (GPS thiết bị)';
+        try {
+          final addr = await widget.api.reverseMap(pos.latitude, pos.longitude);
+          if (addr.isNotEmpty) name = addr;
+        } catch (_) {}
+      } else {
+        // 2. Fallback sang IP Geolocation từ Backend
+        final loc = await widget.api.getIpLocation();
+        pos = LatLng(loc.lat, loc.lon);
+        name = loc.locationName;
+      }
+
       if (mounted) {
-        final pos = LatLng(loc.lat, loc.lon);
+        final targetPos = pos;
         setState(() {
-          _userLocation = pos;
-          _userLocationName = loc.locationName;
-          _currentCenter = pos;
-          _pinnedLocation = pos;
-          _pinnedAddress = loc.locationName;
-          _searchCtrl.text = loc.locationName;
+          _userLocation = targetPos;
+          _userLocationName = name;
+          _currentCenter = targetPos;
+          _pinnedLocation = targetPos;
+          _pinnedAddress = name;
+          _searchCtrl.text = name ?? '';
           _selectedRestaurant = null;
         });
 
         if (moveToUser) {
-          _mapController.move(pos, 15.0);
+          _mapController.move(targetPos, 15.0);
         }
-        _loadNearby(pos.latitude, pos.longitude);
-
-        if (!isPointInGiaLam(pos)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Vị trí của bạn: ${loc.locationName} (ngoài Gia Lâm). Các quán ăn tập trung tại Gia Lâm & lân cận.',
-              ),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
+        _loadNearby(targetPos.latitude, targetPos.longitude);
       }
     } catch (_) {
-      // Fallback an toàn giữ nguyên toạ độ mặc định HVNN
+      // Giữ nguyên toạ độ hiện tại, không gán cứng
     } finally {
       if (mounted) {
         setState(() {
@@ -799,9 +807,8 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final list = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: _radiusKm);
       if (mounted) {
-        final giaLamOnly = list.where((r) => isPointInGiaLam(LatLng(r.latitude, r.longitude))).toList();
         setState(() {
-          _nearbyRestaurants = giaLamOnly;
+          _nearbyRestaurants = list;
         });
       }
     } catch (_) {}
@@ -819,9 +826,8 @@ class _MapScreenState extends State<MapScreen> {
 
     try {
       final res = await widget.api.searchMap(q);
-      final inGiaLam = res.where((p) => isPointInGiaLam(LatLng(p.latitude, p.longitude))).toList();
       setState(() {
-        _places = inGiaLam.isNotEmpty ? inGiaLam : res.take(2).toList();
+        _places = res.take(5).toList();
       });
     } catch (e) {
       setState(() {
@@ -835,15 +841,6 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _onMapTap(LatLng point) async {
-    if (!isPointInGiaLam(point)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vị trí nằm ngoài địa phận Huyện Gia Lâm!'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
     setState(() {
       _pinnedLocation = point;
       _selectedRestaurant = null;
@@ -871,15 +868,6 @@ class _MapScreenState extends State<MapScreen> {
 
   void _selectPlace(GeocodePlace p) {
     final pos = LatLng(p.latitude, p.longitude);
-    if (!isPointInGiaLam(pos)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Địa điểm này nằm ngoài địa phận Huyện Gia Lâm!'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
     setState(() {
       _pinnedLocation = pos;
       _pinnedAddress = p.displayName;
@@ -1035,10 +1023,29 @@ class _MapScreenState extends State<MapScreen> {
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'Không tìm thấy quán ăn nào trong bán kính ${_radiusKm.toStringAsFixed(0)} km.',
-                          style: TextStyle(color: Colors.grey[600]),
-                          textAlign: TextAlign.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.storefront_outlined, size: 48, color: Colors.grey[400]),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Không tìm thấy quán ăn nào trong bán kính ${_radiusKm.toStringAsFixed(0)} km quanh vị trí này.',
+                              style: TextStyle(color: Colors.grey[600]),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (!isPointInGiaLam(_pinnedLocation ?? _currentCenter)) ...[
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.explore, size: 16),
+                                label: const Text('Xem các quán đối tác tại Gia Lâm'),
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _mapController.fitCamera(CameraFit.bounds(bounds: giaLamBounds, padding: const EdgeInsets.all(24)));
+                                  _jumpTo(21.0046, 105.9387, 'Khu vực ẩm thực Gia Lâm');
+                                },
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     )
@@ -1151,11 +1158,8 @@ class _MapScreenState extends State<MapScreen> {
             options: MapOptions(
               initialCenter: _currentCenter,
               initialZoom: 14.0,
-              minZoom: 11.5,
+              minZoom: 5.0,
               maxZoom: 18.0,
-              cameraConstraint: CameraConstraint.containCenter(
-                bounds: giaLamBounds,
-              ),
               onTap: (tapPosition, point) => _onMapTap(point),
             ),
             children: [
@@ -1163,30 +1167,13 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                 subdomains: const ['a', 'b', 'c'],
                 userAgentPackageName: 'com.ptc1.mobile',
-                tileBounds: giaLamBounds,
-              ),
-              PolygonLayer(
-                polygons: [
-                  Polygon(
-                    points: const [
-                      LatLng(25.0, 102.0),
-                      LatLng(25.0, 110.0),
-                      LatLng(17.0, 110.0),
-                      LatLng(17.0, 102.0),
-                    ],
-                    holePointsList: [giaLamBoundaryPolygon],
-                    color: const Color(0xFFFAFAFA),
-                    borderColor: Colors.transparent,
-                    borderStrokeWidth: 0,
-                  ),
-                ],
               ),
               PolylineLayer(
                 polylines: [
                   Polyline(
                     points: [...giaLamBoundaryPolygon, giaLamBoundaryPolygon.first],
-                    color: Colors.deepOrange,
-                    strokeWidth: 3.5,
+                    color: Colors.deepOrange.withAlpha(180),
+                    strokeWidth: 3.0,
                   ),
                 ],
               ),
