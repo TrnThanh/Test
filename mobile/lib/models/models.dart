@@ -273,6 +273,50 @@ class Weather {
   }
 }
 
+class CurrentWeather {
+  final double temperature;
+  final double? feelsLike;
+  final int? humidity;
+  final String condition;
+  final String description;
+  final String? icon;
+  final String? iconUrl;
+  final double latitude;
+  final double longitude;
+  final String? locationName;
+  final bool isLive;
+
+  CurrentWeather({
+    required this.temperature,
+    this.feelsLike,
+    this.humidity,
+    required this.condition,
+    required this.description,
+    this.icon,
+    this.iconUrl,
+    required this.latitude,
+    required this.longitude,
+    this.locationName,
+    this.isLive = true,
+  });
+
+  factory CurrentWeather.fromJson(Map<String, dynamic> json) {
+    return CurrentWeather(
+      temperature: (json['temperature'] as num).toDouble(),
+      feelsLike: (json['feels_like'] as num?)?.toDouble(),
+      humidity: (json['humidity'] as num?)?.toInt(),
+      condition: json['condition'] as String? ?? 'Clear',
+      description: json['description'] as String? ?? 'Trời đẹp',
+      icon: json['icon'] as String?,
+      iconUrl: json['icon_url'] as String?,
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      locationName: json['location_name'] as String?,
+      isLive: json['is_live'] as bool? ?? true,
+    );
+  }
+}
+
 class Dish {
   final int id;
   final int restaurantId;

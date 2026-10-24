@@ -9,6 +9,7 @@ from server.app.schemas.map import MapSearchResponse, MapReverseResponse, PlaceI
 
 logger = logging.getLogger(__name__)
 
+_NOMINATIM_FAILS_UNTIL: float = 0.0
 _IP_LOCATION_CACHE: Dict[str, tuple[float, IpLocationResponse]] = {}
 _IP_CACHE_TTL = 3600.0  # 1 giờ
 
@@ -67,17 +68,27 @@ class MapService:
         }
 
     async def _send_request(self, endpoint: str, params: Dict[str, Any]) -> Any:
+        global _NOMINATIM_FAILS_UNTIL
+        # Circuit breaker: Nếu Nominatim đang gián đoạn, bỏ qua chờ đợi vô ích để phản hồi ngay lập tức
+        if self._client is None and time.time() < _NOMINATIM_FAILS_UNTIL:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="OpenStreetMap tạm thời không phản hồi (Circuit breaker).",
+            )
+
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         headers = self._get_headers()
 
         async def _execute(c: httpx.AsyncClient) -> httpx.Response:
             return await c.get(url, params=params, headers=headers)
 
+        req_timeout = self.timeout if self._client is not None else min(self.timeout, 2.0)
+
         try:
             if self._client is not None:
                 response = await _execute(self._client)
             else:
-                async with httpx.AsyncClient(timeout=self.timeout) as c:
+                async with httpx.AsyncClient(timeout=req_timeout) as c:
                     response = await _execute(c)
 
             if response.status_code == 403:
@@ -88,11 +99,15 @@ class MapService:
             response.raise_for_status()
             return response.json()
         except httpx.TimeoutException:
+            if self._client is None:
+                _NOMINATIM_FAILS_UNTIL = time.time() + 300.0
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Dịch vụ OpenStreetMap không phản hồi kịp thời (Timeout).",
             )
         except httpx.HTTPError as exc:
+            if self._client is None:
+                _NOMINATIM_FAILS_UNTIL = time.time() + 300.0
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Lỗi khi kết nối với máy chủ OpenStreetMap: {str(exc)}",
@@ -105,33 +120,72 @@ class MapService:
             "limit": limit,
             "addressdetails": 1,
         }
-        data = await self._send_request("search", params)
-
-        results: List[PlaceItem] = []
-        if isinstance(data, list):
-            for item in data:
-                try:
-                    results.append(
-                        PlaceItem(
-                            place_id=item.get("place_id"),
-                            osm_id=item.get("osm_id"),
-                            osm_type=item.get("osm_type"),
-                            display_name=item.get("display_name", ""),
-                            lat=float(item.get("lat", 0.0)),
-                            lon=float(item.get("lon", 0.0)),
-                            category=item.get("category"),
-                            type=item.get("type"),
-                            importance=item.get("importance"),
-                            boundingbox=item.get("boundingbox"),
+        try:
+            data = await self._send_request("search", params)
+            results: List[PlaceItem] = []
+            if isinstance(data, list):
+                for item in data:
+                    try:
+                        results.append(
+                            PlaceItem(
+                                place_id=item.get("place_id"),
+                                osm_id=item.get("osm_id"),
+                                osm_type=item.get("osm_type"),
+                                display_name=item.get("display_name", ""),
+                                lat=float(item.get("lat", 0.0)),
+                                lon=float(item.get("lon", 0.0)),
+                                category=item.get("category"),
+                                type=item.get("type"),
+                                importance=item.get("importance"),
+                                boundingbox=item.get("boundingbox"),
+                            )
                         )
-                    )
-                except (ValueError, TypeError):
-                    continue
+                    except (ValueError, TypeError):
+                        continue
+            return MapSearchResponse(query=query, count=len(results), results=results)
+        except HTTPException:
+            if self._client is not None:
+                raise
+            logger.warning("Nominatim search HTTP error for query '%s'", query)
+        except Exception as exc:
+            if self._client is not None:
+                raise
+            logger.warning("Nominatim search failed for query '%s': %s", query, exc)
+
+        # Fallback 1: Photon Komoot Geocoder
+        try:
+            photon_url = "https://photon.komoot.io/api/"
+            photon_params = {"q": query, "limit": limit}
+            headers = {"User-Agent": "PTC1-RestaurantApp/1.0"}
+            async with httpx.AsyncClient(timeout=4.0) as c:
+                p_resp = await c.get(photon_url, params=photon_params, headers=headers)
+                if p_resp.status_code == 200:
+                    p_data = p_resp.json()
+                    features = p_data.get("features", [])
+                    p_results: List[PlaceItem] = []
+                    for f in features:
+                        coords = f.get("geometry", {}).get("coordinates", [])
+                        props = f.get("properties", {})
+                        if len(coords) >= 2:
+                            name_parts = [props.get("name"), props.get("district"), props.get("city"), props.get("country")]
+                            disp = ", ".join([str(p) for p in name_parts if p]) or query
+                            p_results.append(
+                                PlaceItem(
+                                    display_name=disp,
+                                    lat=float(coords[1]),
+                                    lon=float(coords[0]),
+                                    type=props.get("type"),
+                                )
+                            )
+                    if p_results:
+                        return MapSearchResponse(query=query, count=len(p_results), results=p_results)
+        except Exception as exc:
+            logger.warning("Photon search fallback failed: %s", exc)
 
         return MapSearchResponse(
             query=query,
-            count=len(results),
-            results=results,
+            count=0,
+            results=[],
         )
 
     async def reverse(self, lat: float, lon: float) -> MapReverseResponse:
@@ -141,27 +195,74 @@ class MapService:
             "format": "jsonv2",
             "addressdetails": 1,
         }
-        data = await self._send_request("reverse", params)
+        try:
+            data = await self._send_request("reverse", params)
+            if isinstance(data, dict) and "error" not in data:
+                return MapReverseResponse(
+                    place_id=data.get("place_id"),
+                    osm_id=data.get("osm_id"),
+                    osm_type=data.get("osm_type"),
+                    lat=float(data.get("lat", lat)),
+                    lon=float(data.get("lon", lon)),
+                    display_name=data.get("display_name", ""),
+                    address=data.get("address", {}),
+                )
+            if self._client is not None:
+                error_msg = data.get("error", "Không tìm thấy thông tin địa chỉ tại toạ độ này") if isinstance(data, dict) else "Không tìm thấy thông tin địa chỉ tại toạ độ này"
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
+        except HTTPException:
+            if self._client is not None:
+                raise
+            logger.warning("Nominatim reverse HTTP error for lat=%s, lon=%s", lat, lon)
+        except Exception as exc:
+            if self._client is not None:
+                raise
+            logger.warning("Nominatim reverse failed for lat=%s, lon=%s: %s", lat, lon, exc)
 
-        if not isinstance(data, dict) or "error" in data:
-            error_msg = (
-                data.get("error", "Không tìm thấy thông tin địa chỉ tại toạ độ này")
-                if isinstance(data, dict)
-                else "Không tìm thấy thông tin địa chỉ tại toạ độ này"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=error_msg,
-            )
+        # Fallback 1: BigDataCloud Reverse Geocoding API
+        try:
+            bg_url = "https://api.bigdatacloud.net/data/reverse-geocode-client"
+            bg_params = {"latitude": lat, "longitude": lon, "localityLanguage": "vi"}
+            async with httpx.AsyncClient(timeout=4.0) as c:
+                bg_resp = await c.get(bg_url, params=bg_params, follow_redirects=True)
+                if bg_resp.status_code == 200:
+                    bg_data = bg_resp.json()
+                    locality = bg_data.get("locality") or bg_data.get("city")
+                    subdivision = bg_data.get("principalSubdivision")
+                    country = bg_data.get("countryName") or "Việt Nam"
+                    parts = [str(p) for p in (locality, subdivision, country) if p]
+                    disp_name = ", ".join(parts) if parts else f"Toạ độ ({lat:.4f}, {lon:.4f})"
+                    return MapReverseResponse(
+                        lat=lat,
+                        lon=lon,
+                        display_name=disp_name,
+                        address={
+                            "locality": locality or "",
+                            "city": subdivision or "",
+                            "country": country,
+                        },
+                    )
+        except Exception as exc:
+            logger.warning("BigDataCloud reverse fallback failed: %s", exc)
+
+        # Fallback 2: Local coordinate-based fallback (never throws 502/500)
+        disp_name = f"Toạ độ ({lat:.4f}, {lon:.4f})"
+        city = "Việt Nam"
+        if 20.5 <= lat <= 21.6 and 105.2 <= lon <= 106.3:
+            disp_name = "Hà Nội, Việt Nam"
+            city = "Hà Nội"
+        elif 10.3 <= lat <= 11.2 and 106.3 <= lon <= 107.2:
+            disp_name = "TP. Hồ Chí Minh, Việt Nam"
+            city = "TP. Hồ Chí Minh"
+        elif 15.8 <= lat <= 16.3 and 108.0 <= lon <= 108.5:
+            disp_name = "Đà Nẵng, Việt Nam"
+            city = "Đà Nẵng"
 
         return MapReverseResponse(
-            place_id=data.get("place_id"),
-            osm_id=data.get("osm_id"),
-            osm_type=data.get("osm_type"),
-            lat=float(data.get("lat", lat)),
-            lon=float(data.get("lon", lon)),
-            display_name=data.get("display_name", ""),
-            address=data.get("address", {}),
+            lat=lat,
+            lon=lon,
+            display_name=disp_name,
+            address={"city": city, "country": "Việt Nam"},
         )
 
     async def get_ip_location(

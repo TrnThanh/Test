@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'theme/bento_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'models/models.dart';
@@ -65,24 +64,59 @@ class Ptc1App extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: BentoColors.bg,
+        scaffoldBackgroundColor: kScaffoldBg,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: BentoColors.pop,
-          primary: BentoColors.pop,
-          surface: BentoColors.card,
+          seedColor: kPrimaryGreen,
+          primary: kPrimaryGreen,
+          surface: Colors.white,
         ),
         fontFamily: 'Roboto',
         appBarTheme: const AppBarTheme(
           centerTitle: false,
           elevation: 0,
-          backgroundColor: Colors.transparent,
-          foregroundColor: BentoColors.ink,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: kTextDark,
           titleTextStyle: TextStyle(
-            color: BentoColors.ink,
-            fontSize: 21,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
+            color: kTextDark,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
           ),
+          iconTheme: IconThemeData(color: kTextDark),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: kPrimaryGreen,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: kPrimaryGreen,
+            side: const BorderSide(color: kPrimaryGreen),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kBorderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kBorderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kPrimaryGreen, width: 1.8),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
       home: MainShell(
@@ -190,6 +224,25 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  void _openAuthModal({bool isRegister = false, VoidCallback? onSuccess}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _AuthFormModal(
+        api: widget.apiService,
+        initialRegister: isRegister,
+        onSuccess: (res) {
+          _onLoginSuccess(res);
+          onSuccess?.call();
+        },
+      ),
+    );
+  }
+
 
 
   @override
@@ -201,6 +254,16 @@ class _MainShellState extends State<MainShell> {
         initialCategory: _selectedCategory,
         onOpenCategoryPicker: _showInitialCategoryPicker,
         onRequireLogin: () {
+          _openAuthModal(isRegister: false);
+        },
+        onNavigateToMap: (lat, lon) {
+          setState(() {
+            _targetLat = lat;
+            _targetLon = lon;
+            _currentIndex = 1;
+          });
+        },
+        onNavigateToAccount: () {
           setState(() => _currentIndex = 3);
         },
       ),
@@ -210,14 +273,14 @@ class _MainShellState extends State<MainShell> {
         initialLon: _targetLon,
         currentUser: _currentUser,
         onRequireLogin: () {
-          setState(() => _currentIndex = 3);
+          _openAuthModal(isRegister: false);
         },
       ),
       FavouritesScreen(
         api: widget.apiService,
         currentUser: _currentUser,
         onRequireLogin: () {
-          setState(() => _currentIndex = 3);
+          _openAuthModal(isRegister: false);
         },
         onExplore: () {
           setState(() => _currentIndex = 0);
@@ -236,59 +299,49 @@ class _MainShellState extends State<MainShell> {
         index: _currentIndex,
         children: tabs,
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: BentoColors.line, width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1E1B2E).withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: NavigationBar(
-                height: 64,
-                backgroundColor: Colors.white,
-                indicatorColor: BentoColors.peach,
-                selectedIndex: _currentIndex,
-                onDestinationSelected: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home, color: BentoColors.ink),
-                    label: 'Trang chủ',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.map_outlined),
-                    selectedIcon: Icon(Icons.map, color: BentoColors.ink),
-                    label: 'Bản đồ',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.favorite_outline),
-                    selectedIcon: Icon(Icons.favorite, color: BentoColors.pop),
-                    label: 'Yêu thích',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.person_outline),
-                    selectedIcon: Icon(Icons.person, color: BentoColors.ink),
-                    label: 'Tài khoản',
-                  ),
-                ],
-              ),
-            ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: Color(0xFFF1F5F9), width: 1.2),
           ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          backgroundColor: Colors.white,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          selectedItemColor: const Color(0xFF005930),
+          unselectedItemColor: const Color(0xFF64748B),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Trang chủ',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.map_outlined),
+              activeIcon: Icon(Icons.map),
+              label: 'Bản đồ',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.favorite_outline),
+              activeIcon: Icon(Icons.favorite),
+              label: 'Yêu thích',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Tài khoản',
+            ),
+          ],
         ),
       ),
     );
@@ -298,12 +351,22 @@ class _MainShellState extends State<MainShell> {
 // ==========================================
 // TAB 1: KHÁM PHÁ (EXPLORE - GUEST & USER)
 // ==========================================
+const Color kPrimaryGreen = Color(0xFF005930);
+const Color kLightGreen = Color(0xFFE8F5E9);
+const Color kSuperLightGreen = Color(0xFFF0FDF4);
+const Color kScaffoldBg = Color(0xFFF8F9FA);
+const Color kBorderColor = Color(0xFFE2E8F0);
+const Color kTextDark = Color(0xFF0F172A);
+const Color kTextMuted = Color(0xFF64748B);
+
 class ExploreScreen extends StatefulWidget {
   final ApiService api;
   final RoleLoginResponse? currentUser;
   final VoidCallback onRequireLogin;
   final String? initialCategory;
   final VoidCallback? onOpenCategoryPicker;
+  final void Function(double lat, double lon)? onNavigateToMap;
+  final VoidCallback? onNavigateToAccount;
 
   const ExploreScreen({
     super.key,
@@ -312,6 +375,8 @@ class ExploreScreen extends StatefulWidget {
     required this.onRequireLogin,
     this.initialCategory,
     this.onOpenCategoryPicker,
+    this.onNavigateToMap,
+    this.onNavigateToAccount,
   });
 
   @override
@@ -324,17 +389,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String? _error;
   String _searchQuery = '';
   String? _currentCategory;
+  String _selectedCity = 'Hà Nội';
+
+  CurrentWeather? _currentWeather;
+
 
   final List<String> _categories = const [
     'Tất cả',
-    'Phở & Bún',
-    'Cơm văn phòng',
-    'Lẩu & Nướng',
-    'Đồ chay',
+    'Phở',
+    'Bún',
+    'Cơm',
+    'Bánh mì',
     'Ăn vặt',
-    'Món Hàn & Nhật',
-    'Fastfood',
-    'Hải sản',
+    'Đồ uống',
+    'Lẩu & Nướng',
   ];
 
   @override
@@ -342,6 +410,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.initState();
     _currentCategory = widget.initialCategory;
     _loadData();
+    _loadWeatherAndLocation();
   }
 
   @override
@@ -351,6 +420,152 @@ class _ExploreScreenState extends State<ExploreScreen> {
       setState(() {
         _currentCategory = widget.initialCategory;
       });
+    }
+  }
+
+  String _resolveToCityName(String? raw, {double? lat, double? lon}) {
+    // 1. Kiểm tra toạ độ địa lý nếu có
+    if (lat != null && lon != null) {
+      if (lat >= 20.5 && lat <= 21.6 && lon >= 105.2 && lon <= 106.3) {
+        return 'Hà Nội';
+      } else if (lat >= 10.3 && lat <= 11.3 && lon >= 106.2 && lon <= 107.2) {
+        return 'TP. Hồ Chí Minh';
+      } else if (lat >= 15.8 && lat <= 16.3 && lon >= 107.8 && lon <= 108.6) {
+        return 'Đà Nẵng';
+      } else if (lat >= 20.6 && lat <= 21.1 && lon >= 106.4 && lon <= 107.1) {
+        return 'Hải Phòng';
+      } else if (lat >= 9.8 && lat <= 10.4 && lon >= 105.3 && lon <= 106.0) {
+        return 'Cần Thơ';
+      }
+    }
+
+    if (raw == null || raw.trim().isEmpty) return 'Hà Nội';
+    final lower = raw.toLowerCase().trim();
+
+    // 2. Tra cứu theo từ khoá thành phố / quận huyện
+    if (lower.contains('hà nội') ||
+        lower.contains('ha noi') ||
+        lower.contains('xom pho') ||
+        lower.contains('xóm phố') ||
+        lower.contains('gia lâm') ||
+        lower.contains('hoàn kiếm') ||
+        lower.contains('đống đa') ||
+        lower.contains('hai bà trưng') ||
+        lower.contains('cầu giấy')) {
+      return 'Hà Nội';
+    } else if (lower.contains('hồ chí minh') ||
+        lower.contains('ho chi minh') ||
+        lower.contains('sài gòn') ||
+        lower.contains('saigon') ||
+        lower.contains('thủ đức')) {
+      return 'TP. Hồ Chí Minh';
+    } else if (lower.contains('đà nẵng') || lower.contains('da nang')) {
+      return 'Đà Nẵng';
+    } else if (lower.contains('hải phòng') || lower.contains('hai phong')) {
+      return 'Hải Phòng';
+    } else if (lower.contains('cần thơ') || lower.contains('can tho')) {
+      return 'Cần Thơ';
+    }
+
+    // 3. Phân tích chuỗi địa chỉ từ OpenStreetMap
+    final parts = raw.split(',');
+    for (final part in parts.reversed) {
+      final p = part.trim();
+      final pLower = p.toLowerCase();
+      if (pLower.contains('thành phố') || pLower.contains('tỉnh')) {
+        return p.replaceAll(RegExp(r'^(Thành phố|Tỉnh)\s+', caseSensitive: false), '').trim();
+      }
+    }
+
+    return parts.isNotEmpty ? parts.last.trim() : raw.trim();
+  }
+
+  String _getWeatherRecommendation(CurrentWeather? weather) {
+    if (weather == null) {
+      return 'Trời mát, cực hợp làm bát Phở nóng hổi!';
+    }
+    final temp = weather.temperature;
+    final cond = weather.condition.toLowerCase();
+    final desc = weather.description.toLowerCase();
+
+    if (cond.contains('rain') || desc.contains('mưa')) {
+      return 'Trời mưa mát mẻ, xì xụp bát Phở nóng hoặc Lẩu thơm!';
+    } else if (temp < 22) {
+      return 'Trời se lạnh, cực hợp làm bát Phở nóng hổi!';
+    } else if (temp >= 22 && temp < 28) {
+      return 'Trời mát, cực hợp làm bát Phở nóng hổi!';
+    } else if (temp >= 28 && temp < 33) {
+      return 'Thời tiết ấm áp, thích hợp thưởng thức Bún chả & Trà đá!';
+    } else {
+      return 'Trời oi nóng, giải nhiệt với Bún ốc hoặc Chè mát lạnh!';
+    }
+  }
+
+  Future<void> _loadWeatherAndLocation({double? forcedLat, double? forcedLon, String? forcedCity}) async {
+    setState(() {
+  
+    });
+
+    double? lat = forcedLat;
+    double? lon = forcedLon;
+    String detectedCity = forcedCity ?? _selectedCity;
+
+    try {
+      if (lat == null || lon == null) {
+        // Chỉ lấy toạ độ GPS thực tế từ thiết bị (HOÀN TOÀN KHÔNG DÙNG IP FALLBACK)
+        final devPos = await LocationService.getDeviceLocation();
+        if (devPos != null) {
+          lat = devPos['lat'];
+          lon = devPos['lon'];
+          detectedCity = _resolveToCityName(null, lat: lat, lon: lon);
+          widget.api.reverseMap(lat!, lon!).then((addr) {
+            if (mounted && addr.isNotEmpty) {
+              setState(() {
+                _selectedCity = _resolveToCityName(addr, lat: lat, lon: lon);
+              });
+            }
+          }).catchError((_) {});
+        } else {
+          // Khi không có GPS, dùng ngay toạ độ của thành phố đang được chọn
+          final cityCoords = {
+            'Hà Nội': {'lat': 21.0285, 'lon': 105.8542},
+            'TP. Hồ Chí Minh': {'lat': 10.7769, 'lon': 106.7009},
+            'Đà Nẵng': {'lat': 16.0544, 'lon': 108.2022},
+            'Hải Phòng': {'lat': 20.8449, 'lon': 106.6881},
+            'Cần Thơ': {'lat': 10.0452, 'lon': 105.7469},
+          };
+          final def = cityCoords[detectedCity] ?? cityCoords['Hà Nội']!;
+          lat = def['lat'];
+          lon = def['lon'];
+        }
+      }
+    } catch (_) {}
+
+    // Lấy thời tiết từ API theo toạ độ
+    try {
+      final weather = await widget.api.getCurrentWeather(lat: lat, lon: lon);
+      if (mounted) {
+        setState(() {
+          _currentWeather = weather;
+
+          if (forcedCity == null && weather.locationName != null && weather.locationName!.isNotEmpty) {
+            detectedCity = _resolveToCityName(weather.locationName, lat: lat, lon: lon);
+          }
+          _selectedCity = detectedCity;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _selectedCity = detectedCity;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+      
+        });
+      }
     }
   }
 
@@ -390,7 +605,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final q = _searchQuery.toLowerCase().trim();
     return list.where((r) =>
         r.name.toLowerCase().contains(q) ||
-        (r.address != null && r.address!.toLowerCase().contains(q))).toList();
+        (r.address != null && r.address!.toLowerCase().contains(q)) ||
+        (r.description != null && r.description!.toLowerCase().contains(q))).toList();
   }
 
   void _showMenuBottomSheet(Restaurant r) {
@@ -421,343 +637,847 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  String _getFoodImage(Restaurant r, int index) {
+    final name = r.name.toLowerCase();
+    final desc = (r.description ?? '').toLowerCase();
+
+    if (name.contains('phở') || desc.contains('phở')) {
+      return 'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=500&auto=format&fit=crop&q=80';
+    } else if (name.contains('bánh mì') || desc.contains('bánh mì')) {
+      return 'https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=500&auto=format&fit=crop&q=80';
+    } else if (name.contains('cơm') || desc.contains('cơm')) {
+      return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80';
+    } else if (name.contains('bún') || desc.contains('bún')) {
+      return 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=500&auto=format&fit=crop&q=80';
+    } else if (name.contains('miến') || desc.contains('miến')) {
+      return 'https://images.unsplash.com/photo-1617093727343-374698b1b08d?w=500&auto=format&fit=crop&q=80';
+    } else if (name.contains('trà') || name.contains('cà phê') || name.contains('nước') || desc.contains('uống')) {
+      return 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&auto=format&fit=crop&q=80';
+    } else if (name.contains('lẩu') || name.contains('nướng')) {
+      return 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=80';
+    }
+
+    final curations = [
+      'https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=500&auto=format&fit=crop&q=80',
+    ];
+    return curations[index % curations.length];
+  }
+
+  List<String> _getRestaurantTags(Restaurant r) {
+    final name = r.name.toLowerCase();
+    final desc = (r.description ?? '').toLowerCase();
+
+    if (name.contains('phở') || desc.contains('phở')) {
+      return ['Phở truyền thống', 'Ăn sáng'];
+    } else if (name.contains('bánh mì') || desc.contains('bánh mì')) {
+      return ['Bánh mì giòn', 'Ăn vặt'];
+    } else if (name.contains('cơm') || desc.contains('cơm')) {
+      return ['Cơm tấm', 'Ăn trưa/tối'];
+    } else if (name.contains('bún') || desc.contains('bún')) {
+      return ['Bún chả đậm vị', 'Ăn trưa'];
+    } else {
+      return ['Món Việt', 'Hương vị xưa'];
+    }
+  }
+
+  double _getRatingScore(Restaurant r) {
+    return 4.6 + ((r.id * 17) % 4) / 10.0;
+  }
+
+  String _getReviewCountText(Restaurant r) {
+    final count = ((r.id * 313) % 1500) + 400;
+    if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return '$count';
+  }
+
+  String _getDistanceText(Restaurant r, int index) {
+    if (r.distanceKm != null && r.distanceKm! > 0) {
+      if (r.distanceKm! < 1.0) {
+        return '${(r.distanceKm! * 1000).round()}m';
+      }
+      return '${r.distanceKm!.toStringAsFixed(1)}km';
+    } else if (r.distanceMeters != null && r.distanceMeters! > 0) {
+      if (r.distanceMeters! < 1000) {
+        return '${r.distanceMeters!.round()}m';
+      }
+      return '${(r.distanceMeters! / 1000).toStringAsFixed(1)}km';
+    }
+    final m = ((r.id * 350) % 1800) + 400;
+    if (m < 1000) return '${m}m';
+    return '${(m / 1000).toStringAsFixed(1)}km';
+  }
+
+  String _getPriceRange(Restaurant r) {
+    final base = (r.id * 5) % 25 + 30; // 30k to 55k
+    final max = base + 25; // 55k to 80k
+    return '$base.000đ - $max.000đ';
+  }
+
+  void _showLocationPicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final cities = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'];
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Chọn khu vực',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                ...cities.map((city) {
+                  final isSelected = city == _selectedCity;
+                  return ListTile(
+                    leading: Icon(
+                      Icons.location_on,
+                      color: isSelected ? kPrimaryGreen : Colors.grey,
+                    ),
+                    title: Text(
+                      city,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? kPrimaryGreen : Colors.black87,
+                      ),
+                    ),
+                    trailing: isSelected ? const Icon(Icons.check, color: kPrimaryGreen) : null,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      final coords = {
+                        'Hà Nội': {'lat': 21.0285, 'lon': 105.8542},
+                        'TP. Hồ Chí Minh': {'lat': 10.7769, 'lon': 106.7009},
+                        'Đà Nẵng': {'lat': 16.0544, 'lon': 108.2022},
+                        'Hải Phòng': {'lat': 20.8449, 'lon': 106.6881},
+                        'Cần Thơ': {'lat': 10.0452, 'lon': 105.7469},
+                      };
+                      final cPos = coords[city];
+                      _loadWeatherAndLocation(
+                        forcedLat: cPos?['lat'],
+                        forcedLon: cPos?['lon'],
+                        forcedCity: city,
+                      );
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final restaurants = _filteredList;
+    final hero = restaurants.isNotEmpty ? restaurants.first : null;
+    final listItems = restaurants.length > 1 ? restaurants.skip(1).toList() : restaurants;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('PTC1 Khám Phá Quán Ăn', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Tải lại',
-            onPressed: _loadData,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: BentoColors.butter,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFFFDF60), width: 1.2),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Text('☀️', style: TextStyle(fontSize: 22)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: BentoColors.ink,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: const Text(
-                                'MÙA HÈ • 28°C',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Gia Lâm, Hà Nội',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BentoColors.ink),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Gợi ý ngày nóng: Món nước thanh đạm & trà giải nhiệt 🍧',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: BentoColors.ink),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Tìm theo tên quán, địa chỉ...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: BentoColors.line, width: 1.2),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: BentoColors.line, width: 1.2),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: BentoColors.pop, width: 1.8),
-                ),
-              ),
-              onChanged: (val) {
-                setState(() {
-                  _searchQuery = val;
-                });
-              },
-            ),
-          ),
-          // Thanh chọn thể loại món ăn
-          Container(
-            height: 42,
-            margin: const EdgeInsets.only(bottom: 6),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _categories.length,
-              itemBuilder: (ctx, idx) {
-                final cat = _categories[idx];
-                final isSelected = (_currentCategory ?? 'Tất cả') == cat;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: BentoBouncy(
-                    onTap: () {
-                      setState(() {
-                        _currentCategory = cat == 'Tất cả' ? null : cat;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? BentoColors.ink : Colors.white,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: isSelected ? BentoColors.ink : BentoColors.line,
-                          width: 1.2,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: BentoColors.ink.withValues(alpha: 0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        cat,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : BentoColors.inkBody,
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadData,
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await Future.wait([
+              _loadData(),
+              _loadWeatherAndLocation(),
+            ]);
+          },
+          color: kPrimaryGreen,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 1. TOP HEADER (Vị trí & Lời chào & Avatar)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Lỗi kết nối: $_error',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Colors.red)),
-                                const SizedBox(height: 12),
-                                ElevatedButton(onPressed: _loadData, child: const Text('Thử lại')),
+                                InkWell(
+                                  onTap: _showLocationPicker,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFFE11D48)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _selectedCity,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF64748B)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Trưa nay ăn gì nhỉ?',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        )
-                      : _filteredList.isEmpty
-                          ? Center(
+                          InkWell(
+                            onTap: () => widget.onNavigateToAccount?.call(),
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: const BoxDecoration(
+                                color: kPrimaryGreen,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.person_outline,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 2. WEATHER CARD (Card mờ ấm áp nhẹ nhàng)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9F9FB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFF1F1F4), width: 1.2),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFFEDD5),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.wb_sunny_outlined,
+                                color: Color(0xFFEA580C),
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.restaurant, size: 54, color: Colors.grey[400]),
-                                  const SizedBox(height: 12),
-                                  Text('Không tìm thấy quán ăn nào phù hợp',
-                                      style: TextStyle(color: Colors.grey[600])),
+                                  Text(
+                                    '${_currentWeather?.temperature.round() ?? 28}°C • ${_currentWeather?.description ?? 'Có mây'}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Độ ẩm ${_currentWeather?.humidity ?? 78}% • ${_getWeatherRecommendation(_currentWeather)}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ],
                               ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              itemCount: _filteredList.length,
-                              itemBuilder: (context, index) {
-                                final r = _filteredList[index];
-                                final open = isOpenNow(r.openTime, r.closeTime);
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF94A3B8),
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
-                                return BentoCard(
-                                  margin: const EdgeInsets.only(bottom: 14),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                      // 3. SEARCH BAR + FILTER BUTTON
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                              ),
+                              child: TextField(
+                                decoration: const InputDecoration(
+                                  hintText: 'Thèm món gì? Tìm quán, món ăn...',
+                                  hintStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF94A3B8),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  prefixIcon: Icon(Icons.search, color: Color(0xFF64748B), size: 22),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                ),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _searchQuery = val;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          InkWell(
+                            onTap: () => widget.onOpenCategoryPicker?.call(),
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: kPrimaryGreen,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.tune_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 4. CATEGORY CHIPS (Tất cả, Phở, Bún, Cơm, Bánh mì...)
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _categories.map((cat) {
+                            final isSelected = (_currentCategory ?? 'Tất cả') == cat;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _currentCategory = cat == 'Tất cả' ? null : cat;
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(999),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? kPrimaryGreen : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    cat,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                      color: isSelected ? Colors.white : const Color(0xFF334155),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 5. SECTION: Đói rồi, khám phá thôi!
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Đói rồi, khám phá thôi!',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF0F172A),
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Gợi ý dành riêng cho bạn hôm nay',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFFF7ED),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.local_fire_department, size: 20, color: Color(0xFFEA580C)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // HERO BIG CARD
+                      if (hero != null)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFFF1F5F9), width: 1.2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Image with badges
+                              Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                                    child: Image.network(
+                                      _getFoodImage(hero, 0),
+                                      width: double.infinity,
+                                      height: 180,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        height: 180,
+                                        color: const Color(0xFFE2E8F0),
+                                        alignment: Alignment.center,
+                                        child: const Icon(Icons.restaurant, color: Color(0xFF94A3B8), size: 40),
+                                      ),
+                                    ),
+                                  ),
+                                  // Top left badge: Hợp gu của bạn
+                                  Positioned(
+                                    top: 12,
+                                    left: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: kPrimaryGreen,
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: const Text(
+                                        'Hợp gu của bạn',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Bottom right badge: ⭐ 4.9 (800m)
+                                  Positioned(
+                                    bottom: 12,
+                                    right: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.92),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  r.name,
-                                                  style: const TextStyle(
-                                                    fontSize: 17,
-                                                    fontWeight: FontWeight.w900,
-                                                    color: BentoColors.ink,
-                                                    letterSpacing: -0.3,
-                                                  ),
-                                                ),
-                                                if (r.isSponsor) ...[
-                                                  const SizedBox(height: 4),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                    decoration: BoxDecoration(
-                                                      color: BentoColors.pop,
-                                                      borderRadius: BorderRadius.circular(999),
-                                                    ),
-                                                    child: const Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(Icons.star, size: 10, color: Colors.white),
-                                                        SizedBox(width: 3),
-                                                        Text('★ SPONSOR ★', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: open ? const Color(0xFFDCFCE7) : const Color(0xFFFFE4E6),
-                                              borderRadius: BorderRadius.circular(999),
-                                              border: Border.all(
-                                                color: open ? const Color(0xFF16A34A).withValues(alpha: 0.3) : const Color(0xFFDC2626).withValues(alpha: 0.3),
-                                                width: 0.8,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              open ? '🟢 Đang mở cửa' : '🔴 Đã đóng cửa',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w800,
-                                                color: open ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
-                                              ),
+                                          const Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            '${_getRatingScore(hero).toStringAsFixed(1)} (${_getDistanceText(hero, 0)})',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF0F172A),
                                             ),
                                           ),
                                         ],
                                       ),
-                                        const SizedBox(height: 6),
-                                        if (r.address != null)
-                                          Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Icon(Icons.location_on, size: 16, color: Colors.deepOrange),
-                                              const SizedBox(width: 4),
-                                              Expanded(
-                                                child: Text(
-                                                  r.address!,
-                                                  style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        if (r.openTime != null && r.closeTime != null) ...[
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.access_time, size: 16, color: Colors.blueGrey),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Khung giờ: ${r.openTime} – ${r.closeTime}',
-                                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            if (r.phone != null) ...[
-                                              Icon(Icons.phone, size: 14, color: Colors.grey[600]),
-                                              const SizedBox(width: 4),
-                                              Text(r.phone!, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                            ],
-                                            const Spacer(),
-                                            BentoBouncy(
-                                              onTap: () => _showMenuBottomSheet(r),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                                                decoration: BoxDecoration(
-                                                  color: BentoColors.pop,
-                                                  borderRadius: BorderRadius.circular(999),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: BentoColors.pop.withValues(alpha: 0.35),
-                                                      blurRadius: 10,
-                                                      offset: const Offset(0, 4),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: const Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(Icons.menu_book, size: 15, color: Colors.white),
-                                                    SizedBox(width: 6),
-                                                    Text(
-                                                      'Xem Thực Đơn',
-                                                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            hero.name,
+                                            style: const TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFF0F172A),
                                             ),
-                                          ],
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const Text(
+                                          '65.000đ',
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w900,
+                                            color: kPrimaryGreen,
+                                          ),
                                         ),
                                       ],
                                     ),
-                                );
-                              },
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      hero.address ?? '48 Lò Đúc, Hai Bà Trưng, Hà Nội',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'Sốt vang đậm đà',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFF475569),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'Ăn sáng/Trưa',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFF475569),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        ElevatedButton(
+                                          onPressed: () => _showMenuBottomSheet(hero),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: kPrimaryGreen,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                            elevation: 0,
+                                          ),
+                                          child: const Text(
+                                            'Khám phá ngay',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+
+                      // 6. SECTION: Quán ngon quanh đây
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Quán ngon quanh đây',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
                             ),
-            ),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _currentCategory = null;
+                                _searchQuery = '';
+                              });
+                            },
+                            child: const Text(
+                              'Xem tất cả >',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: kPrimaryGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 7. LIST OF COMPACT RESTAURANT CARDS
+              if (_loading)
+                const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(color: kPrimaryGreen),
+                  ),
+                )
+              else if (_error != null)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Lỗi kết nối: $_error', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: _loadData,
+                            style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
+                            child: const Text('Thử lại', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (listItems.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.restaurant, size: 54, color: Colors.grey[400]),
+                        const SizedBox(height: 12),
+                        Text('Không tìm thấy quán ăn nào phù hợp', style: TextStyle(color: Colors.grey[600])),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final r = listItems[index];
+                        final tags = _getRestaurantTags(r);
+                        final rating = _getRatingScore(r);
+                        final reviewCount = _getReviewCountText(r);
+                        final distanceText = _getDistanceText(r, index + 1);
+                        final priceRange = _getPriceRange(r);
+                        final imageUrl = _getFoodImage(r, index + 1);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFF1F5F9), width: 1.2),
+                          ),
+                          child: InkWell(
+                            onTap: () => _showMenuBottomSheet(r),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Left square image
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    imageUrl,
+                                    width: 84,
+                                    height: 84,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 84,
+                                      height: 84,
+                                      color: const Color(0xFFE2E8F0),
+                                      child: const Icon(Icons.restaurant, color: Color(0xFF94A3B8), size: 30),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Right details
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              r.name,
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFF0F172A),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          Text(
+                                            distanceText,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        r.address ?? 'Hà Nội',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            '${rating.toStringAsFixed(1)} ($reviewCount)',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                          const Text(' • ', style: TextStyle(color: Color(0xFF94A3B8))),
+                                          Text(
+                                            priceRange,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: kPrimaryGreen,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 6,
+                                        children: tags.map((t) {
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF1F5F9),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              t,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xFF64748B),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      childCount: listItems.length,
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 24),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ==========================================
 // ==========================================
 // TAB 2: BẢN ĐỒ & QUÁN ĂN GIA LÂM (MAP & SPATIAL SEARCH)
 // ==========================================
@@ -893,41 +1613,54 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     try {
-      LatLng? pos;
       String? name;
 
-      // 1. Thử xin quyền & lấy toạ độ GPS chính xác từ thiết bị / trình duyệt
+      // 1. Lấy toạ độ GPS chính xác từ thiết bị / trình duyệt (KHÔNG DÙNG IP FALLBACK)
       final devPos = await LocationService.getDeviceLocation();
       if (devPos != null) {
-        pos = LatLng(devPos['lat']!, devPos['lon']!);
-        name = 'Vị trí của bạn (GPS thiết bị)';
-        try {
-          final addr = await widget.api.reverseMap(pos.latitude, pos.longitude);
-          if (addr.isNotEmpty) name = addr;
-        } catch (_) {}
-      } else {
-        // 2. Fallback sang IP Geolocation từ Backend
-        final loc = await widget.api.getIpLocation();
-        pos = LatLng(loc.lat, loc.lon);
-        name = loc.locationName;
-      }
+        final targetPos = LatLng(devPos['lat']!, devPos['lon']!);
+        name = 'Vị trí của bạn';
 
-      if (mounted) {
-        final targetPos = pos;
-        setState(() {
-          _userLocation = targetPos;
-          _userLocationName = name;
-          _currentCenter = targetPos;
-          _pinnedLocation = targetPos;
-          _pinnedAddress = name;
-          _searchCtrl.text = name ?? '';
-          _selectedRestaurant = null;
-        });
+        // Phản hồi ngay lập tức: Di chuyển bản đồ & tải quán xung quanh không cần chờ mạng
+        if (mounted) {
+          setState(() {
+            _userLocation = targetPos;
+            _userLocationName = name;
+            _currentCenter = targetPos;
+            _pinnedLocation = targetPos;
+            _pinnedAddress = name;
+            _searchCtrl.text = name!;
+            _selectedRestaurant = null;
+            _detectingLocation = false;
+          });
 
-        if (moveToUser) {
-          _mapController.move(targetPos, 15.0);
+          if (moveToUser) {
+            _mapController.move(targetPos, 15.0);
+          }
+          _loadNearby(targetPos.latitude, targetPos.longitude);
         }
-        _loadNearby(targetPos.latitude, targetPos.longitude);
+
+        // Tra cứu địa chỉ chi tiết ngầm trong nền để không chặn giao diện
+        widget.api.reverseMap(targetPos.latitude, targetPos.longitude).then((addr) {
+          if (mounted && addr.isNotEmpty) {
+            setState(() {
+              _userLocationName = addr;
+              if (_pinnedLocation == targetPos) {
+                _pinnedAddress = addr;
+                _searchCtrl.text = addr;
+              }
+            });
+          }
+        }).catchError((_) {});
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Chưa lấy được toạ độ GPS. Vui lòng cho phép quyền vị trí trên trình duyệt!'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (_) {
       // Giữ nguyên toạ độ hiện tại, không gán cứng
@@ -1090,7 +1823,7 @@ class _MapScreenState extends State<MapScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('Chọn Bán Kính Tìm Quán', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text('${_radiusKm.toStringAsFixed(0)} km', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 16)),
+                  Text('${_radiusKm.toStringAsFixed(0)} km', style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 16)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1160,7 +1893,7 @@ class _MapScreenState extends State<MapScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   ActionChip(
-                    avatar: const Icon(Icons.tune, size: 14, color: Colors.deepOrange),
+                    avatar: const Icon(Icons.tune, size: 14, color: kPrimaryGreen),
                     label: Text('${_radiusKm.toStringAsFixed(0)} km'),
                     onPressed: () {
                       Navigator.pop(ctx);
@@ -1217,7 +1950,7 @@ class _MapScreenState extends State<MapScreen> {
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor: Colors.deepOrange.shade50,
-                              child: const Icon(Icons.restaurant, color: Colors.deepOrange, size: 20),
+                              child: const Icon(Icons.restaurant, color: kPrimaryGreen, size: 20),
                             ),
                             title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Column(
@@ -1229,7 +1962,7 @@ class _MapScreenState extends State<MapScreen> {
                                 Row(
                                   children: [
                                     if (r.distanceKm != null)
-                                      Text('${r.distanceKm!.toStringAsFixed(1)} km  •  ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 11)),
+                                      Text('${r.distanceKm!.toStringAsFixed(1)} km  •  ', style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 11)),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                       decoration: BoxDecoration(
@@ -1283,22 +2016,15 @@ class _MapScreenState extends State<MapScreen> {
             onPressed: _showRadiusPicker,
           ),
           IconButton(
-            tooltip: 'Vị trí của tôi (Định vị mạng IP)',
+            tooltip: 'Vị trí của tôi (GPS thiết bị)',
             icon: _detectingLocation
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
                 : const Icon(Icons.my_location, color: Colors.blue),
             onPressed: () {
               if (_userLocation != null) {
                 _mapController.move(_userLocation!, 15.0);
-                setState(() {
-                  _pinnedLocation = _userLocation;
-                  _pinnedAddress = _userLocationName ?? 'Vị trí của bạn';
-                  _searchCtrl.text = _pinnedAddress!;
-                });
-                _loadNearby(_userLocation!.latitude, _userLocation!.longitude);
-              } else {
-                _detectUserLocation(moveToUser: true);
               }
+              _detectUserLocation(moveToUser: true);
             },
           ),
         ],
@@ -1325,7 +2051,7 @@ class _MapScreenState extends State<MapScreen> {
                 polylines: [
                   Polyline(
                     points: [...giaLamBoundaryPolygon, giaLamBoundaryPolygon.first],
-                    color: Colors.deepOrange.withAlpha(180),
+                    color: kPrimaryGreen.withAlpha(140),
                     strokeWidth: 3.0,
                   ),
                 ],
@@ -1338,7 +2064,7 @@ class _MapScreenState extends State<MapScreen> {
                       width: 52,
                       height: 52,
                       child: Tooltip(
-                        message: 'Vị trí của bạn: ${_userLocationName ?? "Định vị mạng IP"}',
+                        message: 'Vị trí của bạn: ${_userLocationName ?? "GPS thiết bị"}',
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -1390,7 +2116,7 @@ class _MapScreenState extends State<MapScreen> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.amber[700] : Colors.deepOrange,
+                            color: isSelected ? Colors.amber.shade800 : kPrimaryGreen,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                             boxShadow: const [
@@ -1453,10 +2179,12 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                       FilledButton(
                         style: FilledButton.styleFrom(
+                          backgroundColor: kPrimaryGreen,
+                          foregroundColor: Colors.white,
                           shape: const RoundedRectangleBorder(
                             borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                         ),
                         onPressed: _loading ? null : _search,
                         child: _loading
@@ -1465,7 +2193,7 @@ class _MapScreenState extends State<MapScreen> {
                                 height: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
-                            : const Text('Tìm'),
+                            : const Text('Tìm', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -1477,32 +2205,25 @@ class _MapScreenState extends State<MapScreen> {
                     children: [
                       ActionChip(
                         avatar: _detectingLocation
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
-                            : const Icon(Icons.my_location, size: 16, color: Colors.blue),
-                        label: Text(
-                          _userLocation != null ? 'Vị trí của tôi' : 'Định vị của tôi',
-                          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryGreen))
+                            : const Icon(Icons.my_location, size: 16, color: kPrimaryGreen),
+                        label: const Text(
+                          'Vị trí của tôi',
+                          style: TextStyle(color: kPrimaryGreen, fontWeight: FontWeight.bold),
                         ),
-                        backgroundColor: Colors.blue.shade50,
-                        elevation: 2,
-                        side: BorderSide(color: Colors.blue.shade200),
+                        backgroundColor: kLightGreen,
+                        elevation: 1,
+                        side: BorderSide(color: kPrimaryGreen.withAlpha(80)),
                         onPressed: () {
                           if (_userLocation != null) {
                             _mapController.move(_userLocation!, 15.0);
-                            setState(() {
-                              _pinnedLocation = _userLocation;
-                              _pinnedAddress = _userLocationName ?? 'Vị trí của bạn';
-                              _searchCtrl.text = _pinnedAddress!;
-                            });
-                            _loadNearby(_userLocation!.latitude, _userLocation!.longitude);
-                          } else {
-                            _detectUserLocation(moveToUser: true);
                           }
+                          _detectUserLocation(moveToUser: true);
                         },
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.school, size: 16, color: Colors.deepOrange),
+                        avatar: const Icon(Icons.school, size: 16, color: kPrimaryGreen),
                         label: const Text('HVNN (Trâu Quỳ)'),
                         backgroundColor: Colors.white,
                         elevation: 2,
@@ -1510,7 +2231,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.location_city, size: 16, color: Colors.deepOrange),
+                        avatar: const Icon(Icons.location_city, size: 16, color: kPrimaryGreen),
                         label: const Text('Ocean Park 1'),
                         backgroundColor: Colors.white,
                         elevation: 2,
@@ -1518,7 +2239,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.palette, size: 16, color: Colors.deepOrange),
+                        avatar: const Icon(Icons.palette, size: 16, color: kPrimaryGreen),
                         label: const Text('Làng gốm Bát Tràng'),
                         backgroundColor: Colors.white,
                         elevation: 2,
@@ -1526,7 +2247,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.store, size: 16, color: Colors.deepOrange),
+                        avatar: const Icon(Icons.store, size: 16, color: kPrimaryGreen),
                         label: const Text('Chợ Ninh Hiệp'),
                         backgroundColor: Colors.white,
                         elevation: 2,
@@ -1534,7 +2255,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(width: 8),
                       ActionChip(
-                        avatar: const Icon(Icons.train, size: 16, color: Colors.deepOrange),
+                        avatar: const Icon(Icons.train, size: 16, color: kPrimaryGreen),
                         label: const Text('TT. Yên Viên'),
                         backgroundColor: Colors.white,
                         elevation: 2,
@@ -1562,7 +2283,7 @@ class _MapScreenState extends State<MapScreen> {
                         final p = _places[index];
                         return ListTile(
                           dense: true,
-                          leading: const Icon(Icons.location_on, color: Colors.deepOrange),
+                          leading: const Icon(Icons.location_on, color: kPrimaryGreen),
                           title: Text(p.displayName, maxLines: 2, overflow: TextOverflow.ellipsis),
                           subtitle: Text('Toạ độ: ${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}'),
                           onTap: () => _selectPlace(p),
@@ -1594,20 +2315,13 @@ class _MapScreenState extends State<MapScreen> {
                 FloatingActionButton.small(
                   heroTag: 'map_my_location_btn',
                   backgroundColor: Colors.white,
-                  foregroundColor: Colors.blue[700],
+                  foregroundColor: kPrimaryGreen,
                   tooltip: 'Vị trí của tôi',
                   onPressed: () {
                     if (_userLocation != null) {
                       _mapController.move(_userLocation!, 15.0);
-                      setState(() {
-                        _pinnedLocation = _userLocation;
-                        _pinnedAddress = _userLocationName ?? 'Vị trí của bạn';
-                        _searchCtrl.text = _pinnedAddress!;
-                      });
-                      _loadNearby(_userLocation!.latitude, _userLocation!.longitude);
-                    } else {
-                      _detectUserLocation(moveToUser: true);
                     }
+                    _detectUserLocation(moveToUser: true);
                   },
                   child: _detectingLocation
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
@@ -1664,10 +2378,10 @@ class _MapScreenState extends State<MapScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.deepOrange.shade50,
+                              color: kLightGreen,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.restaurant, color: Colors.deepOrange, size: 24),
+                            child: const Icon(Icons.restaurant, color: kPrimaryGreen, size: 24),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1707,11 +2421,11 @@ class _MapScreenState extends State<MapScreen> {
                           if (_selectedRestaurant!.distanceKm != null)
                             Row(
                               children: [
-                                const Icon(Icons.near_me, size: 16, color: Colors.deepOrange),
+                                const Icon(Icons.near_me, size: 16, color: kPrimaryGreen),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${_selectedRestaurant!.distanceKm!.toStringAsFixed(1)} km',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen),
                                 ),
                               ],
                             )
@@ -1762,7 +2476,7 @@ class _MapScreenState extends State<MapScreen> {
                             ),
                             Text(
                               'Tìm thấy ${_nearbyRestaurants.length} quán trong ${_radiusKm.toStringAsFixed(0)} km',
-                              style: const TextStyle(color: Colors.deepOrange, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: kPrimaryGreen, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -1894,34 +2608,34 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                  decoration: const BoxDecoration(
+                    color: kLightGreen,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.favorite_border, size: 64, color: Colors.red),
+                  child: const Icon(Icons.favorite_rounded, size: 64, color: kPrimaryGreen),
                 ),
                 const SizedBox(height: 24),
                 const Text(
                   'Lưu Giữ Món Ăn Bạn Yêu Thích',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextDark),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                Text(
+                const Text(
                   'Đăng nhập tài khoản Thực khách để thả tim lưu trữ các món ngon và nhận gợi ý ẩm thực chuẩn khẩu vị nhất!',
-                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                  style: TextStyle(color: kTextMuted, fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    backgroundColor: kPrimaryGreen,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   icon: const Icon(Icons.login),
-                  label: const Text('Đăng nhập ngay'),
+                  label: const Text('Đăng nhập ngay', style: TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: widget.onRequireLogin,
                 ),
               ],
@@ -1976,33 +2690,33 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(24),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
+                                    decoration: const BoxDecoration(
+                                      color: kLightGreen,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: Icon(Icons.restaurant_menu_outlined, size: 64, color: Colors.grey[400]),
+                                    child: const Icon(Icons.restaurant_menu_rounded, size: 64, color: kPrimaryGreen),
                                   ),
                                   const SizedBox(height: 20),
                                   const Text(
                                     'Chưa có món ăn yêu thích nào',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
+                                  const Text(
                                     'Khám phá thực đơn các quán ăn hấp dẫn tại Gia Lâm và nhấn biểu tượng trái tim để lưu lại bạn nhé!',
-                                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                                    style: TextStyle(color: kTextMuted, fontSize: 14),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 24),
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.black,
-                                      side: const BorderSide(color: Colors.black),
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: kPrimaryGreen,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
                                     icon: const Icon(Icons.explore),
-                                    label: const Text('Khám phá món ngon ngay'),
+                                    label: const Text('Khám phá món ngon ngay', style: TextStyle(fontWeight: FontWeight.bold)),
                                     onPressed: widget.onExplore,
                                   ),
                                 ],
@@ -2031,10 +2745,10 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                     width: 56,
                                     height: 56,
                                     decoration: BoxDecoration(
-                                      color: Colors.deepOrange.shade50,
+                                      color: kLightGreen,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: const Icon(Icons.fastfood, color: Colors.deepOrange, size: 28),
+                                    child: const Icon(Icons.fastfood, color: kPrimaryGreen, size: 28),
                                   ),
                                   const SizedBox(width: 14),
                                   Expanded(
@@ -2051,7 +2765,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                             '${dish.price.toStringAsFixed(0)} ₫',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.deepOrange,
+                                              color: kPrimaryGreen,
                                               fontSize: 14,
                                             ),
                                           ),
@@ -2126,15 +2840,6 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
-  bool _isRegister = false;
-
-  final _emailCtrl = TextEditingController(text: 'user@example.com');
-  final _passwordCtrl = TextEditingController(text: '123456');
-  final _nameCtrl = TextEditingController(text: 'Nguyễn Văn Thực Khách');
-
-  bool _loading = false;
-  String? _error;
-
   UserProfile? _profile;
   bool _loadingProfile = false;
 
@@ -2162,144 +2867,238 @@ class _AccountScreenState extends State<AccountScreen> {
     setState(() => _loadingProfile = true);
     try {
       final p = await widget.api.getUserProfile(widget.currentUser!.id);
-      setState(() => _profile = p);
+      if (mounted) setState(() => _profile = p);
     } catch (_) {}
-    setState(() => _loadingProfile = false);
+    if (mounted) setState(() => _loadingProfile = false);
   }
 
+  void _openAuthSheet({bool isRegister = false, VoidCallback? onSuccess}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _AuthFormModal(
+        api: widget.api,
+        initialRegister: isRegister,
+        onSuccess: (res) {
+          widget.onLoginSuccess(res);
+          _loadRoleData();
+          onSuccess?.call();
+        },
+      ),
+    );
+  }
 
+  void _showLocationInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.location_on, color: kPrimaryGreen),
+            SizedBox(width: 8),
+            Text('Quyền vị trí GPS', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'PTC1 sử dụng toạ độ vị trí thời gian thực từ thiết bị để gợi ý quán ăn lân cận và hiển thị thời tiết chính xác nhất. Vị trí của bạn hoàn toàn được bảo mật và không lưu trữ trên máy chủ.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Future<void> _handleAuth() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  void _showPrivacyInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.privacy_tip_outlined, color: kPrimaryGreen),
+            SizedBox(width: 8),
+            Text('Điều khoản & Quyền riêng tư', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'PTC1 cam kết tôn trọng quyền riêng tư của khách hàng. Bạn có thể tự do tìm kiếm quán ăn và tra cứu thực đơn mà không cần cung cấp bất kỳ thông tin cá nhân nào khi ở chế độ Khách.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
 
-    try {
-      RoleLoginResponse res;
-      if (!_isRegister) {
-        res = await widget.api.loginUser(_emailCtrl.text.trim(), _passwordCtrl.text);
-      } else {
-        res = await widget.api.registerUser(
-          _emailCtrl.text.trim(),
-          _passwordCtrl.text,
-          _nameCtrl.text.trim(),
-        );
-      }
-
-      widget.onLoginSuccess(res);
-      _loadRoleData();
-    } catch (e) {
-      setState(() {
-        _error = formatErrorMessage(e);
-      });
-    } finally {
-      setState(() {
-        _loading = false;
-      });
-    }
+  Widget _buildBenefitRow({required IconData icon, required String title, required String desc}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: kLightGreen,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: kPrimaryGreen, size: 20),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kTextDark)),
+              const SizedBox(height: 3),
+              Text(desc, style: const TextStyle(fontSize: 12, color: kTextMuted, height: 1.35)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    // ----------------------------------------------------
+    // TRẠNG THÁI 1: ĐÃ ĐĂNG NHẬP THỰC KHÁCH
+    // ----------------------------------------------------
     if (widget.currentUser != null) {
       final user = widget.currentUser!;
 
       return Scaffold(
+        backgroundColor: kScaffoldBg,
         appBar: AppBar(
-          title: const Text('Tài Khoản Thực Khách'),
+          title: const Text('Tài Khoản Thực Khách', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
           actions: [
             IconButton(
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout, color: Color(0xFFDC2626)),
               tooltip: 'Đăng xuất',
-              onPressed: widget.onLogout,
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Text('Xác nhận đăng xuất', style: TextStyle(fontWeight: FontWeight.bold)),
+                    content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản không?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ', style: TextStyle(color: Colors.grey))),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          widget.onLogout();
+                        },
+                        child: const Text('Đăng xuất'),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           children: [
-            Card(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey[200]!),
+            // Thẻ hồ sơ thành viên
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: kBorderColor),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 8, offset: const Offset(0, 3)),
+                ],
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Colors.black,
-                      child: Text(
-                        (user.fullName?.isNotEmpty == true ? user.fullName![0] : user.email[0]).toUpperCase(),
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: kPrimaryGreen,
+                    child: Text(
+                      (user.fullName?.isNotEmpty == true ? user.fullName![0] : user.email[0]).toUpperCase(),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(user.fullName ?? 'Thực khách',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 2),
-                          Text(user.email, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEEEEEE),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.black),
-                            ),
-                            child: const Text(
-                              'Thực Khách (User)',
-                              style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold),
-                            ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.fullName ?? 'Thực khách',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
+                        const SizedBox(height: 2),
+                        Text(user.email, style: const TextStyle(color: kTextMuted, fontSize: 13)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: kLightGreen,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: kPrimaryGreen.withAlpha(80)),
                           ),
-                        ],
-                      ),
+                          child: const Text(
+                            'Thành Viên Thực Khách',
+                            style: TextStyle(color: kPrimaryGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+
             // Banner nhắc nhở khảo sát nếu chưa hoàn thành
             if (_profile != null && !_profile!.isOnboarded)
               Container(
-                margin: const EdgeInsets.only(bottom: 16),
+                margin: const EdgeInsets.only(bottom: 14),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF97316)),
+                  color: kSuperLightGreen,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kPrimaryGreen.withAlpha(80)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Color(0xFFF97316)),
+                    const Icon(Icons.eco_outlined, color: kPrimaryGreen, size: 24),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Chưa thiết lập sở thích ẩm thực',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF9A3412))),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kPrimaryGreen)),
                           SizedBox(height: 2),
                           Text('Khảo sát ngay để nhận gợi ý món ăn chuẩn vóc dáng & khẩu vị!',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF7C2D12))),
+                              style: TextStyle(fontSize: 12, color: Color(0xFF166534))),
                         ],
                       ),
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF97316),
-                        foregroundColor: Colors.white,
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: kPrimaryGreen,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       onPressed: () {
@@ -2321,232 +3120,522 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
 
             // Card Chi Tiết Hồ Sơ Sức Khỏe & Sở Thích
-            Card(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey[200]!),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: kBorderColor),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.health_and_safety_outlined, color: kPrimaryGreen),
+                          SizedBox(width: 8),
+                          Text('Hồ Sơ Sức Khỏe & Sở Thích',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kTextDark)),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_note, color: kPrimaryGreen),
+                        tooltip: 'Chỉnh sửa sở thích & thể chất',
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (ctx) => OnboardingSurveyDialog(
+                              api: widget.api,
+                              userId: widget.currentUser!.id,
+                              initialProfile: _profile,
+                              onCompleted: _loadProfile,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  if (_loadingProfile)
+                    const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                  else if (_profile == null)
+                    const Text('Chưa có thông tin hồ sơ.')
+                  else ...[
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.health_and_safety_outlined, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text('Hồ Sơ Sức Khỏe & Sở Thích',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          ],
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: kScaffoldBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: kBorderColor),
+                            ),
+                            child: Column(
+                              children: [
+                                const Text('Chiều cao', style: TextStyle(fontSize: 11, color: kTextMuted)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _profile!.heightCm != null ? '${_profile!.heightCm!.toStringAsFixed(0)} cm' : '--',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_note, color: Colors.blue),
-                          tooltip: 'Chỉnh sửa sở thích & thể chất',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (ctx) => OnboardingSurveyDialog(
-                                api: widget.api,
-                                userId: widget.currentUser!.id,
-                                initialProfile: _profile,
-                                onCompleted: _loadProfile,
-                              ),
-                            );
-                          },
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: kScaffoldBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: kBorderColor),
+                            ),
+                            child: Column(
+                              children: [
+                                const Text('Cân nặng', style: TextStyle(fontSize: 11, color: kTextMuted)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _profile!.weightKg != null ? '${_profile!.weightKg!.toStringAsFixed(1)} kg' : '--',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: kLightGreen,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: kPrimaryGreen.withAlpha(60)),
+                            ),
+                            child: Column(
+                              children: [
+                                const Text('BMI', style: TextStyle(fontSize: 11, color: kPrimaryGreen, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _profile!.bmi != null ? _profile!.bmi!.toStringAsFixed(1) : '--',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kPrimaryGreen),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    const Divider(height: 20),
-                    if (_loadingProfile)
-                      const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-                    else if (_profile == null)
-                      const Text('Chưa có thông tin hồ sơ.')
-                    else ...[
-                      // Thể chất: Chiều cao, cân nặng, BMI
+                    const SizedBox(height: 12),
+                    if (_profile!.bmiCategory != null)
                       Row(
                         children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey[200]!),
-                              ),
-                              child: Column(
-                                children: [
-                                  const Text('Chiều cao', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _profile!.heightCm != null ? '${_profile!.heightCm!.toStringAsFixed(0)} cm' : '--',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[50],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey[200]!),
-                              ),
-                              child: Column(
-                                children: [
-                                  const Text('Cân nặng', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _profile!.weightKg != null ? '${_profile!.weightKg!.toStringAsFixed(1)} kg' : '--',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[50],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue[100]!),
-                              ),
-                              child: Column(
-                                children: [
-                                  const Text('BMI', style: TextStyle(fontSize: 11, color: Colors.blue)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _profile!.bmi != null ? _profile!.bmi!.toStringAsFixed(1) : '--',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (_profile!.bmiCategory != null)
-                        Row(
-                          children: [
-                            const Text('Thể trạng: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: _profile!.bmiCategory == 'normal' ? Colors.green[100] : Colors.orange[100],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                _profile!.bmiCategory == 'normal'
-                                    ? 'Chuẩn dáng'
-                                    : (_profile!.bmiCategory == 'underweight' ? 'Hơi gầy' : 'Thừa cân'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: _profile!.bmiCategory == 'normal' ? Colors.green[800] : Colors.orange[800],
-                                ),
-                              ),
-                            ),
-                            if (_profile!.targetGoal != null) ...[
-                              const SizedBox(width: 8),
-                              const Text('• Mục tiêu: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              Text(
-                                _profile!.targetGoal == 'lose_weight'
-                                    ? 'Giảm cân'
-                                    : (_profile!.targetGoal == 'gain_muscle'
-                                        ? 'Tăng cơ'
-                                        : (_profile!.targetGoal == 'eat_healthy' ? 'Ăn healthy' : 'Duy trì vóc dáng')),
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ],
-                        ),
-                      const SizedBox(height: 8),
-                      // Khẩu vị cay & Ngân sách
-                      Row(
-                        children: [
-                          if (_profile!.spicyTolerance != null) ...[
-                            Icon(Icons.local_fire_department, size: 16, color: Colors.red[400]),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Độ cay: ${_profile!.spicyTolerance == "hot" ? "Ăn cay nhiều" : (_profile!.spicyTolerance == "medium" ? "Cay vừa" : (_profile!.spicyTolerance == "mild" ? "Cay nhẹ" : "Không cay"))}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            const SizedBox(width: 12),
-                          ],
-                          if (_profile!.budgetRange != null) ...[
-                            Icon(Icons.account_balance_wallet_outlined, size: 16, color: Colors.teal[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Ngân sách: ${_profile!.budgetRange == "budget" ? "Tiết kiệm" : (_profile!.budgetRange == "moderate" ? "Tầm trung" : "Cao cấp")}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (_profile!.dietaryPreferences.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: _profile!.dietaryPreferences.map((diet) => Container(
+                          const Text('Thể trạng: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                          Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.purple[50],
+                              color: kLightGreen,
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.purple[100]!),
                             ),
-                            child: Text(diet, style: TextStyle(fontSize: 11, color: Colors.purple[800])),
-                          )).toList(),
-                        ),
-                      ],
-                      if (_profile!.allergies.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Dị ứng: ', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold)),
-                            Expanded(
-                              child: Wrap(
-                                spacing: 4,
-                                children: _profile!.allergies.map((a) => Text('$a,', style: const TextStyle(fontSize: 12, color: Colors.red))).toList(),
-                              ),
+                            child: Text(
+                              _profile!.bmiCategory == 'normal'
+                                  ? 'Chuẩn dáng'
+                                  : (_profile!.bmiCategory == 'underweight' ? 'Hơi gầy' : 'Thừa cân'),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: kPrimaryGreen),
+                            ),
+                          ),
+                          if (_profile!.targetGoal != null) ...[
+                            const SizedBox(width: 8),
+                            const Text('• Mục tiêu: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                            Text(
+                              _profile!.targetGoal == 'lose_weight'
+                                  ? 'Giảm cân'
+                                  : (_profile!.targetGoal == 'gain_muscle'
+                                      ? 'Tăng cơ'
+                                      : (_profile!.targetGoal == 'eat_healthy' ? 'Ăn healthy' : 'Duy trì vóc dáng')),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ],
-                        ),
-                      ],
-                    ],
+                        ],
+                      ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Khối Cài đặt & Quyền riêng tư
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: kBorderColor),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.location_on_outlined, color: kPrimaryGreen),
+                      title: const Text('Quyền vị trí GPS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                      onTap: _showLocationInfo,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.privacy_tip_outlined, color: kPrimaryGreen),
+                      title: const Text('Điều khoản & Quyền riêng tư', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                      onTap: _showPrivacyInfo,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    const ListTile(
+                      leading: Icon(Icons.info_outline, color: kPrimaryGreen),
+                      title: Text('Phiên bản ứng dụng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      trailing: Text('v1.0.0 (PTC1)', style: TextStyle(color: kTextMuted, fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
               ),
             ),
-
-
           ],
         ),
       );
     }
 
+    // ----------------------------------------------------
+    // TRẠNG THÁI 2: CHẾ ĐỘ KHÁCH (CHƯA ĐĂNG NHẬP)
+    // ----------------------------------------------------
     return Scaffold(
+      backgroundColor: kScaffoldBg,
       appBar: AppBar(
-        title: Text(_isRegister ? 'Tạo Tài Khoản Khách Hàng' : 'Đăng Nhập Khách Hàng'),
+        title: const Text('Tài Khoản', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: kTextDark)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         children: [
+          // 1. Khối Avatar mặc định + Lời chào Khách
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: kBorderColor),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: kLightGreen,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: kPrimaryGreen.withAlpha(40), width: 2),
+                  ),
+                  child: const Icon(Icons.person_outline_rounded, size: 40, color: kPrimaryGreen),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Chào bạn!',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextDark),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Bạn đang trải nghiệm với tư cách Khách',
+                  style: TextStyle(fontSize: 13, color: kTextMuted),
+                ),
+                const SizedBox(height: 18),
+                // 2. Hai nút: Đăng nhập & Tạo tài khoản miễn phí
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: kPrimaryGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => _openAuthSheet(isRegister: false),
+                        child: const Text('Đăng nhập', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: kPrimaryGreen,
+                          side: const BorderSide(color: kPrimaryGreen, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => _openAuthSheet(isRegister: true),
+                        child: const Text('Tạo tài khoản miễn phí', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 3. Khối 3 Lợi ích thành viên
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: kBorderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.stars_rounded, color: kPrimaryGreen, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Lợi ích khi đăng nhập thành viên',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kTextDark),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildBenefitRow(
+                  icon: Icons.favorite_border_rounded,
+                  title: 'Lưu & đồng bộ món ăn yêu thích',
+                  desc: 'Thả tim các món ngon để xem lại nhanh chóng bất cứ khi nào bạn đói bụng.',
+                ),
+                const Divider(height: 22, color: Color(0xFFF1F5F9)),
+                _buildBenefitRow(
+                  icon: Icons.psychology_outlined,
+                  title: 'Gợi ý món ăn thông minh theo khẩu vị',
+                  desc: 'Đề xuất bữa ăn chuẩn vóc dáng, thời tiết và sở thích ăn uống cá nhân của bạn.',
+                ),
+                const Divider(height: 22, color: Color(0xFFF1F5F9)),
+                _buildBenefitRow(
+                  icon: Icons.storefront_outlined,
+                  title: 'Khám phá quán ngon & ưu đãi quanh bạn',
+                  desc: 'Cập nhật món ăn mới và bảng giá chuẩn xác nhất từ các quán lân cận.',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 4. Khối Cài đặt, quyền riêng tư (dùng được không cần tài khoản)
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: Clip.antiAlias,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: kBorderColor),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: kLightGreen, borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.location_on_outlined, color: kPrimaryGreen, size: 20),
+                    ),
+                    title: const Text('Quyền truy cập vị trí', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    subtitle: const Text('Dùng GPS để định vị và gợi ý quán ăn gần nhất', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                    trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                    onTap: _showLocationInfo,
+                  ),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFF1F5F9)),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: kLightGreen, borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.language_rounded, color: kPrimaryGreen, size: 20),
+                    ),
+                    title: const Text('Ngôn ngữ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    trailing: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Tiếng Việt', style: TextStyle(fontSize: 13, color: kTextMuted)),
+                        SizedBox(width: 4),
+                        Icon(Icons.chevron_right, color: Colors.grey),
+                      ],
+                    ),
+                    onTap: () {},
+                  ),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFF1F5F9)),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: kLightGreen, borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.privacy_tip_outlined, color: kPrimaryGreen, size: 20),
+                    ),
+                    title: const Text('Điều khoản & Quyền riêng tư', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                    onTap: _showPrivacyInfo,
+                  ),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFF1F5F9)),
+                  const ListTile(
+                    leading: SizedBox(width: 20),
+                    title: Text('Phiên bản ứng dụng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    trailing: Text('v1.0.0 (PTC1)', style: TextStyle(fontSize: 13, color: kTextMuted, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// FORM ĐĂNG NHẬP / ĐĂNG KÝ MODAL BOTTOM SHEET
+// ==========================================
+class _AuthFormModal extends StatefulWidget {
+  final ApiService api;
+  final bool initialRegister;
+  final Function(RoleLoginResponse) onSuccess;
+
+  const _AuthFormModal({
+    required this.api,
+    this.initialRegister = false,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_AuthFormModal> createState() => _AuthFormModalState();
+}
+
+class _AuthFormModalState extends State<_AuthFormModal> {
+  late bool _isRegister;
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _isRegister = widget.initialRegister;
+  }
+
+  void _fillSampleAccount() {
+    setState(() {
+      _emailCtrl.text = 'user@example.com';
+      _passwordCtrl.text = '123456';
+      if (_isRegister) {
+        _nameCtrl.text = 'Nguyễn Văn Thực Khách';
+      }
+    });
+  }
+
+  Future<void> _submit() async {
+    final email = _emailCtrl.text.trim();
+    final pwd = _passwordCtrl.text;
+    if (email.isEmpty || pwd.isEmpty) {
+      setState(() => _error = 'Vui lòng nhập đầy đủ Email và Mật khẩu');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      RoleLoginResponse res;
+      if (!_isRegister) {
+        res = await widget.api.loginUser(email, pwd);
+      } else {
+        final name = _nameCtrl.text.trim();
+        res = await widget.api.registerUser(email, pwd, name);
+      }
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onSuccess(res);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = formatErrorMessage(e);
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _isRegister ? 'Tạo Tài Khoản Khách Hàng' : 'Đăng Nhập Khách Hàng',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.grey),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
           SegmentedButton<bool>(
+            style: SegmentedButton.styleFrom(
+              selectedBackgroundColor: kPrimaryGreen,
+              selectedForegroundColor: Colors.white,
+              backgroundColor: Colors.white,
+              foregroundColor: kTextDark,
+              side: const BorderSide(color: kBorderColor),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             segments: const [
-              ButtonSegment(value: false, label: Text('Đăng nhập')),
-              ButtonSegment(value: true, label: Text('Đăng ký')),
+              ButtonSegment(value: false, label: Text('Đăng nhập', style: TextStyle(fontWeight: FontWeight.bold))),
+              ButtonSegment(value: true, label: Text('Đăng ký', style: TextStyle(fontWeight: FontWeight.bold))),
             ],
             selected: {_isRegister},
             onSelectionChanged: (set) {
@@ -2556,73 +3645,84 @@ class _AccountScreenState extends State<AccountScreen> {
               });
             },
           ),
+
           if (_error != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
-              color: Colors.red.shade50,
-              child: Text('⚠️ $_error', style: TextStyle(color: Colors.red.shade800)),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('⚠️ $_error', style: TextStyle(color: Colors.red.shade800, fontSize: 13)),
             ),
           ],
-          const SizedBox(height: 16),
-          // Box thông tin tài khoản mẫu
-          Container(
-            margin: const EdgeInsets.only(bottom: 14),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 16, color: Color(0xFF1D4ED8)),
-                    SizedBox(width: 6),
-                    Text(
-                      'Tài khoản mẫu (Đã điền sẵn):',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E3A8A)),
+
+          const SizedBox(height: 14),
+
+          // Nút điền nhanh tài khoản mẫu
+          InkWell(
+            onTap: _fillSampleAccount,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: kSuperLightGreen,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: kPrimaryGreen.withAlpha(80)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.flash_on_rounded, size: 16, color: kPrimaryGreen),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Bấm để điền nhanh tài khoản mẫu (user@example.com / 123456)',
+                      style: TextStyle(fontSize: 11, color: kPrimaryGreen, fontWeight: FontWeight.bold),
                     ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Text('• Email: user@example.com', style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF))),
-                Text('• Mật khẩu: 123456', style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF))),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
+
+          const SizedBox(height: 14),
+
           TextField(
             controller: _emailCtrl,
-            decoration: const InputDecoration(labelText: 'Email *', border: OutlineInputBorder()),
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(labelText: 'Email *'),
           ),
           const SizedBox(height: 12),
+
           TextField(
             controller: _passwordCtrl,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Mật khẩu *', border: OutlineInputBorder()),
+            decoration: const InputDecoration(labelText: 'Mật khẩu *'),
           ),
+
           if (_isRegister) ...[
             const SizedBox(height: 12),
             TextField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Họ và tên', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Họ và tên'),
             ),
           ],
+
           const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _loading ? null : _handleAuth,
-            child: _loading
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(_isRegister ? 'Đăng ký ngay' : 'Đăng nhập'),
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: Text(
-              '💡 Thực khách có thể lưu món ăn yêu thích và xem thực đơn từ hàng ngàn quán ăn lân cận.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: kPrimaryGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _loading ? null : _submit,
+              child: _loading
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(_isRegister ? 'Đăng ký ngay' : 'Đăng nhập', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -2837,7 +3937,7 @@ class _RestaurantMenuWidgetState extends State<_RestaurantMenuWidget> {
                                       const SizedBox(height: 2),
                                       Text(formattedPrice,
                                           style: const TextStyle(
-                                              color: Colors.deepOrange, fontWeight: FontWeight.bold, fontSize: 14)),
+                                              color: kPrimaryGreen, fontWeight: FontWeight.bold, fontSize: 14)),
                                       if (d.description != null && d.description!.isNotEmpty) ...[
                                         const SizedBox(height: 2),
                                         Text(d.description!,
@@ -3119,9 +4219,9 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
                           return FilterChip(
                             label: Text(cat),
                             selected: selected,
-                            selectedColor: Colors.black,
+                            selectedColor: kPrimaryGreen,
                             labelStyle: TextStyle(
-                              color: selected ? Colors.white : Colors.black,
+                              color: selected ? Colors.white : kTextDark,
                               fontSize: 13,
                               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                             ),
@@ -3380,7 +4480,7 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
                   const Spacer(),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: kPrimaryGreen,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
@@ -3457,7 +4557,7 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
                     color: Colors.orange[50],
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.restaurant, size: 26, color: Colors.deepOrange),
+                  child: const Icon(Icons.restaurant, size: 26, color: kPrimaryGreen),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -3492,10 +4592,10 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.black : Colors.grey[50],
+                        color: isSelected ? kPrimaryGreen : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? Colors.black : Colors.grey[200]!,
+                          color: isSelected ? kPrimaryGreen : kBorderColor,
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),

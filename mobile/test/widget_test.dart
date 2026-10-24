@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/models/models.dart';
@@ -78,6 +78,22 @@ class FakeApiService extends ApiService {
       locationName: 'Học viện Nông nghiệp Việt Nam (HVNN Gia Lâm, Hà Nội)',
       isFallback: true,
       ip: '127.0.0.1',
+    );
+  }
+
+  @override
+  Future<CurrentWeather> getCurrentWeather({double? lat, double? lon}) async {
+    return CurrentWeather(
+      temperature: 28.0,
+      feelsLike: 29.5,
+      humidity: 70,
+      condition: 'Clouds',
+      description: 'Có mây',
+      icon: '02d',
+      latitude: lat ?? 21.0285,
+      longitude: lon ?? 105.8542,
+      locationName: 'Hà Nội',
+      isLive: true,
     );
   }
 
@@ -171,8 +187,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Kiểm tra màn hình Trang chủ (Khám phá) ban đầu
-    expect(find.text('PTC1 Khám Phá Quán Ăn'), findsOneWidget);
+    expect(find.text('Trưa nay ăn gì nhỉ?'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.pumpAndSettle();
     expect(find.text('Bún Chả Đắc Kim'), findsOneWidget);
 
     // 2. Chuyển sang Tab "Bản đồ"
@@ -188,24 +206,31 @@ void main() {
     expect(find.text('Món Ăn Yêu Thích'), findsOneWidget);
     expect(find.text('Lưu Giữ Món Ăn Bạn Yêu Thích'), findsOneWidget);
 
-    // 4. Chuyển sang Tab "Tài khoản"
+    // 4. Chuyển sang Tab "Tài khoản" (Chế độ Khách với giao diện mới)
     await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
-    expect(find.text('Đăng Nhập Khách Hàng'), findsOneWidget);
-    expect(find.text('Email *'), findsOneWidget);
-    expect(find.text('Mật khẩu *'), findsOneWidget);
+    expect(find.text('Chào bạn!'), findsOneWidget);
+    expect(find.text('Bạn đang trải nghiệm với tư cách Khách'), findsOneWidget);
+    expect(find.text('Đăng nhập'), findsOneWidget);
+    expect(find.text('Tạo tài khoản miễn phí'), findsOneWidget);
+    expect(find.text('Lợi ích khi đăng nhập thành viên'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(find.text('Quyền truy cập vị trí'), findsOneWidget);
   });
 
-  testWidgets('Kiểm thử Auth Gate khi khách vãng lai nhấn xem thực đơn và bấm yêu thích', (WidgetTester tester) async {
+  testWidgets('Kiểm thử Auth Gate khi khách vãng lai nhấn Xem chi tiết và bấm yêu thích', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
     await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
     await tester.pumpAndSettle();
 
-    // Bấm nút "Xem Thực Đơn" ở quán đầu tiên
-    final menuBtn = find.text('Xem Thực Đơn').first;
+    // Bấm nút "Xem chi tiết" ở quán đầu tiên
+    final menuBtn = find.text('Khám phá ngay').first;
     expect(menuBtn, findsOneWidget);
-    await tester.tap(menuBtn);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Khám phá ngay').first);
     await tester.pumpAndSettle();
 
     // Kiểm tra thực đơn mở ra có món ăn
@@ -222,11 +247,12 @@ void main() {
     expect(find.text('Bạn cần đăng nhập tài khoản Thực khách để lưu món ăn này vào danh sách yêu thích.'), findsOneWidget);
     expect(find.text('Đăng nhập ngay'), findsOneWidget);
 
-    // Bấm "Đăng nhập ngay" chuyển thẳng sang Tab Tài khoản
+    // Bấm "Đăng nhập ngay" mở Modal Đăng Nhập mà không chuyển trang đột ngột
     await tester.tap(find.text('Đăng nhập ngay'));
     await tester.pumpAndSettle();
 
     expect(find.text('Đăng Nhập Khách Hàng'), findsOneWidget);
+    expect(find.text('Email *'), findsOneWidget);
   });
 
   testWidgets('Kiểm thử màn hình Đăng ký Thực khách', (WidgetTester tester) async {
@@ -239,9 +265,10 @@ void main() {
     await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
 
-    // Chuyển sang chế độ Đăng Ký
-    await tester.tap(find.text('Đăng ký'));
+    // Bấm nút Tạo tài khoản miễn phí
+    await tester.tap(find.text('Tạo tài khoản miễn phí'));
     await tester.pumpAndSettle();
+    expect(find.text('Tạo Tài Khoản Khách Hàng'), findsOneWidget);
     expect(find.text('Họ và tên'), findsOneWidget);
     expect(find.text('Đăng ký ngay'), findsOneWidget);
   });
@@ -297,7 +324,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 3. Kiểm tra Dialog đã đóng và hiển thị màn hình Khám phá kèm danh sách quán
-    expect(find.text('PTC1 Khám Phá Quán Ăn'), findsOneWidget);
+    expect(find.text('Trưa nay ăn gì nhỉ?'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
   });
 }

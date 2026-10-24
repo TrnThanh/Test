@@ -122,16 +122,36 @@ class ApiService {
   }
 
   Future<String> reverseMap(double lat, double lon) async {
-    final res = await _requestWithFallback((base) {
-      final uri = Uri.parse('$base/map/reverse?lat=$lat&lon=$lon');
-      return _client.get(uri).timeout(const Duration(seconds: 8));
-    });
+    try {
+      final res = await _requestWithFallback((base) {
+        final uri = Uri.parse('$base/map/reverse?lat=$lat&lon=$lon');
+        return _client.get(uri).timeout(const Duration(seconds: 8));
+      });
 
-    if (res.statusCode == 200) {
-      final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
-      return data['address'] as String? ?? 'Không xác định';
+      if (res.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
+        if (data['display_name'] is String && (data['display_name'] as String).isNotEmpty) {
+          return data['display_name'] as String;
+        }
+        if (data['address'] is Map) {
+          final addrMap = data['address'] as Map;
+          final parts = <String>[];
+          for (final k in ['road', 'suburb', 'city_district', 'district', 'city', 'state']) {
+            if (addrMap[k] != null && addrMap[k].toString().isNotEmpty) {
+              parts.add(addrMap[k].toString());
+            }
+          }
+          if (parts.isNotEmpty) return parts.join(', ');
+        }
+        return 'Vị trí của bạn';
+      }
+    } catch (_) {}
+
+    // Fallback an toàn khi mạng hoặc server gián đoạn
+    if (lat >= 20.5 && lat <= 21.6 && lon >= 105.2 && lon <= 106.3) {
+      return 'Hà Nội, Việt Nam';
     }
-    throw Exception('Lỗi chuyển toạ độ');
+    return 'Vị trí của bạn';
   }
 
   Future<IpLocation> getIpLocation() async {
@@ -145,6 +165,25 @@ class ApiService {
       return IpLocation.fromJson(data);
     }
     throw Exception('Không thể xác định vị trí qua IP');
+  }
+
+  // --- WEATHER ---
+  Future<CurrentWeather> getCurrentWeather({double? lat, double? lon}) async {
+    final query = <String>[];
+    if (lat != null) query.add('lat=$lat');
+    if (lon != null) query.add('lon=$lon');
+    final qStr = query.isNotEmpty ? '?${query.join('&')}' : '';
+
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/weather/current$qStr');
+      return _client.get(uri).timeout(const Duration(seconds: 8));
+    });
+
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
+      return CurrentWeather.fromJson(data);
+    }
+    throw Exception('Không thể lấy thông tin thời tiết');
   }
 
   // --- CATEGORIES ---

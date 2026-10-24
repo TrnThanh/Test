@@ -34,8 +34,9 @@ def test_weather_mapping_logic():
     assert WeatherService.map_condition_to_code(temp=26.5, condition_main="Clouds", description="mây rải rác") == "mild"
 
 
-def test_get_current_weather_fallback_default_hvnn(client: TestClient, db_session: Session):
+def test_get_current_weather_fallback_default_hvnn(client: TestClient, db_session: Session, monkeypatch):
     """Kiểm tra khi chưa có API key thì endpoint tự fallback an toàn về toạ độ HVNN Gia Lâm."""
+    monkeypatch.setattr(settings, "OPENWEATHERMAP_API_KEY", "")
     res = client.get("/api/v1/weather/current")
     assert res.status_code == 200
     data = res.json()
@@ -109,8 +110,9 @@ async def test_fetch_current_weather_with_mocked_live_api(db_session: Session):
     assert result.matched_weather.code == "rainy"
 
 
-def test_current_weather_includes_recommended_categories(client: TestClient, db_session: Session):
+def test_current_weather_includes_recommended_categories(client: TestClient, db_session: Session, monkeypatch):
     """Kiểm tra thời tiết hiện tại tự động trả về các danh mục món ăn đã gán qua weather_categories."""
+    monkeypatch.setattr(settings, "OPENWEATHERMAP_API_KEY", "")
     # 1. Tạo nhà hàng và danh mục món ăn mẫu
     rest = Restaurant(
         name="Quán Nướng & Lẩu HVNN",
