@@ -12,6 +12,7 @@ class Restaurant {
   final bool isActive;
   final double? distanceMeters;
   final double? distanceKm;
+  final List<String> serviceLicenses;
 
   Restaurant({
     required this.id,
@@ -27,6 +28,7 @@ class Restaurant {
     this.isActive = true,
     this.distanceMeters,
     this.distanceKm,
+    this.serviceLicenses = const [],
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,12 @@ class Restaurant {
     } else if (json['distance_meters'] != null) {
       distM = (json['distance_meters'] as num).toDouble();
       distKm = distM / 1000;
+    }
+
+    var rawLicenses = json['service_licenses'];
+    List<String> licensesList = [];
+    if (rawLicenses is List) {
+      licensesList = rawLicenses.map((e) => e.toString()).toList();
     }
 
     return Restaurant(
@@ -55,6 +63,7 @@ class Restaurant {
       isActive: json['is_active'] as bool? ?? true,
       distanceMeters: distM,
       distanceKm: distKm,
+      serviceLicenses: licensesList,
     );
   }
 }
@@ -235,6 +244,7 @@ class Weather {
   final double? maxTemp;
   final String? condition;
   final String? icon;
+  final String? season;
 
   Weather({
     required this.id,
@@ -245,6 +255,7 @@ class Weather {
     this.maxTemp,
     this.condition,
     this.icon,
+    this.season,
   });
 
   factory Weather.fromJson(Map<String, dynamic> json) {
@@ -257,6 +268,7 @@ class Weather {
       maxTemp: (json['max_temp'] as num?)?.toDouble(),
       condition: json['condition'] as String?,
       icon: json['icon'] as String?,
+      season: json['season'] as String?,
     );
   }
 }
@@ -271,6 +283,7 @@ class Dish {
   final String? mealTypeName;
   final String name;
   final double price;
+  final int? calories;
   final String? description;
   final String? imageUrl;
   final int spicyLevel;
@@ -291,6 +304,7 @@ class Dish {
     this.mealTypeName,
     required this.name,
     required this.price,
+    this.calories,
     this.description,
     this.imageUrl,
     this.spicyLevel = 0,
@@ -340,6 +354,7 @@ class Dish {
       mealTypeName: json['meal_type_name'] as String?,
       name: json['name'] as String,
       price: (json['price'] as num).toDouble(),
+      calories: json['calories'] as int?,
       description: json['description'] as String?,
       imageUrl: json['image_url'] as String?,
       spicyLevel: json['spicy_level'] as int? ?? 0,

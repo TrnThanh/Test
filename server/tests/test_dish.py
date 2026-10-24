@@ -48,6 +48,7 @@ def test_create_dish_with_category_meal_type_and_ingredients(
         "price": 65000.0,
         "description": "Thịt bò tươi xào lăn đậm đà, nước dùng thơm ngọt.",
         "category": "Món chính",
+        "calories": 580,
         "spicy_level": 1,
         "dietary_tags": ["halal"],
         "meal_types": ["breakfast", "lunch"],
@@ -62,6 +63,7 @@ def test_create_dish_with_category_meal_type_and_ingredients(
     data = response.json()
     assert data["name"] == "Phở Bò Tái Lăn"
     assert data["price"] == 65000.0
+    assert data["calories"] == 580
     assert data["category"] == "Món chính"
     assert data["spicy_level"] == 1
     assert "halal" in data["dietary_tags"]
@@ -245,6 +247,13 @@ def test_dish_validation_errors(
         json={"name": "Món Giá Âm", "price": -1000.0},
     )
     assert err_price.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # 3. calories âm (< 0)
+    err_calories = client.post(
+        f"/api/v1/restaurants/{test_restaurant.id}/dishes",
+        json={"name": "Món Calo Âm", "price": 50000.0, "calories": -50},
+    )
+    assert err_calories.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_favourite_dishes_without_tag(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'theme/bento_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'models/models.dart';
@@ -63,19 +64,25 @@ class Ptc1App extends StatelessWidget {
       title: 'PTC1 Spatial Food',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: const ColorScheme.light(
-          primary: Colors.black,
-          onPrimary: Colors.white,
-          surface: Colors.white,
-          onSurface: Colors.black,
-        ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+        scaffoldBackgroundColor: BentoColors.bg,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: BentoColors.pop,
+          primary: BentoColors.pop,
+          surface: BentoColors.card,
+        ),
+        fontFamily: 'Roboto',
         appBarTheme: const AppBarTheme(
-          centerTitle: true,
+          centerTitle: false,
           elevation: 0,
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
+          backgroundColor: Colors.transparent,
+          foregroundColor: BentoColors.ink,
+          titleTextStyle: TextStyle(
+            color: BentoColors.ink,
+            fontSize: 21,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
         ),
       ),
       home: MainShell(
@@ -229,35 +236,60 @@ class _MainShellState extends State<MainShell> {
         index: _currentIndex,
         children: tabs,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Trang chủ',
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: BentoColors.line, width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1E1B2E).withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: NavigationBar(
+                height: 64,
+                backgroundColor: Colors.white,
+                indicatorColor: BentoColors.peach,
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home, color: BentoColors.ink),
+                    label: 'Trang chủ',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.map_outlined),
+                    selectedIcon: Icon(Icons.map, color: BentoColors.ink),
+                    label: 'Bản đồ',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.favorite_outline),
+                    selectedIcon: Icon(Icons.favorite, color: BentoColors.pop),
+                    label: 'Yêu thích',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.person_outline),
+                    selectedIcon: Icon(Icons.person, color: BentoColors.ink),
+                    label: 'Tài khoản',
+                  ),
+                ],
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Bản đồ',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_outline),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Yêu thích',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Tài khoản',
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -405,7 +437,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: BentoColors.butter,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFFFDF60), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Text('☀️', style: TextStyle(fontSize: 22)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: BentoColors.ink,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                'MÙA HÈ • 28°C',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Gia Lâm, Hà Nội',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: BentoColors.ink),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Gợi ý ngày nóng: Món nước thanh đạm & trà giải nhiệt 🍧',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: BentoColors.ink),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Tìm theo tên quán, địa chỉ...',
@@ -414,12 +502,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: const BorderSide(color: BentoColors.line, width: 1.2),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: const BorderSide(color: BentoColors.line, width: 1.2),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(999),
+                  borderSide: const BorderSide(color: BentoColors.pop, width: 1.8),
                 ),
               ),
               onChanged: (val) {
@@ -442,22 +534,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 final isSelected = (_currentCategory ?? 'Tất cả') == cat;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(cat),
-                    selected: isSelected,
-                    selectedColor: Colors.black,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    backgroundColor: Colors.white,
-                    side: BorderSide(color: isSelected ? Colors.black : Colors.grey[300]!),
-                    onSelected: (val) {
+                  child: BentoBouncy(
+                    onTap: () {
                       setState(() {
                         _currentCategory = cat == 'Tất cả' ? null : cat;
                       });
                     },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? BentoColors.ink : Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: isSelected ? BentoColors.ink : BentoColors.line,
+                          width: 1.2,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: BentoColors.ink.withValues(alpha: 0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        cat,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : BentoColors.inkBody,
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
                 );
               },
@@ -503,49 +614,69 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 final r = _filteredList[index];
                                 final open = isOpenNow(r.openTime, r.closeTime);
 
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  color: Colors.white,
-                                  elevation: 0.5,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    side: BorderSide(color: Colors.grey[200]!),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                r.name,
-                                                style: const TextStyle(
-                                                    fontSize: 17, fontWeight: FontWeight.bold),
+                                return BentoCard(
+                                  margin: const EdgeInsets.only(bottom: 14),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  r.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 17,
+                                                    fontWeight: FontWeight.w900,
+                                                    color: BentoColors.ink,
+                                                    letterSpacing: -0.3,
+                                                  ),
+                                                ),
+                                                if (r.isSponsor) ...[
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: BentoColors.pop,
+                                                      borderRadius: BorderRadius.circular(999),
+                                                    ),
+                                                    child: const Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(Icons.star, size: 10, color: Colors.white),
+                                                        SizedBox(width: 3),
+                                                        Text('★ SPONSOR ★', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: open ? const Color(0xFFDCFCE7) : const Color(0xFFFFE4E6),
+                                              borderRadius: BorderRadius.circular(999),
+                                              border: Border.all(
+                                                color: open ? const Color(0xFF16A34A).withValues(alpha: 0.3) : const Color(0xFFDC2626).withValues(alpha: 0.3),
+                                                width: 0.8,
                                               ),
                                             ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: open ? Colors.green.shade50 : Colors.red.shade50,
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(
-                                                    color: open ? Colors.green : Colors.red,
-                                                    width: 0.8),
-                                              ),
-                                              child: Text(
-                                                open ? '🟢 Đang mở cửa' : '🔴 Đã đóng cửa',
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: open ? Colors.green.shade800 : Colors.red.shade800),
+                                            child: Text(
+                                              open ? '🟢 Đang mở cửa' : '🔴 Đã đóng cửa',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: open ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
+                                      ),
                                         const SizedBox(height: 6),
                                         if (r.address != null)
                                           Row(
@@ -583,16 +714,38 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                               Text(r.phone!, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                                             ],
                                             const Spacer(),
-                                            FilledButton.tonalIcon(
-                                              icon: const Icon(Icons.menu_book, size: 18),
-                                              label: const Text('Xem Thực Đơn'),
-                                              onPressed: () => _showMenuBottomSheet(r),
+                                            BentoBouncy(
+                                              onTap: () => _showMenuBottomSheet(r),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                                                decoration: BoxDecoration(
+                                                  color: BentoColors.pop,
+                                                  borderRadius: BorderRadius.circular(999),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: BentoColors.pop.withValues(alpha: 0.35),
+                                                      blurRadius: 10,
+                                                      offset: const Offset(0, 4),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: const Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.menu_book, size: 15, color: Colors.white),
+                                                    SizedBox(width: 6),
+                                                    Text(
+                                                      'Xem Thực Đơn',
+                                                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ],
                                     ),
-                                  ),
                                 );
                               },
                             ),

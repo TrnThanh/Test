@@ -27,6 +27,7 @@ DEFAULT_WEATHERS = [
         "max_temp": 45.0,
         "condition": "sunny",
         "icon": "weather-sunny",
+        "season": "summer",
         "sort_order": 1,
     },
     {
@@ -37,6 +38,7 @@ DEFAULT_WEATHERS = [
         "max_temp": 28.0,
         "condition": "rainy",
         "icon": "weather-rainy",
+        "season": "rainy",
         "sort_order": 2,
     },
     {
@@ -47,6 +49,7 @@ DEFAULT_WEATHERS = [
         "max_temp": 18.0,
         "condition": "cloudy",
         "icon": "weather-snowy",
+        "season": "winter",
         "sort_order": 3,
     },
     {
@@ -57,6 +60,7 @@ DEFAULT_WEATHERS = [
         "max_temp": 29.0,
         "condition": "clear",
         "icon": "weather-partly-cloudy",
+        "season": "autumn",
         "sort_order": 4,
     },
 ]
@@ -79,12 +83,15 @@ class WeatherService:
                     max_temp=item["max_temp"],
                     condition=item["condition"],
                     icon=item["icon"],
+                    season=item.get("season"),
                     sort_order=item["sort_order"],
                     is_active=True,
                 )
                 db.add(w)
                 results.append(w)
             else:
+                if existing.season is None and item.get("season"):
+                    existing.season = item["season"]
                 results.append(existing)
         db.commit()
         return results
@@ -135,6 +142,7 @@ class WeatherService:
             max_temp=data.max_temp,
             condition=data.condition.strip() if data.condition else None,
             icon=data.icon.strip() if data.icon else None,
+            season=data.season.strip() if data.season else None,
             sort_order=data.sort_order,
             is_active=data.is_active,
         )

@@ -16,6 +16,7 @@ export interface Restaurant {
   description?: string | null;
   open_time?: string | null;
   close_time?: string | null;
+  service_licenses?: string[];
   latitude: number;
   longitude: number;
   is_sponsor?: boolean;
@@ -77,6 +78,7 @@ export interface Weather {
   max_temp?: number | null;
   condition?: string | null;
   icon?: string | null;
+  season?: string | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -92,6 +94,7 @@ export interface Dish {
   meal_type_name?: string | null;
   name: string;
   price: number;
+  calories?: number | null;
   description?: string | null;
   image_url?: string | null;
   spicy_level?: number;

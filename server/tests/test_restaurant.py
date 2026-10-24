@@ -232,3 +232,41 @@ def test_legacy_seller_routes_removed(client: TestClient):
     """Kiểm tra các đường dẫn cũ /sellers/... đã bị loại bỏ (404 Not Found)."""
     resp = client.get("/api/v1/sellers/1/restaurants")
     assert resp.status_code == 404
+
+
+def test_restaurant_service_licenses_crud(client: TestClient):
+    """Kiểm tra tạo, deduplicate và cập nhật giấy phép dịch vụ (service_licenses) của quán ăn."""
+    payload = {
+        "name": "Nhà Hàng Sen Tây Hồ - Đạt Chuẩn ATTP",
+        "address": "614 Lạc Long Quân, Tây Hồ, Hà Nội",
+        "latitude": 21.0712,
+        "longitude": 105.8182,
+        "phone": "02437199242",
+        "service_licenses": [
+            "Giấy chứng nhận ATTP số 123/2026/ATTP",
+            "Giấy phép PCCC cơ sở",
+            "Giấy chứng nhận ATTP số 123/2026/ATTP",  # Trùng lặp
+            "   ",  # Khoảng trắng rỗng
+        ],
+    }
+    response = client.post("/api/v1/restaurants", json=payload)
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert "service_licenses" in data
+    # Đã khử trùng và loại bỏ rỗng
+    assert len(data["service_licenses"]) == 2
+    assert "Giấy chứng nhận ATTP số 123/2026/ATTP" in data["service_licenses"]
+    assert "Giấy phép PCCC cơ sở" in data["service_licenses"]
+
+    rest_id = data["id"]
+
+    # Cập nhật thêm giấy phép mới
+    update_payload = {
+        "service_licenses": ["Giấy phép kinh doanh dịch vụ ăn uống", "Giấy phép đồ uống có cồn"]
+    }
+    update_resp = client.put(f"/api/v1/restaurants/{rest_id}", json=update_payload)
+    assert update_resp.status_code == status.HTTP_200_OK
+    up_data = update_resp.json()
+    assert len(up_data["service_licenses"]) == 2
+    assert "Giấy phép đồ uống có cồn" in up_data["service_licenses"]
+

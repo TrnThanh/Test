@@ -43,7 +43,7 @@ def test_create_custom_meal_type(client: TestClient):
 
 
 def test_get_weather_list(client: TestClient):
-    """Kiểm tra API lấy danh sách trạng thái thời tiết."""
+    """Kiểm tra API lấy danh sách trạng thái thời tiết có trường mùa (season)."""
     resp = client.get("/api/v1/weather")
     assert resp.status_code == 200
     data = resp.json()
@@ -53,10 +53,15 @@ def test_get_weather_list(client: TestClient):
     assert "rainy" in codes
     assert "cold" in codes
     assert "mild" in codes
+    weather_by_code = {w["code"]: w for w in data}
+    assert weather_by_code["hot"]["season"] == "summer"
+    assert weather_by_code["cold"]["season"] == "winter"
+    assert weather_by_code["mild"]["season"] == "autumn"
+    assert weather_by_code["rainy"]["season"] == "rainy"
 
 
 def test_create_custom_weather(client: TestClient):
-    """Kiểm tra API tạo thêm điều kiện thời tiết mới."""
+    """Kiểm tra API tạo thêm điều kiện thời tiết mới kèm trường mùa (season)."""
     payload = {
         "code": "stormy",
         "name": "Bão to gió lớn",
@@ -65,6 +70,7 @@ def test_create_custom_weather(client: TestClient):
         "max_temp": 24.0,
         "condition": "storm",
         "icon": "weather-lightning",
+        "season": "rainy",
         "sort_order": 5,
         "is_active": True,
     }
@@ -73,6 +79,7 @@ def test_create_custom_weather(client: TestClient):
     created = resp.json()
     assert created["id"] > 0
     assert created["code"] == "stormy"
+    assert created["season"] == "rainy"
 
 
 def test_create_dish_with_ingredients_and_meal_type_id(

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class DishBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Tên món ăn")
     price: float = Field(..., ge=0.0, description="Đơn giá món ăn (>= 0)")
+    calories: Optional[int] = Field(None, ge=0, le=20000, description="Lượng calo của món ăn (kcal, >= 0)")
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả món ăn")
     image_url: Optional[str] = Field(None, max_length=1000, description="Đường dẫn ảnh minh hoạ")
     category_id: Optional[int] = Field(None, description="ID nhóm danh mục (Foreign Key)")
@@ -43,6 +44,7 @@ class DishCreate(DishBase):
 class DishUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Tên món ăn")
     price: Optional[float] = Field(None, ge=0.0, description="Đơn giá món ăn")
+    calories: Optional[int] = Field(None, ge=0, le=20000, description="Lượng calo của món ăn (kcal)")
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả món ăn")
     image_url: Optional[str] = Field(None, max_length=1000, description="Ảnh minh hoạ")
     category_id: Optional[int] = Field(None, description="ID nhóm danh mục")

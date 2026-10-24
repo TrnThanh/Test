@@ -87,6 +87,7 @@ classDiagram
         +str description
         +time open_time
         +time close_time
+        +List~str~ service_licenses
         +bool is_sponsor
         +bool is_active
         +datetime created_at
@@ -109,6 +110,7 @@ classDiagram
         +int category_id
         +str name
         +int price
+        +int calories
         +str description
         +str image_url
         +bool is_available
@@ -126,6 +128,7 @@ classDiagram
         +str code
         +str name
         +str icon
+        +str season
         +str description
         +int display_order
         +bool is_active
@@ -376,6 +379,7 @@ classDiagram
   - `+phone_number: str`: Hotline liên hệ.
   - `+description: str`: Giới thiệu quán ăn.
   - `+open_time, close_time: time`: Giờ mở cửa và đóng cửa (`HH:MM`).
+  - `+service_licenses: List[str]`: **Mảng Giấy phép dịch vụ:** PostgreSQL `ARRAY(Text)` + GIN Index (ATTP, PCCC, GPKD...).
   - `+is_sponsor: bool`: **Cờ Nhà tài trợ:** Quán được ưu tiên hiển thị lên đầu kết quả tìm kiếm.
   - `+is_active: bool`: Trạng thái hoạt động.
 
@@ -392,6 +396,7 @@ classDiagram
   - `+category_id: int`: Thuộc về danh mục toàn cục (Khóa ngoại Nullable `categories.id`, `ON DELETE SET NULL`).
   - `+name: str`: Tên món ăn.
   - `+price: int`: Giá bán ($\ge 0$ VNĐ).
+  - `+calories: int`: **Lượng Calo món ăn:** Đơn vị Kcal/khẩu phần ($\ge 0$).
   - `+spicy_level: int`: Độ cay ($0$: không cay, $1$: cay nhẹ, $2$: cay vừa, $3$: rất cay).
   - `+dietary_tags: List[str]`: Mảng chế độ ăn kiêng (Postgres `ARRAY(Text)`).
   - `+meal_types: List[str]`: Mảng bữa ăn phù hợp (`breakfast`, `lunch`, `dinner`, `snack`, `all_day`).

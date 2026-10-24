@@ -24,6 +24,7 @@ class RestaurantService:
             description=data.description.strip() if data.description else None,
             open_time=data.open_time,
             close_time=data.close_time,
+            service_licenses=data.service_licenses,
             is_sponsor=data.is_sponsor,
             is_active=True,
         )

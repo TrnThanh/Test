@@ -45,6 +45,7 @@ const editLat = ref(21.0055);
 const editLon = ref(105.9325);
 const editIsActive = ref(true);
 const editSaving = ref(false);
+const editLicenses = ref('');
 
 // Create Restaurant Modal State
 const showCreateRestaurantModal = ref(false);
@@ -57,6 +58,7 @@ const newRestCloseTime = ref('22:00');
 const newRestLat = ref(21.0055); // Toạ độ trung tâm HVNN Gia Lâm
 const newRestLon = ref(105.9325);
 const newRestSaving = ref(false);
+const newRestLicenses = ref('');
 
 // Menus State
 const selectedMenuRestaurantId = ref<number | null>(null);
@@ -75,6 +77,7 @@ const newDishDesc = ref('');
 const newDishCategoryId = ref<number | null>(null);
 const newDishMealType = ref<MealType>('all_day');
 const newDishIngredients = ref('');
+const newDishCalories = ref<number | null>(null);
 const newDishSaving = ref(false);
 
 // Create Category Modal State
@@ -159,6 +162,7 @@ function openEditRestaurant(rest: Restaurant) {
   editLat.value = rest.latitude;
   editLon.value = rest.longitude;
   editIsActive.value = rest.is_active;
+  editLicenses.value = (rest.service_licenses || []).join(', ');
   showEditModal.value = true;
 }
 
@@ -181,6 +185,7 @@ async function saveRestaurantChanges() {
       latitude: Number(editLat.value),
       longitude: Number(editLon.value),
       is_active: editIsActive.value,
+      service_licenses: editLicenses.value.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
     });
 
     const idx = restaurants.value.findIndex((r) => r.id === updated.id);
@@ -267,6 +272,7 @@ function openCreateRestaurantModal() {
   newRestCloseTime.value = '22:00';
   newRestLat.value = 21.0055;
   newRestLon.value = 105.9325;
+  newRestLicenses.value = '';
   showCreateRestaurantModal.value = true;
 }
 
@@ -292,6 +298,7 @@ async function handleCreateRestaurant() {
       close_time: newRestCloseTime.value || null,
       latitude: Number(newRestLat.value),
       longitude: Number(newRestLon.value),
+      service_licenses: newRestLicenses.value.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
     });
     restaurants.value.unshift(created);
     selectedMenuRestaurantId.value = created.id;
@@ -316,6 +323,7 @@ function openCreateDishModal() {
   newDishCategoryId.value = menuCategories.value.length > 0 ? menuCategories.value[0].id : null;
   newDishMealType.value = 'all_day';
   newDishIngredients.value = '';
+  newDishCalories.value = null;
   showCreateDishModal.value = true;
 }
 
@@ -339,6 +347,7 @@ async function handleCreateDish() {
     const created = await api.createDish(selectedMenuRestaurantId.value, {
       name: newDishName.value.trim(),
       price: Number(newDishPrice.value),
+      calories: newDishCalories.value != null ? Number(newDishCalories.value) : undefined,
       description: newDishDesc.value.trim() || undefined,
       category_id: newDishCategoryId.value || undefined,
       meal_type: newDishMealType.value,
@@ -760,6 +769,9 @@ onMounted(() => {
                     <div>
                       <div class="cell-main-title">{{ r.name }}</div>
                       <div v-if="r.phone" class="text-sub">Hotline: {{ r.phone }}</div>
+                      <div v-if="r.service_licenses && r.service_licenses.length > 0" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
+                        <span v-for="lic in r.service_licenses" :key="lic" class="status-dot-badge active" style="font-size: 11px;">📜 {{ lic }}</span>
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -983,6 +995,7 @@ onMounted(() => {
                     <div class="dish-meta-row">
                       <span class="meal-tag">{{ formatMealType((d.meal_types && d.meal_types.length > 0) ? d.meal_types[0] : d.meal_type) }}</span>
                       <span v-if="d.category_name" class="category-tag">{{ d.category_name }}</span>
+                      <span v-if="d.calories" class="meal-tag" style="background: #fff1f2; color: #e11d48; border-color: #fecdd3;">🔥 {{ d.calories }} kcal</span>
                       <span v-if="d.spicy_level && d.spicy_level > 0" class="spicy-tag">🌶️ {{ d.spicy_level === 1 ? 'Cay nhẹ' : d.spicy_level === 2 ? 'Cay vừa' : 'Rất cay' }}</span>
                     </div>
 
@@ -1141,6 +1154,11 @@ onMounted(() => {
             <textarea v-model="newRestDesc" class="field-textarea" rows="2" placeholder="Đặc sản, ghi chú thêm..."></textarea>
           </div>
 
+          <div class="form-item">
+            <label>Giấy phép dịch vụ (phân tách bằng dấu phẩy)</label>
+            <input v-model="newRestLicenses" type="text" class="field-input" placeholder="Ví dụ: Giấy chứng nhận ATTP, PCCC, Giấy phép kinh doanh..." />
+          </div>
+
           <div class="modal-sheet-footer">
             <button type="button" class="btn-cancel" @click="showCreateRestaurantModal = false">
               Hủy
@@ -1215,6 +1233,11 @@ onMounted(() => {
             <textarea v-model="editDesc" class="field-textarea" rows="2"></textarea>
           </div>
 
+          <div class="form-item">
+            <label>Giấy phép dịch vụ (phân tách bằng dấu phẩy)</label>
+            <input v-model="editLicenses" type="text" class="field-input" placeholder="Ví dụ: Giấy chứng nhận ATTP, PCCC, Giấy phép kinh doanh..." />
+          </div>
+
           <div class="modal-sheet-footer">
             <button type="button" class="btn-cancel" @click="showEditModal = false">
               Hủy
@@ -1269,6 +1292,11 @@ onMounted(() => {
                 </option>
               </select>
             </div>
+          </div>
+
+          <div class="form-item">
+            <label>Năng lượng Calo (kcal)</label>
+            <input v-model.number="newDishCalories" type="number" min="0" class="field-input" placeholder="Ví dụ: 550" />
           </div>
 
           <div class="form-item">

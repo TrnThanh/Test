@@ -62,6 +62,7 @@ class DishService:
             ingredients=cleaned_ingredients,
             name=data.name.strip(),
             price=data.price,
+            calories=data.calories,
             description=data.description.strip() if data.description else None,
             image_url=data.image_url.strip() if data.image_url else None,
             is_available=data.is_available,

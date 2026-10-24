@@ -27,11 +27,12 @@ Tài liệu này tổng hợp chi tiết toàn bộ các tính năng đã đư�
 
 ### 1.3. Khám phá Ẩm thực & Gợi ý theo Thời tiết (ExploreScreen - Tab 1)
 - **Banner Thời tiết thực tế (Live Weather Recommendation):**
-  - Hiển thị nhiệt độ hiện tại, trạng thái khí hậu (Nắng, Mưa, Mát mẻ, Lạnh...) qua OpenWeatherMap API hoặc fallback thông minh.
+  - Hiển thị nhiệt độ hiện tại, trạng thái khí hậu (Nắng, Mưa, Mát mẻ, Lạnh...) và mùa trong năm (`season`: xuân, hạ, thu, đông, mùa khô, mùa mưa) qua OpenWeatherMap API hoặc fallback thông minh.
   - Tự động gợi ý các danh mục món ăn tương thích với thời tiết (vd: Ngày mưa/lạnh gợi ý Lẩu, Nướng, Món nước nóng; Ngày nắng gợi ý Đồ uống mát, Chè, Salad).
 - **Tìm kiếm đa năng:** Thanh tìm kiếm thời gian thực theo tên quán ăn, địa chỉ hoặc từ khóa món ăn.
 - **Danh sách Quán ăn nổi bật (Restaurant Cards):**
   - Hiển thị tên quán, địa chỉ, hotline, giờ mở/đóng cửa (`HH:MM`).
+  - Danh sách **Giấy phép dịch vụ (`service_licenses`)**: Hiển thị các chứng nhận, giấy phép của quán (Vệ sinh ATTP, PCCC, GPKD...).
   - Huy hiệu **Nhà tài trợ (`is_sponsor`)** nổi bật dành cho quán được ưu tiên quảng bá.
   - Tính toán và hiển thị khoảng cách thực tế (km/mét) từ vị trí người dùng đến quán.
 - **Bộ lọc Danh mục món ăn (Category Filter):**
@@ -39,6 +40,7 @@ Tài liệu này tổng hợp chi tiết toàn bộ các tính năng đã đư�
   - Tích hợp tùy chọn ẩn/hiện danh mục theo sở thích cá nhân (`OptionUser`).
 - **Xem Chi tiết Thực đơn Quán ăn (Bottom Sheet Menu):**
   - Danh sách món ăn chi tiết: Tên món, đơn giá (VNĐ), mô tả hương vị, ảnh minh họa.
+  - Lượng năng lượng Calo 🔥 (`calories`: Kcal) hỗ trợ theo dõi dinh dưỡng.
   - Nhãn độ cay 🌶️ (`spicy_level`: Cay nhẹ, Cay vừa, Rất cay).
   - Nhãn loại bữa ăn (`meal_types`: Sáng, Trưa, Tối, Ăn vặt, Cả ngày).
   - Danh sách thành phần nguyên liệu (`ingredients`) và cảnh báo dị ứng (`allergens`).
@@ -93,6 +95,7 @@ Tài liệu này tổng hợp chi tiết toàn bộ các tính năng đã đư�
   - **Tích hợp Bản đồ Geocoding:** Nút *"Tìm tọa độ từ địa chỉ"* tự động điền Kinh độ (`longitude`) và Vĩ độ (`latitude`) qua dịch vụ bản đồ OpenStreetMap.
   - Nhập số điện thoại hotline, mô tả giới thiệu.
   - Cấu hình giờ mở cửa (`open_time`) và giờ đóng cửa (`close_time`) chuẩn định dạng `HH:MM`.
+  - Nhập danh sách các **Giấy phép dịch vụ (`service_licenses`)** (ATTP, PCCC, Giấy phép kinh doanh dịch vụ ăn uống...).
   - Cấu hình cờ **Nhà tài trợ (`is_sponsor`)** để ưu tiên quán ăn lên đầu kết quả tìm kiếm.
 - **Chỉnh sửa Quán ăn (Edit Restaurant):** Cập nhật bất kỳ trường thông tin nào của quán ăn.
 - **Chuyển đổi trạng thái nhanh (Toggle Status):** Bật/Tắt trạng thái hoạt động của quán ăn chỉ với 1 click chuột.
@@ -110,7 +113,7 @@ Tài liệu này tổng hợp chi tiết toàn bộ các tính năng đã đư�
 - **Quản lý Món ăn (Dishes):**
   - **Hiển thị Card Grid hiện đại:** Ảnh minh họa món, tên món ăn, giá tiền định dạng chuẩn VNĐ, nhãn danh mục, tag bữa ăn, nhãn độ cay 🌶️ (`spicy_level`), mảng nguyên liệu.
   - **Lọc món ăn:** Lọc nhanh theo nhóm danh mục hoặc trạng thái còn món / hết món.
-  - **Thêm món ăn mới:** Điền tên món, giá bán, chọn nhóm danh mục, nhập mô tả, URL ảnh, độ cay (0–3), bữa ăn phù hợp, danh sách nguyên liệu.
+  - **Thêm món ăn mới:** Điền tên món, giá bán, lượng năng lượng Calo (`calories`, kcal), chọn nhóm danh mục, nhập mô tả, URL ảnh, độ cay (0–3), bữa ăn phù hợp, danh sách nguyên liệu.
   - **Chỉnh sửa món ăn:** Cập nhật thông tin chi tiết của món.
   - **Cập nhật nhanh tình trạng còn món:** Bật/Tắt trạng thái Còn món (Available) hoặc Tạm hết món (Out of stock) chỉ với 1 click.
   - **Xóa món ăn:** Gỡ bỏ món ăn khỏi thực đơn quán.

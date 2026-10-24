@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Index, CheckConstraint, Text, text, SmallInteger
+from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Index, CheckConstraint, Text, text, SmallInteger, Integer
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from server.app.db.base import Base
@@ -17,6 +17,7 @@ class Dish(Base):
     __table_args__ = (
         CheckConstraint("price >= 0", name="ck_dish_price"),
         CheckConstraint("spicy_level >= 0 AND spicy_level <= 3", name="ck_dishes_spicy_level"),
+        CheckConstraint("calories IS NULL OR calories >= 0", name="ck_dishes_calories_non_negative"),
         Index("ix_dishes_restaurant_category", "restaurant_id", "category"),
         Index("ix_dishes_ingredients_gin", "ingredients", postgresql_using="gin"),
         Index("ix_dishes_dietary_tags_gin", "dietary_tags", postgresql_using="gin"),
@@ -30,6 +31,7 @@ class Dish(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     price: Mapped[float] = mapped_column(Float, nullable=False)
+    calories: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
     description: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True, default=None)
     image_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True, default=None)
     category_id: Mapped[Optional[int]] = mapped_column(

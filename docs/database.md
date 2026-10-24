@@ -68,6 +68,7 @@ erDiagram
         string description "Mô tả quán ăn (Nullable)"
         time open_time "Giờ mở cửa HH:MM (Nullable)"
         time close_time "Giờ đóng cửa HH:MM (Nullable)"
+        string service_licenses "Mảng giấy phép dịch vụ ARRAY(Text) GIN index"
         boolean is_sponsor "Nhà tài trợ (Default: false, Index)"
         boolean is_active "Trạng thái hoạt động (Default: true)"
         timestamp created_at "Thời điểm tạo quán (UTC)"
@@ -105,6 +106,7 @@ erDiagram
         float max_temp "Nhiệt độ tối đa (Nullable)"
         string condition "Điều kiện khí hậu (Nullable)"
         string icon "Tên icon thời tiết (Nullable)"
+        string season "Mùa trong năm (spring, summer, autumn, winter...) (Nullable, Index)"
         int sort_order "Thứ tự sắp xếp (Default: 0)"
         boolean is_active "Trạng thái kích hoạt (Default: true)"
         timestamp created_at "Thời điểm tạo (UTC)"
@@ -117,6 +119,7 @@ erDiagram
         int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) ON DELETE SET NULL"
         string name "Tên món ăn"
         numeric price "Giá bán (>= 0)"
+        int calories "Lượng calo món ăn kcal (Nullable, Check >= 0)"
         string description "Mô tả món ăn (Nullable)"
         string image_url "Đường dẫn ảnh món (Nullable)"
         string category "Tên nhóm món dự phòng (Nullable)"
@@ -219,6 +222,7 @@ Model ORM: `server/app/models/restaurant.py`.
 | `longitude` | `DOUBLE PRECISION` | `NOT NULL`, `CHECK (longitude BETWEEN -180.0 AND 180.0)` | Kinh độ địa lý WGS84 |
 | `phone` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL` | Số điện thoại quán ăn |
 | `description` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Giới thiệu quán ăn |
+| `service_licenses` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Danh sách giấy phép dịch vụ (ATTP, PCCC, GPKD...) |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái mở/đóng cửa |
 | `is_sponsor` | `BOOLEAN` | `NOT NULL`, Default: `FALSE`, `INDEX` | Đánh dấu quán là nhà tài trợ (ưu tiên hiển thị) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Ngày tạo quán |
@@ -252,6 +256,7 @@ Quan hệ: Thuộc sở hữu của 1 Quán ăn (1 Restaurant - N Dishes), liên
 | `category_id` | `INTEGER` | `NULLABLE`, `FK(categories.id ON DELETE SET NULL)`, `INDEX` | **Khóa ngoại trỏ về `categories.id`**: Nhóm danh mục của món. Khi xóa danh mục, món ăn không bị xóa mà chuyển thành NULL (chưa phân loại). |
 | `name` | `VARCHAR(255)` | `NOT NULL` | Tên món ăn (vd: "Cơm tấm sườn nướng") |
 | `price` | `DOUBLE PRECISION` / `NUMERIC` | `NOT NULL`, `CHECK (price >= 0)` | Đơn giá món ăn |
+| `calories` | `INTEGER` | `NULLABLE`, Default: `NULL`, `CHECK (calories IS NULL OR calories >= 0)` | Lượng năng lượng calo của món ăn (Kcal) |
 | `description` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Giới thiệu, nguyên liệu, hương vị món ăn |
 | `image_url` | `VARCHAR(1000)` | `NULLABLE`, Default: `NULL` | Đường dẫn ảnh minh họa món ăn |
 | `category` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL`, `INDEX` | Tên nhóm món dạng chuỗi (dự phòng tương thích ngược) |
@@ -312,6 +317,7 @@ Bảng độc lập lưu trữ các điều kiện thời tiết chuẩn bị ch
 | `max_temp` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL` | Nhiệt độ tối đa (°C) |
 | `condition` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL` | Điều kiện khí hậu (sunny, rainy, cloudy, cold...) |
 | `icon` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tên icon hoặc URL hình ảnh đại diện |
+| `season` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL`, `INDEX` | Mùa trong năm (spring, summer, autumn, winter, dry, rainy) |
 | `sort_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự sắp xếp hiển thị |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo (UTC) |

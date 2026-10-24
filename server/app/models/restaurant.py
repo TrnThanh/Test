@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, time
 from typing import Any, Optional, List, TYPE_CHECKING
-from sqlalchemy import String, Float, Boolean, DateTime, Index, CheckConstraint, Computed, Time
+from sqlalchemy import String, Float, Boolean, DateTime, Index, CheckConstraint, Computed, Time, Text, text
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from geoalchemy2 import Geography
 from server.app.db.base import Base
@@ -10,13 +11,14 @@ if TYPE_CHECKING:
 
 
 class Restaurant(Base):
-    """Bảng quán ăn (Restaurant) với cột không gian PostGIS."""
+    """Bảng quán ăn (Restaurant) với cột không gian PostGIS và mảng giấy phép dịch vụ."""
     __tablename__ = "restaurants"
     __table_args__ = (
         CheckConstraint("latitude >= -90.0 AND latitude <= 90.0", name="ck_restaurant_latitude"),
         CheckConstraint("longitude >= -180.0 AND longitude <= 180.0", name="ck_restaurant_longitude"),
         Index("ix_restaurants_lat_lon", "latitude", "longitude"),
         Index("ix_restaurants_is_sponsor", "is_sponsor"),
+        Index("ix_restaurants_service_licenses_gin", "service_licenses", postgresql_using="gin"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -28,6 +30,9 @@ class Restaurant(Base):
     description: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True, default=None)
     open_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True, default=None)
     close_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True, default=None)
+    service_licenses: Mapped[List[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
+    )
     is_sponsor: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

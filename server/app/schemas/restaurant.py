@@ -1,6 +1,6 @@
 from datetime import datetime, time
-from typing import Optional, Annotated
-from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, PlainSerializer
+from typing import Optional, List, Annotated
+from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, PlainSerializer, field_validator
 
 
 def parse_time_or_none(v: Optional[object]) -> Optional[object]:
@@ -29,7 +29,18 @@ class RestaurantBase(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả quán ăn")
     open_time: Optional[HHMMTime] = Field(None, description="Thời gian mở cửa (HH:MM)")
     close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
+    service_licenses: List[str] = Field(default_factory=list, description="Danh sách giấy phép dịch vụ của quán (ATTP, PCCC, GPKD...)")
     is_sponsor: bool = Field(False, description="Đánh dấu quán ăn là nhà tài trợ")
+
+    @field_validator("service_licenses")
+    @classmethod
+    def normalize_licenses(cls, v: List[str]) -> List[str]:
+        cleaned: List[str] = []
+        for lic in v:
+            lic = lic.strip()
+            if lic and lic not in cleaned:
+                cleaned.append(lic)
+        return cleaned
 
 
 class RestaurantCreate(RestaurantBase):
@@ -45,8 +56,21 @@ class RestaurantUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả quán ăn")
     open_time: Optional[HHMMTime] = Field(None, description="Thời gian mở cửa (HH:MM)")
     close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
+    service_licenses: Optional[List[str]] = Field(None, description="Danh sách giấy phép dịch vụ của quán")
     is_sponsor: Optional[bool] = Field(None, description="Đánh dấu quán ăn là nhà tài trợ")
     is_active: Optional[bool] = Field(None, description="Trạng thái hoạt động")
+
+    @field_validator("service_licenses")
+    @classmethod
+    def normalize_licenses(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        if v is not None:
+            cleaned: List[str] = []
+            for lic in v:
+                lic = lic.strip()
+                if lic and lic not in cleaned:
+                    cleaned.append(lic)
+            return cleaned
+        return None
 
 
 class RestaurantResponse(RestaurantBase):
