@@ -432,49 +432,192 @@ class SparkBurst extends StatelessWidget {
   }
 }
 
-/// Painter vẽ các ngọn đồi và tán lá minh hoạ trên thẻ Thời tiết
-class WeatherLandscapePainter extends CustomPainter {
+class WeatherVisualConfig {
+  final IconData? icon;
+  final Widget? customWidget;
+  final Color iconColor;
+  final List<Color> iconBgColors;
+  final Color iconBorderColor;
+  final Color iconShadowColor;
+  final bool isNight;
+
+  const WeatherVisualConfig({
+    this.icon,
+    this.customWidget,
+    required this.iconColor,
+    required this.iconBgColors,
+    required this.iconBorderColor,
+    required this.iconShadowColor,
+    required this.isNight,
+  });
+}
+
+/// Widget vẽ vầng trăng khuyết màu vàng óng ánh (Golden Crescent Moon) chuẩn xác và tuyệt đẹp
+class GoldenMoonWidget extends StatelessWidget {
+  final double size;
+
+  const GoldenMoonWidget({super.key, this.size = 26});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _GoldenMoonPainter(),
+      ),
+    );
+  }
+}
+
+class _GoldenMoonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // Vòng hào quang nắng nhẹ mờ ở góc trên phải
-    final sunGlow = Paint()
-      ..color = const Color(0xFFFFE8A3).withAlpha(130)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.22), 24, sunGlow);
+    final w = size.width;
+    final h = size.height;
 
-    final hillPaint1 = Paint()
-      ..color = const Color(0xFFEAF5EC)
-      ..style = PaintingStyle.fill;
-    final hillPaint2 = Paint()
-      ..color = const Color(0xFFD7ECDC)
-      ..style = PaintingStyle.fill;
-    final leafPaint = Paint()
-      ..color = const Color(0xFF4A7C59).withAlpha(220)
+    // Vầng trăng khuyết màu vàng óng ánh béo tròn, đầy đặn với gradient vàng cam ấm áp
+    final moonPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFFFFEA7A), // Vàng chanh sáng rực rỡ
+          Color(0xFFFFB800), // Vàng óng đậm đà
+          Color(0xFFF57C00), // Cam ánh vàng đậm ở mép
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h))
       ..style = PaintingStyle.fill;
 
-    final path1 = Path();
-    path1.moveTo(0, size.height);
-    path1.quadraticBezierTo(size.width * 0.35, size.height * 0.25, size.width, size.height * 0.45);
-    path1.lineTo(size.width, size.height);
-    path1.close();
-    canvas.drawPath(path1, hillPaint1);
+    final center = Offset(w * 0.48, h * 0.50);
+    final radius = w * 0.43;
 
-    final path2 = Path();
-    path2.moveTo(size.width * 0.15, size.height);
-    path2.quadraticBezierTo(size.width * 0.55, size.height * 0.5, size.width, size.height * 0.65);
-    path2.lineTo(size.width, size.height);
-    path2.close();
-    canvas.drawPath(path2, hillPaint2);
+    // Vòng tròn ngoài tròn trịa, đầy đặn
+    final outerPath = Path()
+      ..addOval(Rect.fromCircle(center: center, radius: radius));
 
-    final leafPath = Path();
-    leafPath.moveTo(size.width, size.height);
-    leafPath.quadraticBezierTo(size.width * 0.5, size.height * 0.75, size.width * 0.75, size.height * 0.55);
-    leafPath.quadraticBezierTo(size.width * 0.9, size.height * 0.8, size.width, size.height);
-    canvas.drawPath(leafPath, leafPaint);
+    // Vòng tròn trong khoét vừa phải để thân trăng béo tròn, phúc hậu, đầy đặn
+    final innerCenter = Offset(center.dx + radius * 0.62, center.dy - radius * 0.28);
+    final innerRadius = radius * 0.85;
+
+    final innerPath = Path()
+      ..addOval(Rect.fromCircle(center: innerCenter, radius: innerRadius));
+
+    final moonPath = Path.combine(PathOperation.difference, outerPath, innerPath);
+
+    // Hào quang vàng ấm áp tỏa sáng quanh vầng trăng
+    final glowPaint = Paint()
+      ..color = const Color(0xFFFFB800).withAlpha(95)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    canvas.drawPath(moonPath, glowPaint);
+
+    // Vẽ thân trăng vàng đầy đặn
+    canvas.drawPath(moonPath, moonPaint);
+
+    // Ngôi sao nhỏ 4 cánh lấp lánh bên cạnh vầng trăng
+    final starPaint = Paint()
+      ..color = const Color(0xFFFFF9C4)
+      ..style = PaintingStyle.fill;
+
+    _drawStar(canvas, Offset(w * 0.80, h * 0.36), 2.2, starPaint);
+  }
+
+  void _drawStar(Canvas canvas, Offset center, double radius, Paint paint) {
+    final path = Path();
+    path.moveTo(center.dx, center.dy - radius);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx + radius, center.dy);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx, center.dy + radius);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx - radius, center.dy);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx, center.dy - radius);
+    path.close();
+    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GoldenMoonPainter oldDelegate) => false;
+}
+
+/// Painter vẽ các ngọn đồi và tán lá minh hoạ trên thẻ Thời tiết (thay đổi linh hoạt ngày và đêm)
+class WeatherLandscapePainter extends CustomPainter {
+  final bool isNight;
+
+  const WeatherLandscapePainter({this.isNight = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (isNight) {
+      // Ban đêm: Không vẽ mặt trăng ở góc phải theo yêu cầu của người dùng,
+      // chỉ vẽ các ngọn đồi và tán lá đêm nhẹ nhàng, tinh tế
+      final hillPaint1 = Paint()
+        ..color = const Color(0xFFE8EEF5)
+        ..style = PaintingStyle.fill;
+      final hillPaint2 = Paint()
+        ..color = const Color(0xFFD6E2F0)
+        ..style = PaintingStyle.fill;
+      final leafPaint = Paint()
+        ..color = const Color(0xFF3B566E).withAlpha(200)
+        ..style = PaintingStyle.fill;
+
+      final path1 = Path();
+      path1.moveTo(0, size.height);
+      path1.quadraticBezierTo(size.width * 0.35, size.height * 0.25, size.width, size.height * 0.45);
+      path1.lineTo(size.width, size.height);
+      path1.close();
+      canvas.drawPath(path1, hillPaint1);
+
+      final path2 = Path();
+      path2.moveTo(size.width * 0.15, size.height);
+      path2.quadraticBezierTo(size.width * 0.55, size.height * 0.5, size.width, size.height * 0.65);
+      path2.lineTo(size.width, size.height);
+      path2.close();
+      canvas.drawPath(path2, hillPaint2);
+
+      final leafPath = Path();
+      leafPath.moveTo(size.width, size.height);
+      leafPath.quadraticBezierTo(size.width * 0.5, size.height * 0.75, size.width * 0.75, size.height * 0.55);
+      leafPath.quadraticBezierTo(size.width * 0.9, size.height * 0.8, size.width, size.height);
+      canvas.drawPath(leafPath, leafPaint);
+    } else {
+      // Vòng hào quang nắng nhẹ mờ ở góc trên phải ban ngày
+      final sunGlow = Paint()
+        ..color = const Color(0xFFFFE8A3).withAlpha(130)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.22), 24, sunGlow);
+
+      final hillPaint1 = Paint()
+        ..color = const Color(0xFFEAF5EC)
+        ..style = PaintingStyle.fill;
+      final hillPaint2 = Paint()
+        ..color = const Color(0xFFD7ECDC)
+        ..style = PaintingStyle.fill;
+      final leafPaint = Paint()
+        ..color = const Color(0xFF4A7C59).withAlpha(220)
+        ..style = PaintingStyle.fill;
+
+      final path1 = Path();
+      path1.moveTo(0, size.height);
+      path1.quadraticBezierTo(size.width * 0.35, size.height * 0.25, size.width, size.height * 0.45);
+      path1.lineTo(size.width, size.height);
+      path1.close();
+      canvas.drawPath(path1, hillPaint1);
+
+      final path2 = Path();
+      path2.moveTo(size.width * 0.15, size.height);
+      path2.quadraticBezierTo(size.width * 0.55, size.height * 0.5, size.width, size.height * 0.65);
+      path2.lineTo(size.width, size.height);
+      path2.close();
+      canvas.drawPath(path2, hillPaint2);
+
+      final leafPath = Path();
+      leafPath.moveTo(size.width, size.height);
+      leafPath.quadraticBezierTo(size.width * 0.5, size.height * 0.75, size.width * 0.75, size.height * 0.55);
+      leafPath.quadraticBezierTo(size.width * 0.9, size.height * 0.8, size.width, size.height);
+      canvas.drawPath(leafPath, leafPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant WeatherLandscapePainter oldDelegate) => oldDelegate.isNight != isNight;
 }
 
 /// Painter vẽ tán lá trang trí góc trên phải màn hình
@@ -622,17 +765,125 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return parts.isNotEmpty ? parts.last.trim() : raw.trim();
   }
 
+  bool _isNightTime(CurrentWeather? weather) {
+    final nowHour = DateTime.now().hour;
+    if (nowHour >= 18 || nowHour < 6) {
+      return true;
+    }
+    final icon = weather?.icon?.trim().toLowerCase() ?? '';
+    if (icon.endsWith('n')) {
+      return true;
+    }
+    return false;
+  }
+
+  WeatherVisualConfig _getWeatherVisualConfig(CurrentWeather? weather) {
+    final isNight = _isNightTime(weather);
+    final condition = (weather?.condition ?? '').toLowerCase();
+    final description = (weather?.description ?? '').toLowerCase();
+
+    final isRainy = condition.contains('rain') || condition.contains('drizzle') || description.contains('mưa');
+    final isThunder = condition.contains('thunder') || description.contains('dông') || description.contains('sấm');
+    final isCloudy = condition.contains('cloud') || description.contains('mây');
+
+    if (isNight) {
+      if (isThunder) {
+        return const WeatherVisualConfig(
+          icon: Icons.thunderstorm_rounded,
+          iconColor: Color(0xFFFFD54F),
+          iconBgColors: [Color(0xFF1E2638), Color(0xFF131826)],
+          iconBorderColor: Color(0xFF2E384D),
+          iconShadowColor: Color(0x40FFC107),
+          isNight: true,
+        );
+      }
+      if (isRainy) {
+        return const WeatherVisualConfig(
+          icon: Icons.water_drop_rounded,
+          iconColor: Color(0xFF60A5FA),
+          iconBgColors: [Color(0xFF1E2638), Color(0xFF131826)],
+          iconBorderColor: Color(0xFF2E384D),
+          iconShadowColor: Color(0x3338BDF8),
+          isNight: true,
+        );
+      }
+      // Ban đêm: Hiển thị Vầng trăng khuyết màu vàng óng ánh (Golden Crescent Moon) chuẩn xác,
+      // nổi bật và tuyệt đẹp trên nền trời đêm
+      return const WeatherVisualConfig(
+        customWidget: GoldenMoonWidget(size: 26),
+        iconColor: Color(0xFFFFC107),
+        iconBgColors: [Color(0xFF1E2638), Color(0xFF131826)],
+        iconBorderColor: Color(0xFF2E384D),
+        iconShadowColor: Color(0x40FFC107),
+        isNight: true,
+      );
+    } else {
+      if (isThunder) {
+        return const WeatherVisualConfig(
+          icon: Icons.thunderstorm_rounded,
+          iconColor: Color(0xFF475569),
+          iconBgColors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+          iconBorderColor: Color(0xFFCBD5E1),
+          iconShadowColor: Color(0x33334155),
+          isNight: false,
+        );
+      }
+      if (isRainy) {
+        return const WeatherVisualConfig(
+          icon: Icons.water_drop_rounded,
+          iconColor: Color(0xFF0284C7),
+          iconBgColors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+          iconBorderColor: Color(0xFFBAE6FD),
+          iconShadowColor: Color(0x330284C7),
+          isNight: false,
+        );
+      }
+      if (isCloudy) {
+        return const WeatherVisualConfig(
+          icon: Icons.wb_cloudy_rounded,
+          iconColor: Color(0xFFF59E0B),
+          iconBgColors: [Color(0xFFFFF9E6), Color(0xFFFFEDBA)],
+          iconBorderColor: Color(0xFFFFDF85),
+          iconShadowColor: Color(0x33FFB800),
+          isNight: false,
+        );
+      }
+      return const WeatherVisualConfig(
+        icon: Icons.wb_sunny_rounded,
+        iconColor: Color(0xFFFF9E00),
+        iconBgColors: [Color(0xFFFFF9E6), Color(0xFFFFEDBA)],
+        iconBorderColor: Color(0xFFFFDF85),
+        iconShadowColor: Color(0x33FFB800),
+        isNight: false,
+      );
+    }
+  }
+
+  String _getMealGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 4 && hour < 11) {
+      return 'Sáng nay ăn gì nhỉ?';
+    } else if (hour >= 11 && hour < 14) {
+      return 'Trưa nay ăn gì nhỉ?';
+    } else if (hour >= 14 && hour < 18) {
+      return 'Chiều nay ăn gì nhỉ?';
+    } else {
+      return 'Tối nay ăn gì nhỉ?';
+    }
+  }
+
   String _getWeatherShortStatus(CurrentWeather? weather) {
-    if (weather == null) return 'Trời mát mẻ';
+    if (weather == null) return _isNightTime(null) ? 'Đêm mát mẻ' : 'Trời mát mẻ';
     final desc = weather.description.trim();
     if (desc.isNotEmpty) {
       return desc[0].toUpperCase() + desc.substring(1);
     }
     final temp = weather.temperature;
-    if (temp < 20) return 'Trời se lạnh';
-    if (temp < 26) return 'Trời mát mẻ';
-    if (temp < 32) return 'Trời nắng nhẹ';
-    return 'Trời oi nóng';
+    final isNight = _isNightTime(weather);
+    if (temp < 20) return isNight ? 'Đêm se lạnh' : 'Trời se lạnh';
+    if (temp < 26) return isNight ? 'Đêm mát mẻ' : 'Trời mát mẻ';
+    if (temp < 32) return isNight ? 'Trời dịu mát' : 'Trời nắng nhẹ';
+    return isNight ? 'Đêm oi ả' : 'Trời oi nóng';
   }
 
   String _getWeatherRecommendation(CurrentWeather? weather) {
@@ -1042,13 +1293,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // TIÊU ĐỀ NĂNG ĐỘNG "Trưa nay ăn gì nhỉ?"
+                              // TIÊU ĐỀ NĂNG ĐỘNG Theo Thời Gian ("Sáng / Trưa / Chiều / Tối nay ăn gì nhỉ?")
                               Stack(
                                 clipBehavior: Clip.none,
                                 children: [
-                                  const Text(
-                                    'Trưa nay ăn gì nhỉ?',
-                                    style: TextStyle(
+                                  Text(
+                                    _getMealGreeting(),
+                                    style: const TextStyle(
                                       fontSize: 27,
                                       fontWeight: FontWeight.w900,
                                       color: Color(0xFF112319),
@@ -1069,118 +1320,145 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // 2. WEATHER CARD (Card Bento hiện đại, gradient tinh tế & sống động)
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.white,
-                                      Color(0xFFF7FBF8),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(color: const Color(0xFFE2EFE5), width: 1.2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF1B3B2B).withAlpha(12),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 5),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      right: 0,
-                                      top: 0,
-                                      bottom: 0,
-                                      width: 120,
-                                      child: ClipRRect(
-                                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
-                                        child: CustomPaint(painter: WeatherLandscapePainter()),
+                              // 2. WEATHER CARD (Card Bento hiện đại, gradient tinh tế & tự động đổi ngày/đêm)
+                              Builder(
+                                builder: (context) {
+                                  final weatherVisual = _getWeatherVisualConfig(_currentWeather);
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: weatherVisual.isNight
+                                            ? const [Colors.white, Color(0xFFF7F8FC)]
+                                            : const [Colors.white, Color(0xFFF7FBF8)],
                                       ),
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: weatherVisual.isNight
+                                            ? const Color(0xFFE2E8F0)
+                                            : const Color(0xFFE2EFE5),
+                                        width: 1.2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: weatherVisual.isNight
+                                              ? const Color(0xFF1E293B).withAlpha(12)
+                                              : const Color(0xFF1B3B2B).withAlpha(12),
+                                          blurRadius: 18,
+                                          offset: const Offset(0, 5),
+                                        ),
+                                      ],
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 48,
-                                            height: 48,
-                                            decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [Color(0xFFFFF9E6), Color(0xFFFFEDBA)],
+                                    child: Stack(
+                                      children: [
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          bottom: 0,
+                                          width: 120,
+                                          child: ClipRRect(
+                                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
+                                            child: CustomPaint(
+                                              painter: WeatherLandscapePainter(isNight: weatherVisual.isNight),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 48,
+                                                height: 48,
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                    colors: weatherVisual.iconBgColors,
+                                                  ),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(color: weatherVisual.iconBorderColor, width: 1.5),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: weatherVisual.iconShadowColor,
+                                                      blurRadius: 10,
+                                                      offset: const Offset(0, 3),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Center(
+                                                  child: weatherVisual.customWidget ??
+                                                      Icon(
+                                                        weatherVisual.icon,
+                                                        color: weatherVisual.iconColor,
+                                                        size: 26,
+                                                      ),
+                                                ),
                                               ),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(color: const Color(0xFFFFDF85), width: 1.5),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: const Color(0xFFFFB800).withAlpha(45),
-                                                  blurRadius: 10,
-                                                  offset: const Offset(0, 3),
+                                              const SizedBox(width: 14),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '${_currentWeather?.temperature.round() ?? 26}°C',
+                                                      style: const TextStyle(
+                                                        fontSize: 24,
+                                                        fontWeight: FontWeight.w900,
+                                                        color: Color(0xFF112319),
+                                                        letterSpacing: -0.5,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      _getWeatherShortStatus(_currentWeather),
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: weatherVisual.isNight
+                                                            ? const Color(0xFF1E293B)
+                                                            : const Color(0xFF1B3B2B),
+                                                        letterSpacing: -0.2,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
-                                            ),
-                                            child: const Icon(
-                                              Icons.wb_sunny_rounded,
-                                              color: Color(0xFFFF9E00),
-                                              size: 26,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 14),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  '${_currentWeather?.temperature.round() ?? 26}°C',
-                                                  style: const TextStyle(
-                                                    fontSize: 24,
-                                                    fontWeight: FontWeight.w900,
-                                                    color: Color(0xFF112319),
-                                                    letterSpacing: -0.5,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                width: 28,
+                                                height: 28,
+                                                decoration: BoxDecoration(
+                                                  color: weatherVisual.isNight
+                                                      ? const Color(0xFFEEF2F6)
+                                                      : const Color(0xFFEBF3EC),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: weatherVisual.isNight
+                                                        ? const Color(0xFFE2E8F0)
+                                                        : const Color(0xFFD6E8D9),
+                                                    width: 0.8,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  _getWeatherShortStatus(_currentWeather),
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF1B3B2B),
-                                                    letterSpacing: -0.2,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                child: Icon(
+                                                  Icons.chevron_right_rounded,
+                                                  color: weatherVisual.isNight
+                                                      ? const Color(0xFF1E293B)
+                                                      : const Color(0xFF1B3B2B),
+                                                  size: 18,
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            width: 28,
-                                            height: 28,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFEBF3EC),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(color: const Color(0xFFD6E8D9), width: 0.8),
-                                            ),
-                                            child: const Icon(
-                                              Icons.chevron_right_rounded,
-                                              color: Color(0xFF1B3B2B),
-                                              size: 18,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
                               const SizedBox(height: 16),
 

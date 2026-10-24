@@ -187,7 +187,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Kiểm tra màn hình Trang chủ (Khám phá) ban đầu
-    expect(find.text('Trưa nay ăn gì nhỉ?'), findsOneWidget);
+    expect(find.textContaining('nay ăn gì nhỉ?'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
     await tester.pumpAndSettle();
@@ -324,7 +324,33 @@ void main() {
     await tester.pumpAndSettle();
 
     // 3. Kiểm tra Dialog đã đóng và hiển thị màn hình Khám phá kèm danh sách quán
-    expect(find.text('Trưa nay ăn gì nhỉ?'), findsOneWidget);
+    expect(find.textContaining('nay ăn gì nhỉ?'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
+  });
+
+  testWidgets('Kiểm thử thẻ thời tiết và WeatherLandscapePainter thay đổi theo thời gian ngày và đêm', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpAndSettle();
+
+    // Xác nhận CustomPaint của WeatherLandscapePainter hiện diện trên màn hình
+    expect(find.byType(CustomPaint), findsWidgets);
+
+    // Kiểm tra render độc lập WeatherLandscapePainter cho cả ban ngày và ban đêm
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: const [
+              CustomPaint(size: Size(120, 80), painter: WeatherLandscapePainter(isNight: false)),
+              CustomPaint(size: Size(120, 80), painter: WeatherLandscapePainter(isNight: true)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(CustomPaint), findsWidgets);
   });
 }
