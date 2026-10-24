@@ -189,12 +189,12 @@ void main() {
     // 1. Kiểm tra màn hình Trang chủ (Khám phá) ban đầu
     expect(find.text('Trưa nay ăn gì nhỉ?'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
     await tester.pumpAndSettle();
     expect(find.text('Bún Chả Đắc Kim'), findsOneWidget);
 
     // 2. Chuyển sang Tab "Bản đồ"
-    await tester.tap(find.text('Bản đồ'));
+    await tester.tap(find.text('Khám phá'));
     await tester.pumpAndSettle();
     expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
     expect(find.text('Vị trí của tôi'), findsOneWidget);
@@ -228,9 +228,9 @@ void main() {
     // Bấm nút "Xem chi tiết" ở quán đầu tiên
     final menuBtn = find.text('Khám phá ngay').first;
     expect(menuBtn, findsOneWidget);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.ensureVisible(menuBtn);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Khám phá ngay').first);
+    await tester.tap(menuBtn);
     await tester.pumpAndSettle();
 
     // Kiểm tra thực đơn mở ra có món ăn
