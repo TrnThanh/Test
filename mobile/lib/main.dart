@@ -2179,7 +2179,7 @@ class _MapScreenState extends State<MapScreen> {
     return (count % 2) == 1;
   }
 
-  LatLng _currentCenter = const LatLng(21.0285, 105.8542); // Khởi tạo trung tâm Hà Nội
+  LatLng _currentCenter = const LatLng(21.0046, 105.9387); // Mặc định HVNN Gia Lâm
   LatLng? _pinnedLocation;
   String? _pinnedAddress;
   double _radiusKm = 5.0;
@@ -2228,22 +2228,36 @@ class _MapScreenState extends State<MapScreen> {
         name = 'Vị trí của bạn';
 
         // Phản hồi ngay lập tức: Di chuyển bản đồ & tải quán xung quanh không cần chờ mạng
+        final inGiaLam = isPointInGiaLam(targetPos);
         if (mounted) {
-          setState(() {
-            _userLocation = targetPos;
-            _userLocationName = name;
-            _currentCenter = targetPos;
-            _pinnedLocation = targetPos;
-            _pinnedAddress = name;
-            _searchCtrl.text = name!;
-            _selectedRestaurant = null;
-            _detectingLocation = false;
-          });
+          if (inGiaLam) {
+            setState(() {
+              _userLocation = targetPos;
+              _userLocationName = name;
+              _currentCenter = targetPos;
+              _pinnedLocation = targetPos;
+              _pinnedAddress = name;
+              _searchCtrl.text = name!;
+              _selectedRestaurant = null;
+              _detectingLocation = false;
+            });
 
-          if (moveToUser) {
-            _mapController.move(targetPos, 15.0);
+            if (moveToUser) {
+              _mapController.move(targetPos, 15.0);
+            }
+            _loadNearby(targetPos.latitude, targetPos.longitude);
+          } else {
+            setState(() {
+              _detectingLocation = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Vị trí của bạn nằm ngoài vùng phủ sóng! Hệ thống chỉ hỗ trợ khu vực Huyện Gia Lâm.'),
+                backgroundColor: Color(0xFFE65100),
+                duration: Duration(seconds: 4),
+              ),
+            );
           }
-          _loadNearby(targetPos.latitude, targetPos.longitude);
         }
 
         // Tra cứu địa chỉ chi tiết ngầm trong nền để không chặn giao diện
@@ -2299,8 +2313,9 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final list = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: _radiusKm);
       if (mounted) {
+        final giaLamOnly = list.where((r) => isPointInGiaLam(LatLng(r.latitude, r.longitude))).toList();
         setState(() {
-          _nearbyRestaurants = list;
+          _nearbyRestaurants = giaLamOnly;
         });
       }
     } catch (_) {}
@@ -2318,8 +2333,9 @@ class _MapScreenState extends State<MapScreen> {
 
     try {
       final res = await widget.api.searchMap(q);
+      final inGiaLam = res.where((p) => isPointInGiaLam(LatLng(p.latitude, p.longitude))).toList();
       setState(() {
-        _places = res.take(5).toList();
+        _places = inGiaLam.isNotEmpty ? inGiaLam : res.take(5).toList();
       });
     } catch (e) {
       setState(() {
@@ -2333,6 +2349,16 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _onMapTap(LatLng point) async {
+    if (!isPointInGiaLam(point)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vị trí nằm ngoài vùng phủ sóng Huyện Gia Lâm!'),
+          backgroundColor: Color(0xFFE65100),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     setState(() {
       _pinnedLocation = point;
       _selectedRestaurant = null;
@@ -2360,6 +2386,16 @@ class _MapScreenState extends State<MapScreen> {
 
   void _selectPlace(GeocodePlace p) {
     final pos = LatLng(p.latitude, p.longitude);
+    if (!isPointInGiaLam(pos)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Địa điểm này nằm ngoài vùng phủ sóng Huyện Gia Lâm!'),
+          backgroundColor: Color(0xFFE65100),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     setState(() {
       _pinnedLocation = pos;
       _pinnedAddress = p.displayName;
@@ -2643,8 +2679,11 @@ class _MapScreenState extends State<MapScreen> {
             options: MapOptions(
               initialCenter: _currentCenter,
               initialZoom: 14.0,
-              minZoom: 5.0,
+              minZoom: 11.5,
               maxZoom: 18.0,
+              cameraConstraint: CameraConstraint.containCenter(
+                bounds: giaLamBounds,
+              ),
               onTap: (tapPosition, point) => _onMapTap(point),
             ),
             children: [
@@ -2652,13 +2691,32 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                 subdomains: const ['a', 'b', 'c'],
                 userAgentPackageName: 'com.ptc1.mobile',
+                tileBounds: giaLamBounds,
               ),
+              // 1.1 LOP MAT NA CAT MIENG BANH GIA LAM - CHE PHU VINH VIEN 100% CAC VUNG NGOAI
+              PolygonLayer(
+                polygons: [
+                  Polygon(
+                    points: const [
+                      LatLng(25.0, 102.0),
+                      LatLng(25.0, 110.0),
+                      LatLng(17.0, 110.0),
+                      LatLng(17.0, 102.0),
+                    ],
+                    holePointsList: [giaLamBoundaryPolygon],
+                    color: const Color(0xFFFAFAFA),
+                    borderColor: Colors.transparent,
+                    borderStrokeWidth: 0,
+                  ),
+                ],
+              ),
+              // 1.2 DUONG GAP KHUC RANH GIOI MIENG BANH GIA LAM
               PolylineLayer(
                 polylines: [
                   Polyline(
                     points: [...giaLamBoundaryPolygon, giaLamBoundaryPolygon.first],
-                    color: kPrimaryGreen.withAlpha(140),
-                    strokeWidth: 3.0,
+                    color: kPrimaryGreen,
+                    strokeWidth: 3.5,
                   ),
                 ],
               ),
@@ -2698,13 +2756,7 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                       ),
                     ),
-                  if (_pinnedLocation != null && _pinnedLocation != _userLocation)
-                    Marker(
-                      point: _pinnedLocation!,
-                      width: 44,
-                      height: 44,
-                      child: const Icon(Icons.location_pin, color: Colors.red, size: 44),
-                    ),
+
                   ..._nearbyRestaurants.map((r) {
                     final isSelected = _selectedRestaurant?.id == r.id;
                     return Marker(
@@ -2897,6 +2949,7 @@ class _MapScreenState extends State<MapScreen> {
                       },
                     ),
                   ),
+
                 if (_error != null)
                   Container(
                     margin: const EdgeInsets.only(top: 8),
@@ -2914,7 +2967,7 @@ class _MapScreenState extends State<MapScreen> {
           // 3. NÚT ĐIỀU KHIỂN ZOOM (+) (-) & VỊ TRÍ CỦA TÔI
           Positioned(
             right: 16,
-            bottom: (_selectedRestaurant != null || _pinnedAddress != null || _pinnedLocation != null) ? 140 : 24,
+            bottom: (_selectedRestaurant != null) ? 140 : 24,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -3054,52 +3107,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             )
-          else if (_pinnedAddress != null || _pinnedLocation != null)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Card(
-                elevation: 6,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                color: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.place, color: Colors.red, size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _pinnedAddress ?? 'Vị trí đã ghim tại Gia Lâm',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              'Tìm thấy ${_nearbyRestaurants.length} quán trong ${_radiusKm.toStringAsFixed(0)} km',
-                              style: const TextStyle(color: kPrimaryGreen, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.tonal(
-                        style: FilledButton.styleFrom(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: _showNearbyListBottomSheet,
-                        child: const Text('Xem quán'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+
         ],
       ),
     );
