@@ -62,6 +62,23 @@ class Ptc1App extends StatelessWidget {
     return MaterialApp(
       title: 'PTC1 Spatial Food',
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        final insets = mq.viewInsets;
+        if (insets.bottom < 0 || insets.top < 0 || insets.left < 0 || insets.right < 0) {
+          final clampedInsets = EdgeInsets.only(
+            left: insets.left < 0 ? 0.0 : insets.left,
+            top: insets.top < 0 ? 0.0 : insets.top,
+            right: insets.right < 0 ? 0.0 : insets.right,
+            bottom: insets.bottom < 0 ? 0.0 : insets.bottom,
+          );
+          return MediaQuery(
+            data: mq.copyWith(viewInsets: clampedInsets),
+            child: child ?? const SizedBox.shrink(),
+          );
+        }
+        return child ?? const SizedBox.shrink();
+      },
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: kScaffoldBg,
@@ -149,6 +166,7 @@ class _MainShellState extends State<MainShell> {
   // Hỗ trợ chuyển toạ độ từ Tab Bản đồ sang Tab Gần đây
   double? _targetLat;
   double? _targetLon;
+  Restaurant? _targetRestaurant;
 
   @override
   void initState() {
@@ -256,10 +274,11 @@ class _MainShellState extends State<MainShell> {
         onRequireLogin: () {
           _openAuthModal(isRegister: false);
         },
-        onNavigateToMap: (lat, lon) {
+        onNavigateToMap: (lat, lon, [restaurant]) {
           setState(() {
             _targetLat = lat;
             _targetLon = lon;
+            _targetRestaurant = restaurant;
             _currentIndex = 1;
           });
         },
@@ -271,6 +290,7 @@ class _MainShellState extends State<MainShell> {
         api: widget.apiService,
         initialLat: _targetLat,
         initialLon: _targetLon,
+        initialRestaurant: _targetRestaurant,
         currentUser: _currentUser,
         onRequireLogin: () {
           _openAuthModal(isRegister: false);
@@ -650,7 +670,7 @@ class ExploreScreen extends StatefulWidget {
   final VoidCallback onRequireLogin;
   final String? initialCategory;
   final VoidCallback? onOpenCategoryPicker;
-  final void Function(double lat, double lon)? onNavigateToMap;
+  final void Function(double lat, double lon, [Restaurant? restaurant])? onNavigateToMap;
   final VoidCallback? onNavigateToAccount;
 
   const ExploreScreen({
@@ -677,6 +697,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String _selectedCity = 'Hà Nội';
 
   CurrentWeather? _currentWeather;
+  double? _userLat;
+  double? _userLon;
 
 
   final List<String> _categories = const [
@@ -930,6 +952,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
         if (devPos != null) {
           lat = devPos['lat'];
           lon = devPos['lon'];
+          final hasGpsChanged = _userLat != lat || _userLon != lon;
+          if (mounted) {
+            setState(() {
+              _userLat = lat;
+              _userLon = lon;
+            });
+          }
+          if (hasGpsChanged) {
+            _loadData(userLat: lat, userLon: lon);
+          }
           detectedCity = _resolveToCityName(null, lat: lat, lon: lon);
           widget.api.reverseMap(lat!, lon!).then((addr) {
             if (mounted && addr.isNotEmpty) {
@@ -982,13 +1014,27 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({double? userLat, double? userLon}) async {
+    final lat = userLat ?? _userLat;
+    final lon = userLon ?? _userLon;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final list = await widget.api.getRestaurants();
+      List<Restaurant> list;
+      if (lat != null && lon != null) {
+        try {
+          list = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: 100.0);
+          if (list.isEmpty) {
+            list = await widget.api.getRestaurants();
+          }
+        } catch (_) {
+          list = await widget.api.getRestaurants();
+        }
+      } else {
+        list = await widget.api.getRestaurants();
+      }
       setState(() {
         _restaurants = list;
       });
@@ -1043,6 +1089,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               scrollController: scrollController,
               currentUser: widget.currentUser,
               onRequireLogin: widget.onRequireLogin,
+              onNavigateToMap: widget.onNavigateToMap,
             );
           },
         );
@@ -1121,9 +1168,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
       return '${(r.distanceMeters! / 1000).toStringAsFixed(1)}km';
     }
-    final m = ((r.id * 350) % 1800) + 400;
-    if (m < 1000) return '${m}m';
-    return '${(m / 1000).toStringAsFixed(1)}km';
+    final originLat = _userLat ?? 21.0046;
+    final originLon = _userLon ?? 105.9387;
+    if (r.latitude != 0 && r.longitude != 0) {
+      final distMeters = const Distance().as(
+        LengthUnit.Meter,
+        LatLng(originLat, originLon),
+        LatLng(r.latitude, r.longitude),
+      );
+      if (distMeters < 1000) {
+        return '${distMeters.round()}m';
+      }
+      return '${(distMeters / 1000).toStringAsFixed(1)}km';
+    }
+    return '';
   }
 
   String _getPriceRange(Restaurant r) {
@@ -1737,91 +1795,87 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                             ),
                                             const SizedBox(height: 14),
                                             Wrap(
-                                              alignment: WrapAlignment.spaceBetween,
-                                              crossAxisAlignment: WrapCrossAlignment.center,
-                                              spacing: 8,
-                                              runSpacing: 10,
+                                              spacing: 6,
+                                              runSpacing: 6,
                                               children: [
-                                                Wrap(
-                                                  spacing: 6,
-                                                  runSpacing: 6,
-                                                  children: [
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                                      decoration: BoxDecoration(
-                                                        color: const Color(0xFFEBF3EC),
-                                                        borderRadius: BorderRadius.circular(20),
-                                                      ),
-                                                      child: const Text(
-                                                        'Sốt vang đậm đà',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: Color(0xFF1B3B2B),
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFEBF3EC),
+                                                    borderRadius: BorderRadius.circular(20),
+                                                  ),
+                                                  child: const Text(
+                                                    'Sốt vang đậm đà',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Color(0xFF1B3B2B),
+                                                      fontWeight: FontWeight.w600,
                                                     ),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                                      decoration: BoxDecoration(
-                                                        color: const Color(0xFFEBF3EC),
-                                                        borderRadius: BorderRadius.circular(20),
-                                                      ),
-                                                      child: const Text(
-                                                        'Ăn sáng/Trưa',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: Color(0xFF1B3B2B),
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
+                                                  ),
                                                 ),
-                                                Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                                                  child: Stack(
-                                                    clipBehavior: Clip.none,
-                                                    alignment: Alignment.center,
-                                                    children: [
-                                                      ElevatedButton(
-                                                        onPressed: () => _showMenuBottomSheet(hero),
-                                                        style: ElevatedButton.styleFrom(
-                                                          backgroundColor: const Color(0xFF1B3B2B),
-                                                          foregroundColor: Colors.white,
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(20),
-                                                          ),
-                                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                                          elevation: 0,
-                                                        ),
-                                                        child: const Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            Text(
-                                                              'Khám phá ngay',
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                fontWeight: FontWeight.w800,
-                                                              ),
-                                                            ),
-                                                            SizedBox(width: 4),
-                                                            Icon(Icons.arrow_forward_rounded, size: 14),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      Positioned(
-                                                        left: -12,
-                                                        child: const SparkBurst(width: 10, height: 10),
-                                                      ),
-                                                      Positioned(
-                                                        right: -12,
-                                                        child: const SparkBurst(width: 10, height: 10),
-                                                      ),
-                                                    ],
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFEBF3EC),
+                                                    borderRadius: BorderRadius.circular(20),
+                                                  ),
+                                                  child: const Text(
+                                                    'Ăn sáng/Trưa',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Color(0xFF1B3B2B),
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
                                                   ),
                                                 ),
                                               ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(right: 12),
+                                                child: Stack(
+                                                  clipBehavior: Clip.none,
+                                                  alignment: Alignment.center,
+                                                  children: [
+                                                    ElevatedButton(
+                                                      onPressed: () => _showMenuBottomSheet(hero),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: const Color(0xFF1B3B2B),
+                                                        foregroundColor: Colors.white,
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(20),
+                                                        ),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                        elevation: 0,
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            'Khám phá ngay',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.w800,
+                                                            ),
+                                                          ),
+                                                          SizedBox(width: 4),
+                                                          Icon(Icons.arrow_forward_rounded, size: 14),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    Positioned(
+                                                      left: -12,
+                                                      child: const SparkBurst(width: 10, height: 10),
+                                                    ),
+                                                    Positioned(
+                                                      right: -12,
+                                                      child: const SparkBurst(width: 10, height: 10),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -2093,6 +2147,7 @@ class MapScreen extends StatefulWidget {
   final ApiService api;
   final double? initialLat;
   final double? initialLon;
+  final Restaurant? initialRestaurant;
   final RoleLoginResponse? currentUser;
   final VoidCallback onRequireLogin;
 
@@ -2101,6 +2156,7 @@ class MapScreen extends StatefulWidget {
     required this.api,
     this.initialLat,
     this.initialLon,
+    this.initialRestaurant,
     this.currentUser,
     required this.onRequireLogin,
   });
@@ -2229,6 +2285,24 @@ class _MapScreenState extends State<MapScreen> {
   String? _error;
   bool _showSearchResults = false;
 
+  String _getRestaurantDistance(Restaurant r) {
+    if (r.distanceKm != null && r.distanceKm! > 0) {
+      return r.distanceKm! < 1.0
+          ? '${(r.distanceKm! * 1000).round()}m'
+          : '${r.distanceKm!.toStringAsFixed(1)} km';
+    }
+    final origin = _userLocation ?? _pinnedLocation ?? _currentCenter;
+    if (r.latitude != 0 && r.longitude != 0) {
+      final distMeters = const Distance().as(
+        LengthUnit.Meter,
+        origin,
+        LatLng(r.latitude, r.longitude),
+      );
+      return distMeters < 1000 ? '${distMeters.round()}m' : '${(distMeters / 1000).toStringAsFixed(1)} km';
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -2237,6 +2311,9 @@ class _MapScreenState extends State<MapScreen> {
     if (widget.initialLat != null && widget.initialLon != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLon!);
       _pinnedLocation = _currentCenter;
+      if (widget.initialRestaurant != null) {
+        _selectedRestaurant = widget.initialRestaurant;
+      }
       _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
     } else {
       _pinnedLocation = _currentCenter;
@@ -2332,13 +2409,18 @@ class _MapScreenState extends State<MapScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialLat != null &&
         widget.initialLon != null &&
-        (widget.initialLat != oldWidget.initialLat || widget.initialLon != oldWidget.initialLon)) {
+        (widget.initialLat != oldWidget.initialLat ||
+         widget.initialLon != oldWidget.initialLon ||
+         widget.initialRestaurant != oldWidget.initialRestaurant)) {
       final newPos = LatLng(widget.initialLat!, widget.initialLon!);
       setState(() {
         _currentCenter = newPos;
         _pinnedLocation = newPos;
+        if (widget.initialRestaurant != null) {
+          _selectedRestaurant = widget.initialRestaurant;
+        }
       });
-      _mapController.move(newPos, 14.5);
+      _mapController.move(newPos, 16.0);
       _loadNearby(newPos.latitude, newPos.longitude);
     }
   }
@@ -2486,6 +2568,13 @@ class _MapScreenState extends State<MapScreen> {
               scrollController: scrollController,
               currentUser: widget.currentUser,
               onRequireLogin: widget.onRequireLogin,
+              onNavigateToMap: (lat, lon, [res]) {
+                setState(() {
+                  _selectedRestaurant = res ?? r;
+                  _showSearchResults = false;
+                });
+                _mapController.move(LatLng(lat, lon), 16.0);
+              },
             );
           },
         );
@@ -3231,15 +3320,22 @@ class _MapScreenState extends State<MapScreen> {
                             children: [
                               Row(
                                 children: [
-                                  if (_selectedRestaurant!.distanceKm != null) ...[
-                                    const Icon(Icons.near_me, size: 16, color: kPrimaryGreen),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      ' km',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 13),
-                                    ),
-                                    const SizedBox(width: 8),
-                                  ],
+                                  Builder(builder: (context) {
+                                    final distStr = _getRestaurantDistance(_selectedRestaurant!);
+                                    if (distStr.isEmpty) return const SizedBox.shrink();
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.near_me_rounded, size: 16, color: kPrimaryGreen),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          distStr,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 13),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                    );
+                                  }),
                                   if (_selectedRestaurant!.serviceLicenses.isNotEmpty)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -4523,6 +4619,7 @@ class _RestaurantMenuWidget extends StatefulWidget {
   final ScrollController scrollController;
   final RoleLoginResponse? currentUser;
   final VoidCallback onRequireLogin;
+  final void Function(double lat, double lon, [Restaurant? restaurant])? onNavigateToMap;
 
   const _RestaurantMenuWidget({
     required this.api,
@@ -4530,6 +4627,7 @@ class _RestaurantMenuWidget extends StatefulWidget {
     required this.scrollController,
     this.currentUser,
     required this.onRequireLogin,
+    this.onNavigateToMap,
   });
 
   @override
@@ -4634,7 +4732,9 @@ class _RestaurantMenuWidgetState extends State<_RestaurantMenuWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
+      children: [
+        Column(
       children: [
         Container(
           margin: const EdgeInsets.only(top: 8),
@@ -4701,7 +4801,7 @@ class _RestaurantMenuWidgetState extends State<_RestaurantMenuWidget> {
                       ? const Center(child: Text('Quán chưa có món trong danh mục này'))
                       : ListView.separated(
                           controller: widget.scrollController,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                           itemCount: _displayedDishes.length,
                           separatorBuilder: (_, __) => const Divider(height: 16),
                           itemBuilder: (context, index) {
@@ -4771,6 +4871,60 @@ class _RestaurantMenuWidgetState extends State<_RestaurantMenuWidget> {
                           },
                         ),
         ),
+      ],
+    ),
+    if (widget.onNavigateToMap != null)
+      Positioned(
+        right: 16,
+        bottom: 20,
+        child: Material(
+          elevation: 5,
+          shadowColor: Colors.black38,
+          borderRadius: BorderRadius.circular(24),
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () {
+              Navigator.pop(context);
+              widget.onNavigateToMap!(
+                widget.restaurant.latitude,
+                widget.restaurant.longitude,
+                widget.restaurant,
+              );
+            },
+            child: Ink(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              decoration: BoxDecoration(
+                color: kPrimaryGreen,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: kPrimaryGreen.withAlpha(100),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.directions_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 6),
+                  Text(
+                    'Chỉ đường',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
       ],
     );
   }
