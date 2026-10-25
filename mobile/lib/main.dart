@@ -2109,6 +2109,37 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
+class CuisineStyle {
+  final IconData icon;
+  final Color color;
+  final String label;
+
+  const CuisineStyle(this.icon, this.color, this.label);
+}
+
+CuisineStyle getCuisineStyle(String name, String? description) {
+  final lower = ('$name ${description ?? ""}').toLowerCase();
+  if (lower.contains('phở') || lower.contains('bún') || lower.contains('miến') || lower.contains('mỳ') || lower.contains('mì')) {
+    return const CuisineStyle(Icons.ramen_dining, Color(0xFF00897B), 'Phở & Bún');
+  }
+  if (lower.contains('cơm') || lower.contains('xôi') || lower.contains('niêu') || lower.contains('sườn nướng')) {
+    return const CuisineStyle(Icons.rice_bowl, Color(0xFFE65100), 'Cơm & Xôi');
+  }
+  if (lower.contains('lẩu') || lower.contains('nướng') || lower.contains('bbq') || lower.contains('bò tảng')) {
+    return const CuisineStyle(Icons.outdoor_grill, Color(0xFFD32F2F), 'Lẩu & Nướng');
+  }
+  if (lower.contains('cà phê') || lower.contains('cafe') || lower.contains('coffee') || lower.contains('trà sữa') || lower.contains('trà đào') || lower.contains('tea')) {
+    return const CuisineStyle(Icons.local_cafe, Color(0xFF6A1B9A), 'Cà phê & Trà');
+  }
+  if (lower.contains('bánh mì') || lower.contains('bánh mỳ') || lower.contains('bakery') || lower.contains('pate')) {
+    return const CuisineStyle(Icons.bakery_dining, Color(0xFF1565C0), 'Bánh mì');
+  }
+  if (lower.contains('ăn vặt') || lower.contains('nem') || lower.contains('khoai') || lower.contains('chè') || lower.contains('bánh tráng')) {
+    return const CuisineStyle(Icons.fastfood, Color(0xFFF57F17), 'Đồ ăn vặt');
+  }
+  return const CuisineStyle(Icons.restaurant, kPrimaryGreen, 'Ẩm thực');
+}
+
 class _MapScreenState extends State<MapScreen> {
   late final MapController _mapController;
   final _searchCtrl = TextEditingController();
@@ -2190,7 +2221,9 @@ class _MapScreenState extends State<MapScreen> {
 
   List<GeocodePlace> _places = [];
   List<Restaurant> _nearbyRestaurants = [];
+  List<Restaurant> _allRestaurants = [];
   Restaurant? _selectedRestaurant;
+  double _currentZoom = 14.0;
 
   bool _loading = false;
   String? _error;
@@ -2200,6 +2233,7 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _mapController = MapController();
+    _loadAllRestaurants();
     if (widget.initialLat != null && widget.initialLon != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLon!);
       _pinnedLocation = _currentCenter;
@@ -2307,6 +2341,18 @@ class _MapScreenState extends State<MapScreen> {
       _mapController.move(newPos, 14.5);
       _loadNearby(newPos.latitude, newPos.longitude);
     }
+  }
+
+  Future<void> _loadAllRestaurants() async {
+    try {
+      final list = await widget.api.getRestaurants(limit: 200);
+      if (mounted) {
+        final giaLamOnly = list.where((r) => isPointInGiaLam(LatLng(r.latitude, r.longitude))).toList();
+        setState(() {
+          _allRestaurants = giaLamOnly;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadNearby(double lat, double lon) async {
@@ -2684,6 +2730,14 @@ class _MapScreenState extends State<MapScreen> {
               cameraConstraint: CameraConstraint.containCenter(
                 bounds: giaLamBounds,
               ),
+              onPositionChanged: (pos, hasGesture) {
+                final z = pos.zoom;
+                if ((z - _currentZoom).abs() >= 0.2) {
+                  setState(() {
+                    _currentZoom = z;
+                  });
+                }
+              },
               onTap: (tapPosition, point) => _onMapTap(point),
             ),
             children: [
@@ -2757,39 +2811,86 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
-                  ..._nearbyRestaurants.map((r) {
+                  ...((_allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants).map((r) {
                     final isSelected = _selectedRestaurant?.id == r.id;
+                    final style = getCuisineStyle(r.name, r.description);
+                    final showLabel = isSelected || _currentZoom >= 14.0;
                     return Marker(
                       point: LatLng(r.latitude, r.longitude),
-                      width: isSelected ? 48 : 38,
-                      height: isSelected ? 48 : 38,
+                      width: isSelected ? 120 : (showLabel ? 92 : 38),
+                      height: isSelected ? 72 : (showLabel ? 56 : 38),
+                      alignment: Alignment.center,
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
                             _selectedRestaurant = r;
                             _showSearchResults = false;
                           });
-                          _mapController.move(LatLng(r.latitude, r.longitude), 15.0);
+                          _mapController.move(LatLng(r.latitude, r.longitude), 15.5);
                         },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.amber.shade800 : kPrimaryGreen,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AnimatedScale(
+                              scale: isSelected ? 1.25 : 1.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Container(
+                                width: isSelected ? 40 : 32,
+                                height: isSelected ? 40 : 32,
+                                decoration: BoxDecoration(
+                                  color: isSelected ? Colors.amber.shade800 : style.color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: isSelected ? 2.5 : 1.8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (isSelected ? Colors.amber.shade900 : style.color).withAlpha(120),
+                                      blurRadius: isSelected ? 8 : 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  style.icon,
+                                  color: Colors.white,
+                                  size: isSelected ? 22 : 17,
+                                ),
+                              ),
+                            ),
+                            if (showLabel) ...[
+                              const SizedBox(height: 2),
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? Colors.black87 : Colors.white.withAlpha(240),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: isSelected ? Colors.amber.shade700 : style.color.withAlpha(140),
+                                      width: 1,
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1)),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    r.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: isSelected ? 11 : 9.5,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                      color: isSelected ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
-                          ),
-                          child: Icon(
-                            Icons.restaurant,
-                            color: Colors.white,
-                            size: isSelected ? 26 : 20,
-                          ),
+                          ],
                         ),
                       ),
                     );
-                  }),
+                  })),
                 ],
               ),
             ],
@@ -3022,89 +3123,157 @@ class _MapScreenState extends State<MapScreen> {
               left: 16,
               right: 16,
               bottom: 16,
-              child: Card(
-                elevation: 6,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                color: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              child: Builder(
+                builder: (context) {
+                  final selStyle = getCuisineStyle(_selectedRestaurant!.name, _selectedRestaurant!.description);
+                  final open = isOpenNow(_selectedRestaurant!.openTime, _selectedRestaurant!.closeTime);
+                  return Card(
+                    elevation: 8,
+                    shadowColor: Colors.black38,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: selStyle.color.withAlpha(60), width: 1.2),
+                    ),
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: kLightGreen,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.restaurant, color: kPrimaryGreen, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _selectedRestaurant!.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: selStyle.color.withAlpha(30),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: selStyle.color.withAlpha(80), width: 1.5),
                                 ),
-                                if (_selectedRestaurant!.address != null)
-                                  Text(
-                                    _selectedRestaurant!.address!,
-                                    style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                              ],
-                            ),
+                                child: Icon(selStyle.icon, color: selStyle.color, size: 26),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _selectedRestaurant!.name,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: selStyle.color.withAlpha(25),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            selStyle.label,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: selStyle.color,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: open ? Colors.green.shade50 : Colors.red.shade50,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            open ? 'Đang mở' : 'Đã đóng',
+                                            style: TextStyle(
+                                              color: open ? Colors.green.shade800 : Colors.red.shade800,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (_selectedRestaurant!.address != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _selectedRestaurant!.address!,
+                                        style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedRestaurant = null;
+                                  });
+                                },
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.grey),
-                            onPressed: () {
-                              setState(() {
-                                _selectedRestaurant = null;
-                              });
-                            },
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  if (_selectedRestaurant!.distanceKm != null) ...[
+                                    const Icon(Icons.near_me, size: 16, color: kPrimaryGreen),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      ' km',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 13),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  if (_selectedRestaurant!.serviceLicenses.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: Colors.blue.shade200, width: 0.8),
+                                      ),
+                                      child: Text(
+                                        _selectedRestaurant!.serviceLicenses.first,
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: kPrimaryGreen,
+                                  foregroundColor: Colors.white,
+                                  elevation: 2,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.restaurant_menu, size: 16),
+                                label: const Text('Xem thực đơn', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (_selectedRestaurant!.distanceKm != null)
-                            Row(
-                              children: [
-                                const Icon(Icons.near_me, size: 16, color: kPrimaryGreen),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${_selectedRestaurant!.distanceKm!.toStringAsFixed(1)} km',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen),
-                                ),
-                              ],
-                            )
-                          else
-                            const SizedBox.shrink(),
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            icon: const Icon(Icons.restaurant_menu, size: 16),
-                            label: const Text('Xem thực đơn'),
-                            onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             )
 

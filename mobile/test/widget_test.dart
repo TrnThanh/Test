@@ -6,7 +6,7 @@ import 'package:mobile/services/api_service.dart';
 
 class FakeApiService extends ApiService {
   @override
-  Future<List<Restaurant>> getRestaurants({int skip = 0, int limit = 50}) async {
+  Future<List<Restaurant>> getRestaurants({int skip = 0, int limit = 200}) async {
     return [
       Restaurant(
         id: 1,
@@ -352,5 +352,23 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(CustomPaint), findsWidgets);
+  });
+
+  testWidgets('Kiểm thử Bản đồ MapScreen hiển thị đầy đủ và các điều khiển trực quan', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MapScreen(
+          api: fakeApi,
+          currentUser: null,
+          onRequireLogin: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
+    expect(find.byIcon(Icons.tune), findsOneWidget);
+    expect(find.byIcon(Icons.search), findsWidgets);
   });
 }

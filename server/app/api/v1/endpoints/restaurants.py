@@ -83,7 +83,7 @@ def find_nearby_restaurants(
     lon: float = Query(..., ge=-180.0, le=180.0, description="Kinh độ hiện tại của khách hàng"),
     radius_km: float = Query(5.0, gt=0, le=100.0, description="Bán kính tìm kiếm (km)"),
     skip: int = Query(0, ge=0, description="Số lượng bản ghi bỏ qua"),
-    limit: int = Query(50, ge=1, le=100, description="Số lượng bản ghi tối đa"),
+    limit: int = Query(100, ge=1, le=500, description="Số lượng bản ghi tối đa"),
     db: Session = Depends(get_db),
 ) -> List[NearbyRestaurantResponse]:
     """
@@ -103,7 +103,7 @@ def find_nearby_restaurants(
 )
 def list_public_restaurants(
     skip: int = Query(0, ge=0, description="Số lượng bản ghi bỏ qua"),
-    limit: int = Query(50, ge=1, le=100, description="Số lượng bản ghi tối đa"),
+    limit: int = Query(200, ge=1, le=500, description="Số lượng bản ghi tối đa"),
     db: Session = Depends(get_db),
 ) -> List[RestaurantResponse]:
     """Lấy danh sách các quán ăn đang hoạt động để hiển thị lên bản đồ hoặc danh sách khám phá."""

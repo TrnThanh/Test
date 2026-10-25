@@ -39,7 +39,7 @@ class ApiService {
   }
 
   // --- RESTAURANTS ---
-  Future<List<Restaurant>> getRestaurants({int skip = 0, int limit = 50}) async {
+  Future<List<Restaurant>> getRestaurants({int skip = 0, int limit = 200}) async {
     final res = await _requestWithFallback((base) {
       final uri = Uri.parse('$base/restaurants?skip=$skip&limit=$limit');
       return _client.get(uri).timeout(const Duration(seconds: 10));
@@ -58,7 +58,7 @@ class ApiService {
     required double radiusKm,
   }) async {
     final res = await _requestWithFallback((base) {
-      final uri = Uri.parse('$base/restaurants/nearby?lat=$lat&lon=$lon&radius_km=$radiusKm');
+      final uri = Uri.parse('$base/restaurants/nearby?lat=$lat&lon=$lon&radius_km=$radiusKm&limit=200');
       return _client.get(uri).timeout(const Duration(seconds: 10));
     });
 

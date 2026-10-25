@@ -18,7 +18,7 @@ def test_seeded_restaurants_inside_gia_lam():
     db = SessionLocal()
     try:
         restaurants = db.query(Restaurant).filter(Restaurant.is_active == True).all()
-        assert len(restaurants) >= 8, f"Kỳ vọng tối thiểu 8 quán ăn Gia Lâm, hiện có: {len(restaurants)}"
+        assert len(restaurants) >= 150, f"Kỳ vọng tối thiểu 150 quán ăn Gia Lâm, hiện có: {len(restaurants)}"
         
         for r in restaurants:
             assert is_in_gia_lam(r.latitude, r.longitude), (
@@ -51,7 +51,7 @@ def test_dishes_with_images_and_calories():
     db = SessionLocal()
     try:
         dishes = db.query(Dish).filter(Dish.is_available == True).all()
-        assert len(dishes) >= 24, f"Kỳ vọng tối thiểu 24 món ăn, hiện có: {len(dishes)}"
+        assert len(dishes) >= 450, f"Kỳ vọng tối thiểu 450 món ăn, hiện có: {len(dishes)}"
 
         for d in dishes:
             assert d.price > 0, f"Món {d.name} có giá không hợp lệ: {d.price}"
