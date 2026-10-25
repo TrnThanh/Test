@@ -873,15 +873,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   String _getWeatherShortStatus(CurrentWeather? weather) {
-    if (weather == null) return _isNightTime(null) ? 'Đêm mát mẻ' : 'Trời mát mẻ';
-    final desc = weather.description.trim();
+    final isNight = _isNightTime(weather);
+    if (weather == null) return isNight ? 'Đêm mát mẻ' : 'Thời tiết mát mẻ';
+    String desc = weather.description.trim();
+    final lower = desc.toLowerCase();
+    if (lower.contains(' tại ')) {
+      desc = desc.substring(0, lower.indexOf(' tại ')).trim();
+    }
+    if (lower.contains('mát mẻ')) {
+      return isNight ? 'Đêm mát mẻ' : 'Thời tiết mát mẻ';
+    }
     if (desc.isNotEmpty) {
       return desc[0].toUpperCase() + desc.substring(1);
     }
     final temp = weather.temperature;
-    final isNight = _isNightTime(weather);
     if (temp < 20) return isNight ? 'Đêm se lạnh' : 'Trời se lạnh';
-    if (temp < 26) return isNight ? 'Đêm mát mẻ' : 'Trời mát mẻ';
+    if (temp < 26) return isNight ? 'Đêm mát mẻ' : 'Thời tiết mát mẻ';
     if (temp < 32) return isNight ? 'Trời dịu mát' : 'Trời nắng nhẹ';
     return isNight ? 'Đêm oi ả' : 'Trời oi nóng';
   }
@@ -1221,78 +1228,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     slivers: [
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 1. TOP HEADER (Vị trí capsule & Avatar status)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  InkWell(
-                                    onTap: _showLocationPicker,
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEAF4ED),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: const Color(0xFFCBE5D3), width: 1.2),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.location_on, size: 16, color: Color(0xFF1B3B2B)),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            _selectedCity,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF1B3B2B),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 2),
-                                          const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF1B3B2B)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  InkWell(
-                                    onTap: () => widget.onNavigateToAccount?.call(),
-                                    borderRadius: BorderRadius.circular(999),
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Container(
-                                          width: 42,
-                                          height: 42,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFF1B3B2B),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(Icons.person, color: Colors.white, size: 24),
-                                        ),
-                                        Positioned(
-                                          right: 0,
-                                          bottom: 0,
-                                          child: Container(
-                                            width: 11,
-                                            height: 11,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF8CE32C),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(color: Colors.white, width: 2),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-
                               // TIÊU ĐỀ NĂNG ĐỘNG Theo Thời Gian ("Sáng / Trưa / Chiều / Tối nay ăn gì nhỉ?")
                               Stack(
                                 clipBehavior: Clip.none,

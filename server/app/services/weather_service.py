@@ -250,7 +250,7 @@ class WeatherService:
             humidity = 65
             w_id = 800
             condition = "Clear"
-            desc = "Thời tiết mát mẻ, dễ chịu tại Học viện Nông nghiệp Việt Nam (HVNN)"
+            desc = "Thời tiết mát mẻ"
             icon_code = "02d"
             location_name = settings.DEFAULT_WEATHER_LOCATION_NAME
 
