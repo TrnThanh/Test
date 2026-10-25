@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -49,7 +50,12 @@ class OptionUserService:
         )
         existing = db.scalar(stmt)
         if existing:
-            existing.hide = data.hide
+            # Nếu đã là Explicit preference (hide = False), không ghi đè thành hide = True (sở thích ngầm)
+            if not existing.hide and data.hide:
+                existing.updated_at = datetime.now(timezone.utc)
+            else:
+                existing.hide = data.hide
+                existing.updated_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(existing)
             return existing

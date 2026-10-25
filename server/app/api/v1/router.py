@@ -12,6 +12,7 @@ from server.app.api.v1.endpoints import (
     option_user,
     weather_categories,
     user_profiles,
+    recommendations
 )
 
 api_router = APIRouter()
@@ -84,3 +85,10 @@ api_router.include_router(
     tags=["User Profiles & Onboarding"],
 )
 
+
+
+api_router.include_router(
+    recommendations.router,
+    prefix="/recommendations",
+    tags=["Contextual Recommendations (CARS)"],
+)

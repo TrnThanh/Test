@@ -69,6 +69,48 @@ class ApiService {
     throw Exception('Lỗi tìm kiếm quán lân cận: ${res.statusCode}');
   }
 
+  // --- CONTEXT-AWARE RECOMMENDATION SYSTEM (CARS) ---
+  Future<ContextualRecommendation?> getContextualRecommendations({
+    required double lat,
+    required double lon,
+    int? userId,
+    double? temp,
+    String? weatherCode,
+  }) async {
+    final queryParams = <String, String>{
+      'lat': lat.toString(),
+      'lon': lon.toString(),
+    };
+    if (userId != null) queryParams['user_id'] = userId.toString();
+    if (temp != null) queryParams['temp'] = temp.toString();
+    if (weatherCode != null) queryParams['weather_code'] = weatherCode;
+
+    final queryString = Uri(queryParameters: queryParams).query;
+
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/recommendations/contextual?$queryString');
+      return _client.get(uri).timeout(const Duration(seconds: 10));
+    });
+
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
+      return ContextualRecommendation.fromJson(data);
+    }
+    return null;
+  }
+
+  Future<void> trackUserInteraction({
+    int? userId,
+    int? categoryId,
+  }) async {
+    if (userId != null && categoryId != null) {
+      try {
+        // Học ngầm: Ghi trực tiếp vào option_users với hide = true
+        await setUserOption(userId, categoryId, true);
+      } catch (_) {}
+    }
+  }
+
   // --- AUTH ---
   Future<RoleLoginResponse> loginUser(String email, String password) async {
     final res = await _requestWithFallback((base) {

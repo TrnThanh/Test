@@ -53,6 +53,19 @@ class FakeApiService extends ApiService {
         isActive: true,
         distanceKm: 0.8,
       ),
+      Restaurant(
+        id: 2,
+        name: 'Bún Chả Đắc Kim',
+        address: '1 Hàng Mành, Hoàn Kiếm, Hà Nội',
+        phone: '0907654321',
+        description: 'Bún chả truyền thống phố cổ',
+        latitude: 21.0325,
+        longitude: 105.8492,
+        openTime: '08:00',
+        closeTime: '21:00',
+        isActive: true,
+        distanceKm: 1.2,
+      ),
     ];
   }
 

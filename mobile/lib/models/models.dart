@@ -13,6 +13,9 @@ class Restaurant {
   final double? distanceMeters;
   final double? distanceKm;
   final List<String> serviceLicenses;
+  final RestaurantRecommendation? recommendation;
+
+  int? get categoryId => recommendation?.featuredDish.categoryId;
 
   Restaurant({
     required this.id,
@@ -29,6 +32,7 @@ class Restaurant {
     this.distanceMeters,
     this.distanceKm,
     this.serviceLicenses = const [],
+    this.recommendation,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -64,6 +68,9 @@ class Restaurant {
       distanceMeters: distM,
       distanceKm: distKm,
       serviceLicenses: licensesList,
+      recommendation: json['recommendation'] != null && json['recommendation'] is Map
+          ? RestaurantRecommendation.fromJson(json['recommendation'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -566,3 +573,121 @@ class UserProfile {
 
 
 
+
+
+class FeaturedDish {
+  final int id;
+  final String name;
+  final double price;
+  final int? calories;
+  final String? imageUrl;
+  final int? categoryId;
+  final List<String> dietaryTags;
+
+  FeaturedDish({
+    required this.id,
+    required this.name,
+    required this.price,
+    this.calories,
+    this.imageUrl,
+    this.categoryId,
+    this.dietaryTags = const [],
+  });
+
+  factory FeaturedDish.fromJson(Map<String, dynamic> json) {
+    return FeaturedDish(
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      calories: (json['calories'] as num?)?.toInt(),
+      imageUrl: json['image_url'] as String?,
+      categoryId: (json['category_id'] as num?)?.toInt(),
+      dietaryTags: (json['dietary_tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+    );
+  }
+}
+
+class RestaurantRecommendation {
+  final double score;
+  final FeaturedDish featuredDish;
+  final List<String> badges;
+  final String? explanation;
+
+  RestaurantRecommendation({
+    required this.score,
+    required this.featuredDish,
+    this.badges = const [],
+    this.explanation,
+  });
+
+  factory RestaurantRecommendation.fromJson(Map<String, dynamic> json) {
+    return RestaurantRecommendation(
+      score: (json['score'] as num?)?.toDouble() ?? 0.0,
+      featuredDish: FeaturedDish.fromJson(json['featured_dish'] as Map<String, dynamic>? ?? {}),
+      badges: (json['badges'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      explanation: json['explanation'] as String?,
+    );
+  }
+}
+
+class RecommendationContext {
+  final String mealPeriod;
+  final String mealTimeRange;
+  final String weatherDesc;
+  final String targetCaloriesDisplay;
+  final List<String> unverifiedAllergies;
+  final String? guestNotice;
+  final String disclaimer;
+
+  RecommendationContext({
+    required this.mealPeriod,
+    required this.mealTimeRange,
+    required this.weatherDesc,
+    required this.targetCaloriesDisplay,
+    this.unverifiedAllergies = const [],
+    this.guestNotice,
+    required this.disclaimer,
+  });
+
+  factory RecommendationContext.fromJson(Map<String, dynamic> json) {
+    return RecommendationContext(
+      mealPeriod: json['meal_period'] as String? ?? '',
+      mealTimeRange: json['meal_time_range'] as String? ?? '',
+      weatherDesc: json['weather_desc'] as String? ?? '',
+      targetCaloriesDisplay: json['target_calories_display'] as String? ?? '',
+      unverifiedAllergies: (json['unverified_allergies'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      guestNotice: json['guest_notice'] as String?,
+      disclaimer: json['disclaimer'] as String? ?? '',
+    );
+  }
+}
+
+class ContextualRecommendation {
+  final RecommendationContext context;
+  final Restaurant? heroRestaurant;
+  final List<Restaurant> recommendedRestaurants;
+
+  ContextualRecommendation({
+    required this.context,
+    this.heroRestaurant,
+    this.recommendedRestaurants = const [],
+  });
+
+  factory ContextualRecommendation.fromJson(Map<String, dynamic> json) {
+    Restaurant? hero;
+    if (json['hero_restaurant'] != null && json['hero_restaurant'] is Map) {
+      hero = Restaurant.fromJson(json['hero_restaurant'] as Map<String, dynamic>);
+    }
+    List<Restaurant> list = [];
+    if (json['recommended_restaurants'] != null && json['recommended_restaurants'] is List) {
+      list = (json['recommended_restaurants'] as List)
+          .map((e) => Restaurant.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return ContextualRecommendation(
+      context: RecommendationContext.fromJson(json['context'] as Map<String, dynamic>? ?? {}),
+      heroRestaurant: hero,
+      recommendedRestaurants: list,
+    );
+  }
+}

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -62,6 +63,14 @@ class Ptc1App extends StatelessWidget {
     return MaterialApp(
       title: 'PTC1 Spatial Food',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.touch,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.trackpad,
+        },
+      ),
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         final insets = mq.viewInsets;
@@ -267,6 +276,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final tabs = [
       ExploreScreen(
+        key: ValueKey(_currentUser?.id),
         api: widget.apiService,
         currentUser: _currentUser,
         initialCategory: _selectedCategory,
@@ -699,6 +709,24 @@ class _ExploreScreenState extends State<ExploreScreen> {
   CurrentWeather? _currentWeather;
   double? _userLat;
   double? _userLon;
+  ContextualRecommendation? _contextualRec;
+  int _heroIndex = 0;
+  bool _showAllNearby = false;
+  static const int _kDefaultNearbyLimit = 10;
+
+  String _formatCurrency(double price) {
+    final intPrice = price.round();
+    if (intPrice >= 1000) {
+      final s = intPrice.toString();
+      final parts = <String>[];
+      for (int i = s.length; i > 0; i -= 3) {
+        final start = i - 3 > 0 ? i - 3 : 0;
+        parts.insert(0, s.substring(start, i));
+      }
+      return '${parts.join(".")}đ';
+    }
+    return '${intPrice}đ';
+  }
 
 
   final List<String> _categories = const [
@@ -720,6 +748,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _loadWeatherAndLocation();
   }
 
+
+
   @override
   void didUpdateWidget(covariant ExploreScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -727,6 +757,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
       setState(() {
         _currentCategory = widget.initialCategory;
       });
+    }
+    if (widget.currentUser?.id != oldWidget.currentUser?.id) {
+      _contextualRec = null;
+      _heroIndex = 0;
+      _loadData();
     }
   }
 
@@ -1015,28 +1050,71 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _loadData({double? userLat, double? userLon}) async {
-    final lat = userLat ?? _userLat;
-    final lon = userLon ?? _userLon;
+    final lat = userLat ?? _userLat ?? 21.0285;
+    final lon = userLon ?? _userLon ?? 105.8542;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      List<Restaurant> list;
-      if (lat != null && lon != null) {
-        try {
-          list = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: 100.0);
-          if (list.isEmpty) {
-            list = await widget.api.getRestaurants();
-          }
-        } catch (_) {
-          list = await widget.api.getRestaurants();
+      List<Restaurant> allList = [];
+      try {
+        allList = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: 100.0);
+        if (allList.isEmpty) {
+          allList = await widget.api.getRestaurants();
         }
-      } else {
-        list = await widget.api.getRestaurants();
+      } catch (_) {
+        allList = await widget.api.getRestaurants();
       }
+
+      ContextualRecommendation? carRec;
+      try {
+        carRec = await widget.api.getContextualRecommendations(
+          lat: lat,
+          lon: lon,
+          userId: widget.currentUser?.id,
+          temp: _currentWeather?.temperature,
+        );
+      } catch (_) {}
+
+      if (carRec != null) {
+        final recMap = <int, RestaurantRecommendation>{};
+        if (carRec.heroRestaurant != null && carRec.heroRestaurant!.recommendation != null) {
+          recMap[carRec.heroRestaurant!.id] = carRec.heroRestaurant!.recommendation!;
+        }
+        for (final r in carRec.recommendedRestaurants) {
+          if (r.recommendation != null) {
+            recMap[r.id] = r.recommendation!;
+          }
+        }
+
+        allList = allList.map((r) {
+          if (recMap.containsKey(r.id)) {
+            return Restaurant(
+              id: r.id,
+              name: r.name,
+              address: r.address,
+              phone: r.phone,
+              description: r.description,
+              openTime: r.openTime,
+              closeTime: r.closeTime,
+              latitude: r.latitude,
+              longitude: r.longitude,
+              isSponsor: r.isSponsor,
+              isActive: r.isActive,
+              distanceMeters: r.distanceMeters,
+              distanceKm: r.distanceKm,
+              serviceLicenses: r.serviceLicenses,
+              recommendation: recMap[r.id],
+            );
+          }
+          return r;
+        }).toList();
+      }
+
       setState(() {
-        _restaurants = list;
+        _restaurants = allList;
+        _contextualRec = carRec;
       });
     } catch (e) {
       setState(() {
@@ -1053,12 +1131,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
     var list = _restaurants;
     if (_currentCategory != null && _currentCategory != 'Tất cả') {
       final cat = _currentCategory!.toLowerCase();
-      final matched = list.where((r) =>
-          r.name.toLowerCase().contains(cat) ||
-          (r.description != null && r.description!.toLowerCase().contains(cat))).toList();
-      if (matched.isNotEmpty) {
-        list = matched;
-      }
+      list = list.where((r) {
+        final name = r.name.toLowerCase();
+        final desc = (r.description ?? '').toLowerCase();
+        final featuredDishName = (r.recommendation?.featuredDish.name ?? '').toLowerCase();
+
+        bool match(String keyword) =>
+            name.contains(keyword) || desc.contains(keyword) || featuredDishName.contains(keyword);
+
+        if (cat == 'phở & bún') return match('phở') || match('bún');
+        if (cat == 'cơm & xôi') return match('cơm') || match('xôi');
+        if (cat == 'ăn vặt') return match('ăn vặt') || match('vặt');
+        if (cat == 'đồ uống') return match('đồ uống') || match('cà phê') || match('trà sữa') || match('nước');
+        if (cat == 'lẩu & nướng') return match('lẩu') || match('nướng');
+        return match(cat);
+      }).toList();
     }
     if (_searchQuery.trim().isEmpty) return list;
     final q = _searchQuery.toLowerCase().trim();
@@ -1066,6 +1153,271 @@ class _ExploreScreenState extends State<ExploreScreen> {
         r.name.toLowerCase().contains(q) ||
         (r.address != null && r.address!.toLowerCase().contains(q)) ||
         (r.description != null && r.description!.toLowerCase().contains(q))).toList();
+  }
+
+  Widget _buildHeroCard(Restaurant hero, int index) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFF0EFEA), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  child: Image.network(
+                    hero.recommendation?.featuredDish.imageUrl ?? _getFoodImage(hero, index),
+                    width: double.infinity,
+                    height: 185,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 185,
+                      color: const Color(0xFFEBF3EC),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.restaurant, color: Color(0xFF1B3B2B), size: 48),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1B3B2B),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      (hero.recommendation != null && hero.recommendation!.badges.isNotEmpty)
+                          ? hero.recommendation!.badges.first
+                          : '🌿 Hợp gu của bạn',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, size: 16, color: Color(0xFFFFB800)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_getRatingScore(hero).toStringAsFixed(1)} (${_getDistanceText(hero, index)})',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF112319),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          hero.name,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF112319),
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Text(
+                            hero.recommendation != null
+                                ? _formatCurrency(hero.recommendation!.featuredDish.price)
+                                : '65.000đ',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1B3B2B),
+                            ),
+                          ),
+                          const Positioned(
+                            top: -6,
+                            right: -12,
+                            child: SparkBurst(width: 10, height: 10),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: Color(0xFF8E9892)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          hero.recommendation?.explanation ?? hero.address ?? '15 Phố Cổ Bi, Gia Lâm, Hà Nội',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6E7A73),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: (hero.recommendation != null && hero.recommendation!.badges.isNotEmpty)
+                          ? hero.recommendation!.badges.map((b) => Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEBF3EC),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                b,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF1B3B2B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )).toList()
+                          : [
+                              Container(
+                                margin: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEBF3EC),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'Sốt vang đậm đà',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF1B3B2B),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEBF3EC),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'Ăn sáng/Trưa',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF1B3B2B),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              widget.api.trackUserInteraction(userId: widget.currentUser?.id, categoryId: hero.categoryId);
+                              _showMenuBottomSheet(hero);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1B3B2B),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              elevation: 0,
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Khám phá ngay',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_rounded, size: 14),
+                              ],
+                            ),
+                          ),
+                          const Positioned(
+                            left: -12,
+                            child: SparkBurst(width: 10, height: 10),
+                          ),
+                          const Positioned(
+                            right: -12,
+                            child: SparkBurst(width: 10, height: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+    );
   }
 
   void _showMenuBottomSheet(Restaurant r) {
@@ -1252,9 +1604,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final restaurants = _filteredList;
-    final hero = restaurants.isNotEmpty ? restaurants.first : null;
-    final listItems = restaurants.length > 1 ? restaurants.skip(1).toList() : restaurants;
+    final filteredRestaurants = _filteredList;
+    final isDefaultFeed = (_currentCategory == null || _currentCategory == 'Tất cả') && _searchQuery.trim().isEmpty;
+
+    // 1. Vùng quán gợi ý (Độc lập, KHÔNG bị ảnh hưởng bởi tag lọc/search ở trên)
+    final List<Restaurant> heroItems;
+    if (_contextualRec != null) {
+      final allRecs = [
+        if (_contextualRec!.heroRestaurant != null) _contextualRec!.heroRestaurant!,
+        ..._contextualRec!.recommendedRestaurants,
+      ];
+      final validRecs = allRecs.take(5).toList();
+      if (validRecs.isNotEmpty) {
+        heroItems = validRecs;
+      } else {
+        heroItems = _restaurants.isNotEmpty ? _restaurants.take(5).toList() : [];
+      }
+    } else {
+      heroItems = _restaurants.isNotEmpty ? _restaurants.take(5).toList() : [];
+    }
+
+    // 2. Phần quán ăn gần đây (Quán ngon quanh đây - THAY ĐỔI theo tag lọc và search)
+    final List<Restaurant> listItems;
+    if (isDefaultFeed) {
+      final heroIds = heroItems.map((e) => e.id).toSet();
+      final remaining = filteredRestaurants.where((r) => !heroIds.contains(r.id)).toList();
+      listItems = remaining.isNotEmpty ? remaining : filteredRestaurants;
+    } else {
+      listItems = filteredRestaurants;
+    }
+
+    final hasMoreNearby = listItems.length > _kDefaultNearbyLimit;
+    final displayedItems = _showAllNearby ? listItems : listItems.take(_kDefaultNearbyLimit).toList();
+
+    final activeIndex = heroItems.isNotEmpty ? _heroIndex.clamp(0, heroItems.length - 1) : 0;
+    final hero = heroItems.isNotEmpty ? heroItems[activeIndex] : null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F4),
@@ -1290,7 +1674,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // TIÊU ĐỀ NĂNG ĐỘNG Theo Thời Gian ("Sáng / Trưa / Chiều / Tối nay ăn gì nhỉ?")
+                              // 1. TIÊU ĐỀ NĂNG ĐỘNG Theo Thời Gian ("Sáng / Trưa / Chiều / Tối nay ăn gì nhỉ?")
                               Stack(
                                 clipBehavior: Clip.none,
                                 children: [
@@ -1303,15 +1687,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                       letterSpacing: -0.5,
                                     ),
                                   ),
-                                  Positioned(
+                                  const Positioned(
                                     top: -12,
                                     left: 118,
-                                    child: const SparkBurst(width: 18, height: 14),
+                                    child: SparkBurst(width: 18, height: 14),
                                   ),
-                                  Positioned(
+                                  const Positioned(
                                     top: -10,
                                     right: -14,
-                                    child: const SparkBurst(width: 18, height: 14),
+                                    child: SparkBurst(width: 18, height: 14),
                                   ),
                                 ],
                               ),
@@ -1321,138 +1705,142 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               Builder(
                                 builder: (context) {
                                   final weatherVisual = _getWeatherVisualConfig(_currentWeather);
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: weatherVisual.isNight
-                                            ? const [Colors.white, Color(0xFFF7F8FC)]
-                                            : const [Colors.white, Color(0xFFF7FBF8)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(24),
-                                      border: Border.all(
-                                        color: weatherVisual.isNight
-                                            ? const Color(0xFFE2E8F0)
-                                            : const Color(0xFFE2EFE5),
-                                        width: 1.2,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: weatherVisual.isNight
-                                              ? const Color(0xFF1E293B).withAlpha(12)
-                                              : const Color(0xFF1B3B2B).withAlpha(12),
-                                          blurRadius: 18,
-                                          offset: const Offset(0, 5),
+                                  return InkWell(
+                                    onTap: _showLocationPicker,
+                                    borderRadius: BorderRadius.circular(24),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: weatherVisual.isNight
+                                              ? const [Colors.white, Color(0xFFF7F8FC)]
+                                              : const [Colors.white, Color(0xFFF7FBF8)],
                                         ),
-                                      ],
-                                    ),
-                                    child: Stack(
-                                      children: [
-                                        Positioned(
-                                          right: 0,
-                                          top: 0,
-                                          bottom: 0,
-                                          width: 120,
-                                          child: ClipRRect(
-                                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
-                                            child: CustomPaint(
-                                              painter: WeatherLandscapePainter(isNight: weatherVisual.isNight),
+                                        borderRadius: BorderRadius.circular(24),
+                                        border: Border.all(
+                                          color: weatherVisual.isNight
+                                              ? const Color(0xFFE2E8F0)
+                                              : const Color(0xFFE2EFE5),
+                                          width: 1.2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: weatherVisual.isNight
+                                                ? const Color(0xFF1E293B).withAlpha(12)
+                                                : const Color(0xFF1B3B2B).withAlpha(12),
+                                            blurRadius: 18,
+                                            offset: const Offset(0, 5),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Stack(
+                                        children: [
+                                          Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            width: 120,
+                                            child: ClipRRect(
+                                              borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
+                                              child: CustomPaint(
+                                                painter: WeatherLandscapePainter(isNight: weatherVisual.isNight),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 48,
-                                                height: 48,
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                    colors: weatherVisual.iconBgColors,
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 48,
+                                                  height: 48,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end: Alignment.bottomRight,
+                                                      colors: weatherVisual.iconBgColors,
+                                                    ),
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(color: weatherVisual.iconBorderColor, width: 1.5),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: weatherVisual.iconShadowColor,
+                                                        blurRadius: 10,
+                                                        offset: const Offset(0, 3),
+                                                      ),
+                                                    ],
                                                   ),
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(color: weatherVisual.iconBorderColor, width: 1.5),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: weatherVisual.iconShadowColor,
-                                                      blurRadius: 10,
-                                                      offset: const Offset(0, 3),
-                                                    ),
-                                                  ],
+                                                  child: Center(
+                                                    child: weatherVisual.customWidget ??
+                                                        Icon(
+                                                          weatherVisual.icon,
+                                                          color: weatherVisual.iconColor,
+                                                          size: 26,
+                                                        ),
+                                                  ),
                                                 ),
-                                                child: Center(
-                                                  child: weatherVisual.customWidget ??
-                                                      Icon(
-                                                        weatherVisual.icon,
-                                                        color: weatherVisual.iconColor,
-                                                        size: 26,
+                                                const SizedBox(width: 14),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        '${_currentWeather?.temperature.round() ?? 26}°C',
+                                                        style: const TextStyle(
+                                                          fontSize: 24,
+                                                          fontWeight: FontWeight.w900,
+                                                          color: Color(0xFF112319),
+                                                          letterSpacing: -0.5,
+                                                        ),
                                                       ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        _getWeatherShortStatus(_currentWeather),
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: weatherVisual.isNight
+                                                              ? const Color(0xFF1E293B)
+                                                              : const Color(0xFF1B3B2B),
+                                                          letterSpacing: -0.2,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 14),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      '${_currentWeather?.temperature.round() ?? 26}°C',
-                                                      style: const TextStyle(
-                                                        fontSize: 24,
-                                                        fontWeight: FontWeight.w900,
-                                                        color: Color(0xFF112319),
-                                                        letterSpacing: -0.5,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 2),
-                                                    Text(
-                                                      _getWeatherShortStatus(_currentWeather),
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.w700,
-                                                        color: weatherVisual.isNight
-                                                            ? const Color(0xFF1E293B)
-                                                            : const Color(0xFF1B3B2B),
-                                                        letterSpacing: -0.2,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                width: 28,
-                                                height: 28,
-                                                decoration: BoxDecoration(
-                                                  color: weatherVisual.isNight
-                                                      ? const Color(0xFFEEF2F6)
-                                                      : const Color(0xFFEBF3EC),
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  width: 28,
+                                                  height: 28,
+                                                  decoration: BoxDecoration(
                                                     color: weatherVisual.isNight
-                                                        ? const Color(0xFFE2E8F0)
-                                                        : const Color(0xFFD6E8D9),
-                                                    width: 0.8,
+                                                        ? const Color(0xFFEEF2F6)
+                                                        : const Color(0xFFEBF3EC),
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: weatherVisual.isNight
+                                                          ? const Color(0xFFE2E8F0)
+                                                          : const Color(0xFFD6E8D9),
+                                                      width: 0.8,
+                                                    ),
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.chevron_right_rounded,
+                                                    color: weatherVisual.isNight
+                                                        ? const Color(0xFF1E293B)
+                                                        : const Color(0xFF1B3B2B),
+                                                    size: 18,
                                                   ),
                                                 ),
-                                                child: Icon(
-                                                  Icons.chevron_right_rounded,
-                                                  color: weatherVisual.isNight
-                                                      ? const Color(0xFF1E293B)
-                                                      : const Color(0xFF1B3B2B),
-                                                  size: 18,
-                                                ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   );
                                 },
@@ -1586,303 +1974,177 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               ),
                               const SizedBox(height: 18),
 
-                              // 5. SECTION: Đổi rồi, khám phá thôi! (Kèm sticker Lửa)
+                              // 5. SECTION: GỢI Ý RIÊNG CHO BẠN
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  const Expanded(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Flexible(
-                                          child: Text(
-                                            'Đổi rồi, khám phá thôi!',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w900,
-                                              color: Color(0xFF112319),
-                                              letterSpacing: -0.3,
+                                        const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                'Đổi rồi, khám phá thôi!',
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Color(0xFF112319),
+                                                  letterSpacing: -0.3,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                            SizedBox(width: 4),
+                                            SparkBurst(width: 14, height: 12),
+                                          ],
                                         ),
-                                        SizedBox(width: 4),
-                                        SparkBurst(width: 14, height: 12),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          (widget.currentUser != null)
+                                              ? 'Gợi ý cá nhân hoá cho ${widget.currentUser!.fullName ?? widget.currentUser!.email}'
+                                              : 'Gợi ý dành riêng cho bạn hôm nay',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF6E7A73),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ],
                                     ),
                                   ),
-                                  Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFFFFF1E8),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.local_fire_department,
-                                          color: Color(0xFFFF6D3B),
-                                          size: 22,
+                                  if (heroItems.length > 1)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEBF3EC),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: const Color(0xFFD6E6D8)),
+                                      ),
+                                      child: Text(
+                                        '${activeIndex + 1}/${heroItems.length}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF1B3B2B),
                                         ),
                                       ),
-                                      const Positioned(
-                                        top: -4,
-                                        right: -8,
-                                        child: SparkBurst(width: 12, height: 10),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
                                 ],
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'Gợi ý dành riêng cho bạn hôm nay',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF6E7A73),
-                                  fontWeight: FontWeight.w500,
-                                ),
                               ),
                               const SizedBox(height: 14),
 
-                              // 6. HERO BIG FOOD CARD (Thẻ lớn bo tròn 24px)
-                              if (hero != null)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(24),
-                                    border: Border.all(color: const Color(0xFFF0EFEA), width: 1.2),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withAlpha(12),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 6),
+                              // 6. HERO BIG FOOD CARD (Có 2 nút mũi tên trái phải nổi trên card)
+                              if (hero != null) ...[
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  alignment: Alignment.center,
+                                  children: [
+                                    AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 250),
+                                      child: KeyedSubtree(
+                                        key: ValueKey('${hero.id}_$activeIndex'),
+                                        child: _buildHeroCard(hero, activeIndex),
                                       ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Stack(
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                                            child: Image.network(
-                                              _getFoodImage(hero, 0),
-                                              width: double.infinity,
-                                              height: 190,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) => Container(
-                                                height: 190,
-                                                color: const Color(0xFFEBF3EC),
-                                                alignment: Alignment.center,
-                                                child: const Icon(Icons.restaurant, color: Color(0xFF1B3B2B), size: 48),
-                                              ),
-                                            ),
-                                          ),
-                                          Positioned(
-                                            top: 12,
-                                            left: 12,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF1B3B2B),
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              child: const Text(
-                                                '🌿 Hợp gu của bạn',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w700,
+                                    ),
+                                    if (heroItems.length > 1) ...[
+                                      // Nút mũi tên bên TRÁI mép card (chính giữa chiều dọc, nửa ngoài nửa trong mép card)
+                                      Positioned(
+                                        left: -14,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Center(
+                                          child: Material(
+                                            color: Colors.white,
+                                            shape: const CircleBorder(),
+                                            elevation: 4,
+                                            shadowColor: Colors.black38,
+                                            child: InkWell(
+                                              customBorder: const CircleBorder(),
+                                              onTap: () {
+                                                setState(() {
+                                                  _heroIndex = (_heroIndex - 1 + heroItems.length) % heroItems.length;
+                                                });
+                                              },
+                                              child: const SizedBox(
+                                                width: 36,
+                                                height: 36,
+                                                child: Icon(
+                                                  Icons.chevron_left_rounded,
+                                                  size: 24,
+                                                  color: Color(0xFF1B3B2B),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                          Positioned(
-                                            bottom: 12,
-                                            right: 12,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(20),
-                                                boxShadow: const [
-                                                  BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                                                ],
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(Icons.star_rounded, size: 16, color: Color(0xFFFFB800)),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '${_getRatingScore(hero).toStringAsFixed(1)} (${_getDistanceText(hero, 0)})',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w800,
-                                                      color: Color(0xFF112319),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                        ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              crossAxisAlignment: CrossAxisAlignment.center,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    hero.name,
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.w900,
-                                                      color: Color(0xFF112319),
-                                                      letterSpacing: -0.3,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                Stack(
-                                                  clipBehavior: Clip.none,
-                                                  children: [
-                                                    const Text(
-                                                      '65.000đ',
-                                                      style: TextStyle(
-                                                        fontSize: 17,
-                                                        fontWeight: FontWeight.w900,
-                                                        color: Color(0xFF1B3B2B),
-                                                      ),
-                                                    ),
-                                                    Positioned(
-                                                      top: -6,
-                                                      right: -12,
-                                                      child: const SparkBurst(width: 10, height: 10),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.location_on, size: 14, color: Color(0xFF8E9892)),
-                                                const SizedBox(width: 4),
-                                                Expanded(
-                                                  child: Text(
-                                                    hero.address ?? '15 Phố Cổ Bi, Gia Lâm, Hà Nội',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Color(0xFF6E7A73),
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 14),
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 6,
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFEBF3EC),
-                                                    borderRadius: BorderRadius.circular(20),
-                                                  ),
-                                                  child: const Text(
-                                                    'Sốt vang đậm đà',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0xFF1B3B2B),
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFEBF3EC),
-                                                    borderRadius: BorderRadius.circular(20),
-                                                  ),
-                                                  child: const Text(
-                                                    'Ăn sáng/Trưa',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0xFF1B3B2B),
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 10),
-                                            Align(
-                                              alignment: Alignment.centerRight,
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(right: 12),
-                                                child: Stack(
-                                                  clipBehavior: Clip.none,
-                                                  alignment: Alignment.center,
-                                                  children: [
-                                                    ElevatedButton(
-                                                      onPressed: () => _showMenuBottomSheet(hero),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: const Color(0xFF1B3B2B),
-                                                        foregroundColor: Colors.white,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(20),
-                                                        ),
-                                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                                        elevation: 0,
-                                                      ),
-                                                      child: const Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Text(
-                                                            'Khám phá ngay',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: FontWeight.w800,
-                                                            ),
-                                                          ),
-                                                          SizedBox(width: 4),
-                                                          Icon(Icons.arrow_forward_rounded, size: 14),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Positioned(
-                                                      left: -12,
-                                                      child: const SparkBurst(width: 10, height: 10),
-                                                    ),
-                                                    Positioned(
-                                                      right: -12,
-                                                      child: const SparkBurst(width: 10, height: 10),
-                                                    ),
-                                                  ],
+                                      // Nút mũi tên bên PHẢI mép card (chính giữa chiều dọc, nửa ngoài nửa trong mép card)
+                                      Positioned(
+                                        right: -14,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: Center(
+                                          child: Material(
+                                            color: Colors.white,
+                                            shape: const CircleBorder(),
+                                            elevation: 4,
+                                            shadowColor: Colors.black38,
+                                            child: InkWell(
+                                              customBorder: const CircleBorder(),
+                                              onTap: () {
+                                                setState(() {
+                                                  _heroIndex = (_heroIndex + 1) % heroItems.length;
+                                                });
+                                              },
+                                              child: const SizedBox(
+                                                width: 36,
+                                                height: 36,
+                                                child: Icon(
+                                                  Icons.chevron_right_rounded,
+                                                  size: 24,
+                                                  color: Color(0xFF1B3B2B),
                                                 ),
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ],
-                                  ),
+                                  ],
                                 ),
+                                if (heroItems.length > 1) ...[
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(heroItems.length, (idx) {
+                                      final isActive = idx == activeIndex;
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _heroIndex = idx;
+                                          });
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                                          width: isActive ? 22 : 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: isActive ? const Color(0xFF1B3B2B) : const Color(0xFFD1DCD3),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ],
+                              ],
                               const SizedBox(height: 24),
 
                               // 7. SECTION: Quán ngon quanh đây
@@ -1971,13 +2233,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                   ),
                 )
-              else
+              else ...[
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final r = listItems[index];
+                        final r = displayedItems[index];
                         final tags = _getRestaurantTags(r);
                         final rating = _getRatingScore(r);
                         final reviewCount = _getReviewCountText(r);
@@ -2001,7 +2263,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             ],
                           ),
                           child: InkWell(
-                            onTap: () => _showMenuBottomSheet(r),
+                            onTap: () {
+                              widget.api.trackUserInteraction(userId: widget.currentUser?.id, categoryId: r.categoryId);
+                              _showMenuBottomSheet(r);
+                            },
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -2062,6 +2327,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
+                                      if (r.recommendation != null) ...[
+                                        const SizedBox(height: 5),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFEBF8EE),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '💡 Gợi ý: ${r.recommendation!.featuredDish.name} • ${_formatCurrency(r.recommendation!.featuredDish.price)}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF1B3B2B),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(height: 4),
                                       Row(
                                         children: [
@@ -2119,10 +2404,57 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           ),
                         );
                       },
-                      childCount: listItems.length,
+                      childCount: displayedItems.length,
                     ),
                   ),
                 ),
+                if (hasMoreNearby)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                      child: Center(
+                        child: _showAllNearby
+                            ? TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _showAllNearby = false;
+                                  });
+                                },
+                                icon: const Icon(Icons.expand_less_rounded, size: 20, color: Color(0xFF6E7A73)),
+                                label: const Text(
+                                  'Thu gọn danh sách',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF6E7A73),
+                                  ),
+                                ),
+                              )
+                            : OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _showAllNearby = true;
+                                  });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFF1B3B2B), width: 1.2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                ),
+                                icon: const Icon(Icons.expand_more_rounded, size: 20, color: Color(0xFF1B3B2B)),
+                                label: Text(
+                                  'Xem thêm ${listItems.length - _kDefaultNearbyLimit} quán khác',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1B3B2B),
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+              ],
               const SliverToBoxAdapter(
                 child: SizedBox(height: 24),
               ),
