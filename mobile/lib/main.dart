@@ -2517,7 +2517,7 @@ CuisineStyle getCuisineStyle(String name, String? description) {
     return const CuisineStyle(Icons.outdoor_grill, Color(0xFFD32F2F), 'Lẩu & Nướng');
   }
   if (lower.contains('cà phê') || lower.contains('cafe') || lower.contains('coffee') || lower.contains('trà sữa') || lower.contains('trà đào') || lower.contains('tea')) {
-    return const CuisineStyle(Icons.local_cafe, Color(0xFF6A1B9A), 'Cà phê & Trà');
+    return const CuisineStyle(Icons.local_cafe, Color(0xFF6A1B9A), 'Cà phê & Trà sữa');
   }
   if (lower.contains('bánh mì') || lower.contains('bánh mỳ') || lower.contains('bakery') || lower.contains('pate')) {
     return const CuisineStyle(Icons.bakery_dining, Color(0xFF1565C0), 'Bánh mì');
@@ -2611,6 +2611,32 @@ class _MapScreenState extends State<MapScreen> {
   List<Restaurant> _nearbyRestaurants = [];
   List<Restaurant> _allRestaurants = [];
   Restaurant? _selectedRestaurant;
+  String _selectedCategory = 'Tất cả';
+
+  static const List<Map<String, dynamic>> _foodCategories = [
+    {'name': 'Tất cả', 'icon': Icons.restaurant_menu},
+    {'name': 'Phở & Bún', 'icon': Icons.ramen_dining},
+    {'name': 'Cơm & Xôi', 'icon': Icons.rice_bowl},
+    {'name': 'Bánh mì', 'icon': Icons.bakery_dining},
+    {'name': 'Đồ ăn vặt', 'icon': Icons.fastfood},
+    {'name': 'Cà phê & Trà sữa', 'icon': Icons.local_cafe},
+    {'name': 'Lẩu & Nướng', 'icon': Icons.outdoor_grill},
+  ];
+
+  bool _restaurantMatchesCategory(Restaurant r, String cat) {
+    if (cat == 'Tất cả') return true;
+    final style = getCuisineStyle(r.name, r.description);
+    if (style.label == cat) return true;
+
+    final text = '${r.name} ${r.description ?? ""} ${r.recommendation?.featuredDish.name ?? ""}'.toLowerCase();
+    if (cat == 'Phở & Bún') return text.contains('phở') || text.contains('bún') || text.contains('miến') || text.contains('mỳ') || text.contains('mì');
+    if (cat == 'Cơm & Xôi') return text.contains('cơm') || text.contains('xôi') || text.contains('niêu');
+    if (cat == 'Bánh mì') return text.contains('bánh mì') || text.contains('bánh mỳ') || text.contains('pate');
+    if (cat == 'Đồ ăn vặt') return text.contains('ăn vặt') || text.contains('vặt') || text.contains('nem') || text.contains('khoai') || text.contains('chè') || text.contains('bánh tráng');
+    if (cat == 'Cà phê & Trà sữa') return text.contains('cà phê') || text.contains('trà sữa') || text.contains('trà') || text.contains('cafe') || text.contains('coffee');
+    if (cat == 'Lẩu & Nướng') return text.contains('lẩu') || text.contains('nướng') || text.contains('bbq');
+    return false;
+  }
   double _currentZoom = 14.0;
 
   bool _loading = false;
@@ -2662,22 +2688,14 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _fetchWalkingRoute(Restaurant r) async {
-    // 1. Xác định điểm xuất phát hợp lệ:
-    // Ưu tiên điểm người dùng ghim (_pinnedLocation), miễn là không trùng với quán đích (cách quán >= 20m)
-    LatLng? startPos;
-    if (_pinnedLocation != null) {
-      final distToDest = const Distance().as(
-        LengthUnit.Meter,
-        _pinnedLocation!,
-        LatLng(r.latitude, r.longitude),
-      );
-      if (distToDest >= 20) {
-        startPos = _pinnedLocation;
-      }
+    // 0. Nếu chưa có vị trí GPS người dùng, thử định vị lại nhanh
+    if (_userLocation == null && !_detectingLocation) {
+      await _detectUserLocation(moveToUser: false);
     }
 
-    // 2. Nếu không có điểm ghim (hoặc điểm ghim trùng quán đích), sử dụng vị trí GPS của người dùng
-    if (startPos == null && _userLocation != null) {
+    // 1. Xác định điểm xuất phát: ƯU TIÊN HÀNG ĐẦU LÀ VỊ TRÍ GPS THỰC TẾ CỦA NGƯỜI DÙNG (_userLocation)
+    LatLng? startPos;
+    if (_userLocation != null) {
       final distToDest = const Distance().as(
         LengthUnit.Meter,
         _userLocation!,
@@ -2685,6 +2703,18 @@ class _MapScreenState extends State<MapScreen> {
       );
       if (distToDest >= 20) {
         startPos = _userLocation;
+      }
+    }
+
+    // 2. Nếu không có GPS (hoặc GPS trùng quán đích), kiểm tra điểm người dùng đã ghim thủ công
+    if (startPos == null && _pinnedLocation != null) {
+      final distToDest = const Distance().as(
+        LengthUnit.Meter,
+        _pinnedLocation!,
+        LatLng(r.latitude, r.longitude),
+      );
+      if (distToDest >= 20) {
+        startPos = _pinnedLocation;
       }
     }
 
@@ -2779,11 +2809,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   String _getRestaurantDistance(Restaurant r) {
-    if (r.distanceKm != null && r.distanceKm! > 0) {
-      return r.distanceKm! < 1.0
-          ? '${(r.distanceKm! * 1000).round()}m'
-          : '${r.distanceKm!.toStringAsFixed(1)} km';
-    }
+    // Luôn ưu tiên tính khoảng cách theo vị trí thực tế của người dùng nếu có GPS
     final origin = _userLocation ?? _pinnedLocation ?? _currentCenter;
     if (r.latitude != 0 && r.longitude != 0) {
       final distMeters = const Distance().as(
@@ -2792,6 +2818,11 @@ class _MapScreenState extends State<MapScreen> {
         LatLng(r.latitude, r.longitude),
       );
       return distMeters < 1000 ? '${distMeters.round()}m' : '${(distMeters / 1000).toStringAsFixed(1)} km';
+    }
+    if (r.distanceKm != null && r.distanceKm! > 0) {
+      return r.distanceKm! < 1.0
+          ? '${(r.distanceKm! * 1000).round()}m'
+          : '${r.distanceKm!.toStringAsFixed(1)} km';
     }
     return '';
   }
@@ -2803,15 +2834,12 @@ class _MapScreenState extends State<MapScreen> {
     _loadAllRestaurants();
     if (widget.initialLat != null && widget.initialLon != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLon!);
-      if (widget.initialRestaurant == null) {
-        _pinnedLocation = _currentCenter;
-      } else {
+      if (widget.initialRestaurant != null) {
         _selectedRestaurant = widget.initialRestaurant;
       }
       _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
       _detectUserLocation(moveToUser: false);
     } else {
-      _pinnedLocation = _currentCenter;
       _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
       // Tự động định vị vị trí thực tế của người dùng (GPS thiết bị / IP trực tuyến)
       _detectUserLocation(moveToUser: true);
@@ -2836,32 +2864,29 @@ class _MapScreenState extends State<MapScreen> {
         // Phản hồi ngay lập tức: Di chuyển bản đồ & tải quán xung quanh không cần chờ mạng
         final inGiaLam = isPointInGiaLam(targetPos);
         if (mounted) {
-          if (inGiaLam) {
-            setState(() {
-              _userLocation = targetPos;
-              _userLocationName = name;
-              if (moveToUser) {
-                _currentCenter = targetPos;
-                _pinnedLocation = targetPos;
-                _pinnedAddress = name;
-                _searchCtrl.text = name!;
-                _selectedRestaurant = null;
-              }
-              _detectingLocation = false;
-            });
+          setState(() {
+            _userLocation = targetPos;
+            _userLocationName = name;
+            _detectingLocation = false;
+            if (inGiaLam && moveToUser) {
+              _currentCenter = targetPos;
+              _pinnedLocation = targetPos;
+              _pinnedAddress = name;
+              _searchCtrl.text = name!;
+              _selectedRestaurant = null;
+            }
+          });
 
+          if (inGiaLam) {
             if (moveToUser) {
               _mapController.move(targetPos, 15.0);
               _loadNearby(targetPos.latitude, targetPos.longitude);
             }
           } else {
-            setState(() {
-              _detectingLocation = false;
-            });
             if (moveToUser) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Vị trí của bạn nằm ngoài vùng phủ sóng! Hệ thống chỉ hỗ trợ khu vực Huyện Gia Lâm.'),
+                  content: Text('Vị trí GPS của bạn nằm ngoài Gia Lâm. Tuyến đường vẫn sẽ được tính từ toạ độ thực tế của bạn.'),
                   backgroundColor: Color(0xFFE65100),
                   duration: Duration(seconds: 4),
                 ),
@@ -3463,7 +3488,11 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
-                  ...((_allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants).map((r) {
+                  ...((_isLoadingRoute || _routePoints.isNotEmpty
+                          ? (_selectedRestaurant != null ? [_selectedRestaurant!] : <Restaurant>[])
+                          : (_allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants)
+                              .where((r) => _restaurantMatchesCategory(r, _selectedCategory)))
+                      .map((r) {
                     final isSelected = _selectedRestaurant?.id == r.id;
                     final style = getCuisineStyle(r.name, r.description);
                     final showLabel = isSelected || _currentZoom >= 14.0;
@@ -3740,66 +3769,48 @@ class _MapScreenState extends State<MapScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: [
-                      ActionChip(
-                        avatar: _detectingLocation
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryGreen))
-                            : const Icon(Icons.my_location, size: 16, color: kPrimaryGreen),
-                        label: const Text(
-                          'Vị trí của tôi',
-                          style: TextStyle(color: kPrimaryGreen, fontWeight: FontWeight.bold),
+                    children: _foodCategories.map((cat) {
+                      final name = cat['name'] as String;
+                      final icon = cat['icon'] as IconData;
+                      final isSelected = _selectedCategory == name;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          avatar: Icon(
+                            icon,
+                            size: 16,
+                            color: isSelected ? Colors.white : kPrimaryGreen,
+                          ),
+                          label: Text(name),
+                          selected: isSelected,
+                          selectedColor: kPrimaryGreen,
+                          backgroundColor: Colors.white,
+                          elevation: isSelected ? 3 : 1,
+                          labelStyle: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected ? Colors.white : Colors.black87,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isSelected ? kPrimaryGreen : Colors.grey.shade300,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          showCheckmark: false,
+                          onSelected: (val) {
+                            setState(() {
+                              _selectedCategory = val ? name : 'Tất cả';
+                              if (_selectedRestaurant != null &&
+                                  !_restaurantMatchesCategory(_selectedRestaurant!, _selectedCategory)) {
+                                _selectedRestaurant = null;
+                              }
+                            });
+                          },
                         ),
-                        backgroundColor: kLightGreen,
-                        elevation: 1,
-                        side: BorderSide(color: kPrimaryGreen.withAlpha(80)),
-                        onPressed: () {
-                          if (_userLocation != null) {
-                            _mapController.move(_userLocation!, 15.0);
-                          }
-                          _detectUserLocation(moveToUser: true);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ActionChip(
-                        avatar: const Icon(Icons.school, size: 16, color: kPrimaryGreen),
-                        label: const Text('HVNN (Trâu Quỳ)'),
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        onPressed: () => _jumpTo(21.0046, 105.9387, 'Học viện Nông nghiệp Việt Nam (HVNN)'),
-                      ),
-                      const SizedBox(width: 8),
-                      ActionChip(
-                        avatar: const Icon(Icons.location_city, size: 16, color: kPrimaryGreen),
-                        label: const Text('Ocean Park 1'),
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        onPressed: () => _jumpTo(20.9950, 105.9550, 'Vinhomes Ocean Park 1, Gia Lâm'),
-                      ),
-                      const SizedBox(width: 8),
-                      ActionChip(
-                        avatar: const Icon(Icons.palette, size: 16, color: kPrimaryGreen),
-                        label: const Text('Làng gốm Bát Tràng'),
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        onPressed: () => _jumpTo(20.9760, 105.9080, 'Làng gốm Bát Tràng, Gia Lâm'),
-                      ),
-                      const SizedBox(width: 8),
-                      ActionChip(
-                        avatar: const Icon(Icons.store, size: 16, color: kPrimaryGreen),
-                        label: const Text('Chợ Ninh Hiệp'),
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        onPressed: () => _jumpTo(21.1120, 105.9360, 'Chợ Ninh Hiệp, Gia Lâm'),
-                      ),
-                      const SizedBox(width: 8),
-                      ActionChip(
-                        avatar: const Icon(Icons.train, size: 16, color: kPrimaryGreen),
-                        label: const Text('TT. Yên Viên'),
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        onPressed: () => _jumpTo(21.0830, 105.9020, 'Thị trấn Yên Viên, Gia Lâm'),
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
                 ),
                 if (_showSearchResults && _places.isNotEmpty)

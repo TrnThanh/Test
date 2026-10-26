@@ -40,13 +40,13 @@ Future<Map<String, double>?> getPlatformLocation() async {
       onErr.toJS,
       web.PositionOptions(
         enableHighAccuracy: true,
-        timeout: 3000,
-        maximumAge: 30000,
+        timeout: 6000,
+        maximumAge: 60000,
       ),
     );
 
     return await completer.future.timeout(
-      const Duration(seconds: 6),
+      const Duration(seconds: 8),
       onTimeout: () => null,
     );
   } catch (_) {

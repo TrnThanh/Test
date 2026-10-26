@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/main.dart';
@@ -231,7 +231,8 @@ void main() {
     await tester.tap(find.text('Khám phá'));
     await tester.pumpAndSettle();
     expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
-    expect(find.text('Vị trí của tôi'), findsOneWidget);
+    expect(find.byTooltip('Vị trí của tôi'), findsOneWidget);
+    expect(find.text('Tất cả'), findsOneWidget);
     expect(find.byIcon(Icons.my_location), findsWidgets);
 
     // 3. Chuyển sang Tab "Yêu thích"
