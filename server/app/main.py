@@ -131,6 +131,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             UserService.seed_default_user(db)
             MealTypeService.seed_default_meal_types(db)
             WeatherService.seed_default_weathers(db)
+            if getattr(settings, "AUTO_SEED_INITIAL_DATA", True):
+                from server.app.services.initial_seed_service import InitialSeedService
+                InitialSeedService.seed_initial_data_if_needed(db)
         logger.info("Khởi tạo PostgreSQL tables và seed dữ liệu ban đầu thành công.")
     except Exception as exc:
         logger.warning("Không thể tự động tạo bảng DB khi khởi động: %s", exc)

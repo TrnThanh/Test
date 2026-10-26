@@ -28,6 +28,7 @@ TestingSessionLocal = sessionmaker(
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
     """Khởi tạo toàn bộ bảng trên PostgreSQL test database và seed admin, meal_types, weathers mặc định."""
+    settings.AUTO_SEED_INITIAL_DATA = False
     with test_engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
     Base.metadata.drop_all(bind=test_engine)

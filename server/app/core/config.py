@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg://postgres:2005@localhost:5432/ptc1_db"
     TEST_DATABASE_URL: Optional[str] = "postgresql+psycopg://postgres:2005@localhost:5432/ptc1_test_db"
     DB_ECHO: bool = False
+    AUTO_SEED_INITIAL_DATA: bool = True
 
     # OpenStreetMap (Nominatim) Settings
     NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
