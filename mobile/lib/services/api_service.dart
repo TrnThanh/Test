@@ -69,6 +69,26 @@ class ApiService {
     throw Exception('Lỗi tìm kiếm quán lân cận: ${res.statusCode}');
   }
 
+  Future<RestaurantRouteData> getRestaurantWalkingRoute({
+    required int restaurantId,
+    required double userLat,
+    required double userLon,
+  }) async {
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse(
+        '$base/restaurants/$restaurantId/route?user_lat=$userLat&user_lon=$userLon',
+      );
+      return _client.get(uri).timeout(const Duration(seconds: 10));
+    });
+
+    if (res.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(utf8.decode(res.bodyBytes));
+      return RestaurantRouteData.fromJson(data);
+    }
+    _throwError(res);
+  }
+
+
   // --- CONTEXT-AWARE RECOMMENDATION SYSTEM (CARS) ---
   Future<ContextualRecommendation?> getContextualRecommendations({
     required double lat,

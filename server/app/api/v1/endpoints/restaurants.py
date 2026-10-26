@@ -1,3 +1,5 @@
+from server.app.services.map_service import map_service, haversine_distance
+from fastapi import HTTPException
 from typing import List
 from fastapi import APIRouter, Depends, Query, Path, status
 from sqlalchemy.orm import Session
@@ -9,6 +11,7 @@ from server.app.schemas.restaurant import (
     RestaurantResponse,
     NearbyRestaurantResponse,
     DistanceResponse,
+    RestaurantRouteResponse,
 )
 from server.app.services.restaurant_service import RestaurantService
 
@@ -109,6 +112,55 @@ def list_public_restaurants(
     """Lấy danh sách các quán ăn đang hoạt động để hiển thị lên bản đồ hoặc danh sách khám phá."""
     return RestaurantService.get_all_active_restaurants(
         db=db, skip=skip, limit=limit, active_only=True
+    )
+
+
+@router.get(
+    "/restaurants/{restaurant_id}/route",
+    response_model=RestaurantRouteResponse,
+    summary="Khách hàng tìm đường đi bộ ngắn nhất đến quán ăn (OSRM Foot Routing)",
+    tags=["Restaurants (Public)"],
+)
+async def get_walking_route_to_restaurant(
+    restaurant_id: int = Path(..., gt=0, description="ID quán ăn"),
+    user_lat: float = Query(..., ge=-90.0, le=90.0, description="Vĩ độ xuất phát của người dùng"),
+    user_lon: float = Query(..., ge=-180.0, le=180.0, description="Kinh độ xuất phát của người dùng"),
+    db: Session = Depends(get_db),
+) -> RestaurantRouteResponse:
+    """
+    Tìm đường đi bộ thực tế bám sát ngõ ngách, đường phố từ vị trí người dùng đến quán ăn:
+    1. Kiểm tra quán ăn tồn tại, đang hoạt động (active), toạ độ không NULL.
+    2. Kiểm tra cự ly không vượt quá 50km (chặn request quá xa).
+    3. Tra cứu bộ nhớ đệm FIFO TTL Cache.
+    4. Gọi OSRM Foot Profile, tự động fallback an toàn nếu có sự cố.
+    """
+    restaurant = RestaurantService.get_restaurant_by_id(db=db, restaurant_id=restaurant_id)
+    if not restaurant.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Quán ăn '{restaurant.name}' hiện đã ngừng hoạt động.",
+        )
+    if restaurant.latitude is None or restaurant.longitude is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Quán ăn chưa có toạ độ hợp lệ.",
+        )
+
+    # Kiểm tra cự ly thẳng Haversine (tối đa 50km)
+    h_dist = haversine_distance(user_lat, user_lon, restaurant.latitude, restaurant.longitude)
+    if h_dist > 50000.0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Khoảng cách vượt quá giới hạn tìm đường đi bộ (tối đa 50km).",
+        )
+
+    return await map_service.get_walking_route_to_restaurant(
+        restaurant_id=restaurant.id,
+        restaurant_name=restaurant.name,
+        user_lat=user_lat,
+        user_lon=user_lon,
+        rest_lat=restaurant.latitude,
+        rest_lon=restaurant.longitude,
     )
 
 

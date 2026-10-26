@@ -91,3 +91,12 @@ class DistanceResponse(BaseModel):
     restaurant_name: str
     distance_km: float = Field(..., description="Khoảng cách (km)")
     distance_meters: float = Field(..., description="Khoảng cách (mét)")
+
+
+class RestaurantRouteResponse(BaseModel):
+    restaurant_id: int
+    restaurant_name: str
+    distance_meters: float = Field(..., description="Quãng đường đi bộ thực tế (mét)")
+    duration_seconds: float = Field(..., description="Thời gian đi bộ ước tính (giây)")
+    coordinates: List[List[float]] = Field(..., description="Mảng toạ độ tuyến đường [[lon, lat], ...]")
+    is_fallback: bool = Field(False, description="Đánh dấu nếu đang dùng tuyến ước lượng đường chim bay")

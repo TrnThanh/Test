@@ -1,3 +1,5 @@
+import httpx
+from server.app.services.map_service import map_service
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -22,6 +24,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Khởi tạo vòng đời ứng dụng: tự động tạo bảng PostgreSQL và seed admin, meal_types, weathers mặc định."""
+    shared_client = httpx.AsyncClient(timeout=5.0)
+    map_service.set_route_client(shared_client)
     try:
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
@@ -129,7 +133,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Khởi tạo PostgreSQL tables và seed dữ liệu ban đầu thành công.")
     except Exception as exc:
         logger.warning("Không thể tự động tạo bảng DB khi khởi động: %s", exc)
-    yield
+    try:
+        yield
+    finally:
+        await shared_client.aclose()
+        map_service.set_route_client(None)
 
 
 openapi_tags = [

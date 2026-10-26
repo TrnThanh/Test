@@ -1,3 +1,6 @@
+import collections
+import math
+from server.app.schemas.restaurant import RestaurantRouteResponse
 import ipaddress
 import logging
 import time
@@ -48,6 +51,47 @@ def is_public_ip(ip: str) -> bool:
         return False
 
 
+
+class FIFOTtlCache:
+    """Bộ nhớ đệm FIFO có giới hạn kích thước và thời gian sống TTL, đo bằng monotonic clock."""
+    def __init__(self, maxsize: int = 1000, ttl_seconds: float = 300.0, clock=None):
+        import time
+        self.maxsize = maxsize
+        self.ttl = ttl_seconds
+        self.clock = clock or time.monotonic
+        self._cache = collections.OrderedDict()
+
+    def get(self, key):
+        if key not in self._cache:
+            return None
+        ts, val = self._cache[key]
+        if self.clock() - ts >= self.ttl:
+            del self._cache[key]
+            return None
+        return val
+
+    def set(self, key, val):
+        if key in self._cache:
+            del self._cache[key]
+        elif len(self._cache) >= self.maxsize:
+            self._cache.popitem(last=False)
+        self._cache[key] = (self.clock(), val)
+
+    def clear(self):
+        self._cache.clear()
+
+
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Tính khoảng cách Haversine (mét) giữa 2 toạ độ GPS thuần Python (không gọi DB)."""
+    r = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * (math.sin(delta_lambda / 2.0) ** 2)
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return r * c
+
 class MapService:
     def __init__(
         self,
@@ -55,11 +99,23 @@ class MapService:
         user_agent: Optional[str] = None,
         timeout: Optional[float] = None,
         client: Optional[httpx.AsyncClient] = None,
+        foot_router_url: Optional[str] = None,
     ):
         self.base_url = (base_url or settings.NOMINATIM_BASE_URL).rstrip("/")
         self.user_agent = user_agent or settings.NOMINATIM_USER_AGENT
         self.timeout = timeout if timeout is not None else settings.NOMINATIM_TIMEOUT_SECONDS
         self._client = client
+        self._route_client: Optional[httpx.AsyncClient] = None
+        self.foot_router_url = (foot_router_url or "https://routing.openstreetmap.de/routed-foot/route/v1/driving").rstrip("/")
+        self.route_cache = FIFOTtlCache(maxsize=1000, ttl_seconds=300.0)
+
+    def set_client(self, client: Optional[httpx.AsyncClient]) -> None:
+        """Cập nhật httpx client dùng chung (từ FastAPI lifespan hoặc fixture test)."""
+        self._client = client
+
+    def set_route_client(self, client: Optional[httpx.AsyncClient]) -> None:
+        """Cập nhật httpx client dùng riêng cho dịch vụ tìm đường đi bộ."""
+        self._route_client = client
 
     def _get_headers(self) -> Dict[str, str]:
         return {
@@ -322,4 +378,103 @@ class MapService:
         return fallback_ip_location(ip)
 
 
+    async def get_walking_route_to_restaurant(
+        self,
+        restaurant_id: int,
+        restaurant_name: str,
+        user_lat: float,
+        user_lon: float,
+        rest_lat: float,
+        rest_lon: float,
+    ) -> RestaurantRouteResponse:
+        """
+        Tìm tuyến đường đi bộ ngắn nhất từ vị trí người dùng đến quán ăn.
+        - Kiểm tra cache in-memory FIFO TTL (key: toạ độ làm tròn 4 chữ số, restaurant_id).
+        - Gọi OSRM Foot Routing Engine (routed-foot) qua HTTP GET với timeout 5s.
+        - Kiểm tra nghiêm ngặt HTTP 200, code == 'Ok' và cấu trúc routes.
+        - Nếu thành công: lưu vào cache và trả về.
+        - Nếu lỗi / timeout / 429 / 5xx / NoRoute: fallback về đường nối 2 điểm với cự ly Haversine * 1.3 và vận tốc 1.25 m/s. TUYỆT ĐỐI KHÔNG lưu fallback vào cache.
+        """
+        cache_key = (round(user_lat, 4), round(user_lon, 4), restaurant_id)
+        cached = self.route_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        url = f"{self.foot_router_url}/{user_lon:.6f},{user_lat:.6f};{rest_lon:.6f},{rest_lat:.6f}"
+        params = {"overview": "full", "geometries": "geojson"}
+        headers = {
+            "User-Agent": f"{self.user_agent} - PTC1 Walking Route Service",
+            "Accept": "application/json",
+        }
+
+        client = self._client or self._route_client
+        try:
+            if client is not None:
+                resp = await client.get(url, params=params, headers=headers, timeout=5.0)
+            else:
+                async with httpx.AsyncClient(timeout=5.0) as c:
+                    resp = await c.get(url, params=params, headers=headers)
+
+            if resp.status_code != 200:
+                raise ValueError(f"OSRM HTTP {resp.status_code}: {resp.text[:200]}")
+
+            data = resp.json()
+            if not isinstance(data, dict):
+                raise ValueError("OSRM response không phải JSON object")
+
+            code = data.get("code")
+            if code != "Ok":
+                raise ValueError(f"OSRM code '{code}' khác 'Ok'")
+
+            routes = data.get("routes")
+            if not isinstance(routes, list) or len(routes) == 0:
+                raise ValueError("OSRM routes rỗng")
+
+            r0 = routes[0]
+            if not isinstance(r0, dict):
+                raise ValueError("OSRM route item không hợp lệ")
+
+            dist = r0.get("distance")
+            dur = r0.get("duration")
+            if not isinstance(dist, (int, float)) or not isinstance(dur, (int, float)):
+                raise ValueError("OSRM distance/duration không phải kiểu số")
+
+            coords = r0.get("geometry", {}).get("coordinates")
+            if not isinstance(coords, list) or len(coords) < 2:
+                raise ValueError("OSRM coordinates không đủ dữ liệu toạ độ")
+
+            result = RestaurantRouteResponse(
+                restaurant_id=restaurant_id,
+                restaurant_name=restaurant_name,
+                distance_meters=round(float(dist), 1),
+                duration_seconds=round(float(dur), 1),
+                coordinates=coords,
+                is_fallback=False,
+            )
+            # CHỈ lưu vào cache khi thành công thực tế
+            self.route_cache.set(cache_key, result)
+            return result
+
+        except Exception as exc:
+            logger.warning(
+                "OSRM foot routing fallback kích hoạt cho quán %s (%s). Lý do: %s",
+                restaurant_id, restaurant_name, exc,
+            )
+            # Fallback Haversine thuần Python với hệ số uốn lượn 1.3 và vận tốc 1.25 m/s
+            h_dist = haversine_distance(user_lat, user_lon, rest_lat, rest_lon)
+            fb_dist = round(h_dist * 1.3, 1)
+            fb_dur = round(fb_dist / 1.25, 1)
+            fb_coords = [[user_lon, user_lat], [rest_lon, rest_lat]]
+
+            return RestaurantRouteResponse(
+                restaurant_id=restaurant_id,
+                restaurant_name=restaurant_name,
+                distance_meters=fb_dist,
+                duration_seconds=fb_dur,
+                coordinates=fb_coords,
+                is_fallback=True,
+            )
+
+
 map_service = MapService()
+

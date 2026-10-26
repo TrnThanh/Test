@@ -691,3 +691,43 @@ class ContextualRecommendation {
     );
   }
 }
+
+
+class RestaurantRouteData {
+  final int restaurantId;
+  final String restaurantName;
+  final double distanceMeters;
+  final double durationSeconds;
+  final List<List<double>> rawCoordinates; // [[lon, lat], ...]
+  final bool isFallback;
+
+  RestaurantRouteData({
+    required this.restaurantId,
+    required this.restaurantName,
+    required this.distanceMeters,
+    required this.durationSeconds,
+    required this.rawCoordinates,
+    required this.isFallback,
+  });
+
+  factory RestaurantRouteData.fromJson(Map<String, dynamic> json) {
+    var rawCoords = json['coordinates'] as List? ?? [];
+    List<List<double>> coords = [];
+    for (var c in rawCoords) {
+      if (c is List && c.length >= 2) {
+        coords.add([
+          (c[0] as num).toDouble(),
+          (c[1] as num).toDouble(),
+        ]);
+      }
+    }
+    return RestaurantRouteData(
+      restaurantId: json['restaurant_id'] as int? ?? 0,
+      restaurantName: json['restaurant_name'] as String? ?? '',
+      distanceMeters: (json['distance_meters'] as num?)?.toDouble() ?? 0.0,
+      durationSeconds: (json['duration_seconds'] as num?)?.toDouble() ?? 0.0,
+      rawCoordinates: coords,
+      isFallback: json['is_fallback'] as bool? ?? false,
+    );
+  }
+}

@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/models/models.dart';
@@ -78,6 +79,26 @@ class FakeApiService extends ApiService {
         longitude: 105.8542,
       ),
     ];
+  }
+
+
+  @override
+  Future<RestaurantRouteData> getRestaurantWalkingRoute({
+    required int restaurantId,
+    required double userLat,
+    required double userLon,
+  }) async {
+    return RestaurantRouteData(
+      restaurantId: restaurantId,
+      restaurantName: 'Phở Thìn Lò Đúc',
+      distanceMeters: 850.0,
+      durationSeconds: 680.0,
+      rawCoordinates: [
+        [userLon, userLat],
+        [105.8572, 21.0185],
+      ],
+      isFallback: false,
+    );
   }
 
   @override
@@ -384,4 +405,61 @@ void main() {
     expect(find.byIcon(Icons.tune), findsOneWidget);
     expect(find.byIcon(Icons.search), findsWidgets);
   });
+
+  testWidgets('Kiểm thử Chỉ đường đi bộ trên MapScreen hiển thị nút và banner', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MapScreen(
+          api: fakeApi,
+          currentUser: null,
+          onRequireLogin: () {},
+          initialRestaurant: Restaurant(
+            id: 1,
+            name: 'Phở Cường Trâu Quỳ',
+            address: 'Trâu Quỳ, Gia Lâm, Hà Nội',
+            latitude: 21.0046,
+            longitude: 105.9387,
+            openTime: '06:00',
+            closeTime: '22:00',
+            isActive: true,
+          ),
+          initialLat: 21.0046,
+          initialLon: 105.9387,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Quán ban đầu được chọn -> nút "Chỉ đường" hiển thị
+    expect(find.text('Đường đi'), findsOneWidget);
+    expect(find.text('Thực đơn'), findsOneWidget);
+
+    // 2. Nhấn nút "Chỉ đường"
+    await tester.tap(find.text('Đường đi'));
+    await tester.pumpAndSettle();
+
+    // 3. Vì _pinnedLocation đã có toạ độ nên app lập tức gọi route và hiển thị Sheet điều hướng đi bộ Google Maps
+    expect(find.text('Đi bộ'), findsOneWidget);
+    expect(find.text('Bắt đầu'), findsOneWidget);
+    expect(find.byIcon(Icons.directions_walk), findsWidgets);
+
+    // 4. Bấm nút X trên sheet điều hướng -> trở về chi tiết quán và tuyến đường bị xóa
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(find.text('Đường đi'), findsOneWidget);
+    expect(find.text('Đi bộ'), findsNothing);
+
+    // 5. Bấm lại 'Đường đi' và test chạm vào bản đồ -> cũng xóa đường đi và quay về chi tiết quán
+    await tester.tap(find.text('Đường đi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đi bộ'), findsOneWidget);
+
+    // 5. Nút 'Chi tiết quán' trên sheet cũng xóa tuyến đường và quay về chi tiết quán
+    await tester.tap(find.text('Chi tiết quán'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đường đi'), findsOneWidget);
+    expect(find.text('Đi bộ'), findsNothing);
+  });
 }
+

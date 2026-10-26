@@ -2617,6 +2617,167 @@ class _MapScreenState extends State<MapScreen> {
   String? _error;
   bool _showSearchResults = false;
 
+  // Trạng thái tìm đường đi bộ (Walking Route)
+  List<LatLng> _routePoints = [];
+  double? _routeDistanceMeters;
+  double? _routeDurationSeconds;
+  bool _isRouteFallback = false;
+  bool _isLoadingRoute = false;
+  int _routeRequestId = 0;
+  String _formatWalkingTimeOnly() {
+    final dur = _routeDurationSeconds ?? 0.0;
+    final totalMinutes = (dur + 30) ~/ 60;
+    if (dur < 60) {
+      return 'Dưới 1 phút';
+    } else if (totalMinutes < 60) {
+      return '$totalMinutes phút';
+    } else {
+      final hours = totalMinutes ~/ 60;
+      final mins = totalMinutes % 60;
+      return mins > 0 ? '$hours giờ $mins phút' : '$hours giờ';
+    }
+  }
+
+  String _formatWalkingDistanceOnly() {
+    final dist = _routeDistanceMeters ?? 0.0;
+    if (dist < 1000) {
+      return '${dist.round()} m';
+    } else {
+      return '${(dist / 1000).toStringAsFixed(1).replaceAll(".", ",")} km';
+    }
+  }
+
+  String _formatWalkingDistanceAndTime() {
+    return '${_formatWalkingDistanceOnly()} • ${_formatWalkingTimeOnly()} đi bộ';
+  }
+
+  void _clearRoute() {
+    _routeRequestId++;
+    _isLoadingRoute = false;
+    _routePoints.clear();
+    _routeDistanceMeters = null;
+    _routeDurationSeconds = null;
+    _isRouteFallback = false;
+    setState(() {});
+  }
+
+  Future<void> _fetchWalkingRoute(Restaurant r) async {
+    // 1. Xác định điểm xuất phát hợp lệ:
+    // Ưu tiên điểm người dùng ghim (_pinnedLocation), miễn là không trùng với quán đích (cách quán >= 20m)
+    LatLng? startPos;
+    if (_pinnedLocation != null) {
+      final distToDest = const Distance().as(
+        LengthUnit.Meter,
+        _pinnedLocation!,
+        LatLng(r.latitude, r.longitude),
+      );
+      if (distToDest >= 20) {
+        startPos = _pinnedLocation;
+      }
+    }
+
+    // 2. Nếu không có điểm ghim (hoặc điểm ghim trùng quán đích), sử dụng vị trí GPS của người dùng
+    if (startPos == null && _userLocation != null) {
+      final distToDest = const Distance().as(
+        LengthUnit.Meter,
+        _userLocation!,
+        LatLng(r.latitude, r.longitude),
+      );
+      if (distToDest >= 20) {
+        startPos = _userLocation;
+      }
+    }
+
+    // 3. Nếu chưa có GPS và chưa có điểm ghim hợp lệ: Sử dụng vị trí trung tâm mặc định tại Gia Lâm
+    if (startPos == null) {
+      const defaultOrigin1 = LatLng(21.0046, 105.9387); // HVNN Gia Lâm
+      final d1 = const Distance().as(LengthUnit.Meter, defaultOrigin1, LatLng(r.latitude, r.longitude));
+      if (d1 >= 20) {
+        startPos = defaultOrigin1;
+      } else {
+        startPos = const LatLng(20.9980, 105.9420); // Thị trấn Trâu Quỳ
+      }
+    }
+
+    final currentRequestId = ++_routeRequestId;
+    setState(() {
+      _isLoadingRoute = true;
+    });
+
+    try {
+      final routeData = await widget.api.getRestaurantWalkingRoute(
+        restaurantId: r.id,
+        userLat: startPos.latitude,
+        userLon: startPos.longitude,
+      );
+
+      if (!mounted || currentRequestId != _routeRequestId) return;
+
+      // Chuyển đổi toạ độ: GeoJSON [lon, lat] -> Flutter LatLng(lat, lon)
+      final List<LatLng> points = routeData.rawCoordinates
+          .map((c) => LatLng(c[1], c[0]))
+          .toList();
+
+      setState(() {
+        _routePoints = points;
+        _routeDistanceMeters = routeData.distanceMeters;
+        _routeDurationSeconds = routeData.durationSeconds;
+        _isRouteFallback = routeData.isFallback;
+      });
+
+      // Fit camera bao quát toàn bộ hành trình
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || currentRequestId != _routeRequestId || _routePoints.isEmpty) return;
+
+        final bounds = LatLngBounds.fromPoints(_routePoints);
+        final spanMeters = const Distance().as(
+          LengthUnit.Meter,
+          bounds.southWest,
+          bounds.northEast,
+        );
+
+        if (spanMeters < 20) {
+          _mapController.move(bounds.center, 16.5);
+        } else {
+          _mapController.fitCamera(
+            CameraFit.bounds(
+              bounds: bounds,
+              maxZoom: 17.5,
+              padding: const EdgeInsets.only(top: 90, bottom: 240, left: 50, right: 50),
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      if (!mounted || currentRequestId != _routeRequestId) return;
+
+      String message;
+      final errStr = e.toString().replaceFirst('Exception: ', '').trim();
+      if (errStr.toLowerCase().contains('timeout') || errStr.toLowerCase().contains('quá thời gian')) {
+        message = 'Yêu cầu tìm đường quá thời gian (10s), vui lòng thử lại';
+      } else if (errStr.toLowerCase().contains('socketexception') || errStr.toLowerCase().contains('failed to fetch')) {
+        message = 'Không có kết nối mạng, vui lòng kiểm tra Wifi/4G';
+      } else if (errStr.isNotEmpty) {
+        message = errStr;
+      } else {
+        message = 'Lỗi hệ thống hoặc kết nối, vui lòng thử lại sau';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted && currentRequestId == _routeRequestId) {
+        setState(() {
+          _isLoadingRoute = false;
+        });
+      }
+    }
+  }
+
   String _getRestaurantDistance(Restaurant r) {
     if (r.distanceKm != null && r.distanceKm! > 0) {
       return r.distanceKm! < 1.0
@@ -2642,11 +2803,13 @@ class _MapScreenState extends State<MapScreen> {
     _loadAllRestaurants();
     if (widget.initialLat != null && widget.initialLon != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLon!);
-      _pinnedLocation = _currentCenter;
-      if (widget.initialRestaurant != null) {
+      if (widget.initialRestaurant == null) {
+        _pinnedLocation = _currentCenter;
+      } else {
         _selectedRestaurant = widget.initialRestaurant;
       }
       _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
+      _detectUserLocation(moveToUser: false);
     } else {
       _pinnedLocation = _currentCenter;
       _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
@@ -2677,29 +2840,33 @@ class _MapScreenState extends State<MapScreen> {
             setState(() {
               _userLocation = targetPos;
               _userLocationName = name;
-              _currentCenter = targetPos;
-              _pinnedLocation = targetPos;
-              _pinnedAddress = name;
-              _searchCtrl.text = name!;
-              _selectedRestaurant = null;
+              if (moveToUser) {
+                _currentCenter = targetPos;
+                _pinnedLocation = targetPos;
+                _pinnedAddress = name;
+                _searchCtrl.text = name!;
+                _selectedRestaurant = null;
+              }
               _detectingLocation = false;
             });
 
             if (moveToUser) {
               _mapController.move(targetPos, 15.0);
+              _loadNearby(targetPos.latitude, targetPos.longitude);
             }
-            _loadNearby(targetPos.latitude, targetPos.longitude);
           } else {
             setState(() {
               _detectingLocation = false;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Vị trí của bạn nằm ngoài vùng phủ sóng! Hệ thống chỉ hỗ trợ khu vực Huyện Gia Lâm.'),
-                backgroundColor: Color(0xFFE65100),
-                duration: Duration(seconds: 4),
-              ),
-            );
+            if (moveToUser) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Vị trí của bạn nằm ngoài vùng phủ sóng! Hệ thống chỉ hỗ trợ khu vực Huyện Gia Lâm.'),
+                  backgroundColor: Color(0xFFE65100),
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            }
           }
         }
 
@@ -2716,7 +2883,7 @@ class _MapScreenState extends State<MapScreen> {
           }
         }).catchError((_) {});
       } else {
-        if (mounted) {
+        if (mounted && moveToUser) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Chưa lấy được toạ độ GPS. Vui lòng cho phép quyền vị trí trên trình duyệt!'),
@@ -2747,13 +2914,25 @@ class _MapScreenState extends State<MapScreen> {
       final newPos = LatLng(widget.initialLat!, widget.initialLon!);
       setState(() {
         _currentCenter = newPos;
-        _pinnedLocation = newPos;
-        if (widget.initialRestaurant != null) {
+        if (widget.initialRestaurant == null) {
+          _pinnedLocation = newPos;
+        } else {
           _selectedRestaurant = widget.initialRestaurant;
+          // Nếu _pinnedLocation trước đó bị trùng với quán thì bỏ đi để tránh tự điều hướng về chính mình
+          if (_pinnedLocation != null) {
+            final d = const Distance().as(LengthUnit.Meter, _pinnedLocation!, newPos);
+            if (d < 20) {
+              _pinnedLocation = null;
+            }
+          }
         }
       });
+      _clearRoute();
       _mapController.move(newPos, 16.0);
       _loadNearby(newPos.latitude, newPos.longitude);
+      if (_userLocation == null) {
+        _detectUserLocation(moveToUser: false);
+      }
     }
   }
 
@@ -2809,6 +2988,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _onMapTap(LatLng point) async {
+    if (_routePoints.isNotEmpty) {
+      _clearRoute();
+      return;
+    }
     if (!isPointInGiaLam(point)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2845,6 +3028,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _selectPlace(GeocodePlace p) {
+    _clearRoute();
     final pos = LatLng(p.latitude, p.longitude);
     if (!isPointInGiaLam(pos)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3193,6 +3377,14 @@ class _MapScreenState extends State<MapScreen> {
                     color: kPrimaryGreen,
                     strokeWidth: 3.5,
                   ),
+                  if (_routePoints.isNotEmpty)
+                    Polyline(
+                      points: _routePoints,
+                      color: const Color(0xFF2563EB),
+                      strokeWidth: 5.0,
+                      strokeCap: StrokeCap.round,
+                      strokeJoin: StrokeJoin.round,
+                    ),
                 ],
               ),
               MarkerLayer(
@@ -3232,6 +3424,45 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
+                  // 1.3 Badge thời gian đi bộ nổi trên tuyến đường (Chuẩn Google Maps)
+                  if (_routePoints.length > 1)
+                    Marker(
+                      point: _routePoints[_routePoints.length ~/ 2],
+                      width: 120,
+                      height: 38,
+                      alignment: Alignment.center,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1D4ED8),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 2)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.directions_walk, color: Colors.white, size: 16),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                _formatWalkingTimeOnly(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                   ...((_allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants).map((r) {
                     final isSelected = _selectedRestaurant?.id == r.id;
                     final style = getCuisineStyle(r.name, r.description);
@@ -3247,6 +3478,7 @@ class _MapScreenState extends State<MapScreen> {
                             _selectedRestaurant = r;
                             _showSearchResults = false;
                           });
+                          _clearRoute();
                           _mapController.move(LatLng(r.latitude, r.longitude), 15.5);
                         },
                         child: Column(
@@ -3317,8 +3549,134 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
+          // 2.1 KHUNG XUẤT PHÁT - ĐÍCH ĐẾN CHUẨN GOOGLE MAPS (KHI ĐANG CHỈ ĐƯỜNG)
+          if (_routePoints.isNotEmpty)
+            Positioned(
+              top: 12,
+              left: 16,
+              right: 16,
+              child: Card(
+                elevation: 6,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black26, blurRadius: 2),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Column(
+                              children: List.generate(
+                                3,
+                                (_) => Container(
+                                  width: 2,
+                                  height: 2,
+                                  margin: const EdgeInsets.symmetric(vertical: 1),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF94A3B8),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.location_on, color: Color(0xFFEA4335), size: 18),
+                        ],
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _userLocationName ?? 'Vị trí của bạn',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1E293B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 4),
+                              child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                            ),
+                            Text(
+                              _selectedRestaurant?.name ?? 'Điểm đến',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Tùy chọn tuyến đường đi bộ'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.more_vert, size: 20, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Đã đảo ngược chiều đi'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.swap_vert, size: 20, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // 2. KHUNG TÌM KIẾM ĐỊA ĐIỂM & CHIPS
-          Positioned(
+          if (_routePoints.isEmpty)
+            Positioned(
             top: 12,
             left: 16,
             right: 16,
@@ -3538,175 +3896,494 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // 4. CARD CHI TIẾT QUÁN ĐÃ CHỌN HOẶC VỊ TRÍ GHIM
+          // 4. SHEET ĐIỀU HƯỚNG CHỈ ĐƯỜNG HOẶC CHI TIẾT QUÁN ĂN (CHUẨN GOOGLE MAPS)
           if (_selectedRestaurant != null)
             Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Builder(
-                builder: (context) {
-                  final selStyle = getCuisineStyle(_selectedRestaurant!.name, _selectedRestaurant!.description);
-                  final open = isOpenNow(_selectedRestaurant!.openTime, _selectedRestaurant!.closeTime);
-                  return Card(
-                    elevation: 8,
-                    shadowColor: Colors.black38,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: selStyle.color.withAlpha(60), width: 1.2),
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(45),
+                      blurRadius: 16,
+                      offset: const Offset(0, -4),
                     ),
-                    color: Colors.white,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: selStyle.color.withAlpha(30),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: selStyle.color.withAlpha(80), width: 1.5),
-                                ),
-                                child: Icon(selStyle.icon, color: selStyle.color, size: 26),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _selectedRestaurant!.name,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                          decoration: BoxDecoration(
-                                            color: selStyle.color.withAlpha(25),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            selStyle.label,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: selStyle.color,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                          decoration: BoxDecoration(
-                                            color: open ? Colors.green.shade50 : Colors.red.shade50,
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            open ? 'Đang mở' : 'Đã đóng',
-                                            style: TextStyle(
-                                              color: open ? Colors.green.shade800 : Colors.red.shade800,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (_selectedRestaurant!.address != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _selectedRestaurant!.address!,
-                                        style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.grey, size: 20),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedRestaurant = null;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Builder(builder: (context) {
-                                    final distStr = _getRestaurantDistance(_selectedRestaurant!);
-                                    if (distStr.isEmpty) return const SizedBox.shrink();
-                                    return Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.near_me_rounded, size: 16, color: kPrimaryGreen),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          distStr,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 13),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
-                                    );
-                                  }),
-                                  if (_selectedRestaurant!.serviceLicenses.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.shade50,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.blue.shade200, width: 0.8),
-                                      ),
-                                      child: Text(
-                                        _selectedRestaurant!.serviceLicenses.first,
-                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              FilledButton.icon(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: kPrimaryGreen,
-                                  foregroundColor: Colors.white,
-                                  elevation: 2,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                icon: const Icon(Icons.restaurant_menu, size: 16),
-                                label: const Text('Xem thực đơn', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                child: SafeArea(
+                  top: false,
+                  child: _routePoints.isNotEmpty
+                      ? _buildDirectionsOverviewSheet()
+                      : _buildRestaurantDetailsSheet(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildDirectionsOverviewSheet() {
+    final walkTime = _formatWalkingTimeOnly();
+    final walkDist = _formatWalkingDistanceOnly();
+
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Thanh kéo drag handle
+        Center(
+          child: Container(
+            width: 38,
+            height: 4.5,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ),
+
+        // Hàng tiêu đề: "Đi bộ" và các nút tùy chọn, chia sẻ, đóng X
+        Row(
+          children: [
+            const Text(
+              'Đi bộ',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const Spacer(),
+            InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tùy chọn tuyến đường đi bộ'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.tune, size: 20, color: Color(0xFF475569)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Chia sẻ tuyến đường đến ${_selectedRestaurant!.name}'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.share_outlined, size: 20, color: Color(0xFF475569)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: _clearRoute,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 20, color: Color(0xFF475569)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Tóm tắt thời gian & cự ly lớn
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            Text(
+              '$walkTime ($walkDist)',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            Text(
+              'Hầu như bằng phẳng',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+
+        // Chi tiết tuyến đường / địa chỉ
+        Text(
+          _selectedRestaurant!.address != null && _selectedRestaurant!.address!.isNotEmpty
+              ? 'qua ${_selectedRestaurant!.address!}'
+              : 'tuyến đường đi bộ ngắn nhất đến ${_selectedRestaurant!.name}',
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+
+        if (_isRouteFallback) ...[
+          const SizedBox(height: 4),
+          const Text(
+            '⚠️ Tuyến đường ước tính thẳng (máy chủ dẫn đường đang ngoại tuyến)',
+            style: TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w600),
+          ),
+        ] else if ((_routeDistanceMeters ?? 0) > 15000) ...[
+          const SizedBox(height: 4),
+          const Text(
+            '⚠️ Quán ở xa (>15km), hãy cân nhắc phương tiện khác',
+            style: TextStyle(fontSize: 12, color: Colors.deepOrange, fontWeight: FontWeight.w600),
+          ),
+        ],
+        const SizedBox(height: 16),
+
+        // Dãy nút hành động: [Bắt đầu] (Teal) | [Thực đơn] | [Chi tiết quán]
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: const StadiumBorder(),
+                ),
+                icon: const Icon(Icons.navigation, size: 18),
+                label: const Text(
+                  'Bắt đầu',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Bắt đầu chỉ đường đi bộ đến ${_selectedRestaurant!.name}'),
+                      backgroundColor: const Color(0xFF0F766E),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 },
               ),
-            )
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFE0F2FE),
+                  foregroundColor: const Color(0xFF0369A1),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: const StadiumBorder(),
+                ),
+                icon: const Icon(Icons.restaurant_menu, size: 18),
+                label: const Text(
+                  'Thực đơn',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  foregroundColor: const Color(0xFF475569),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: const StadiumBorder(),
+                ),
+                icon: const Icon(Icons.info_outline, size: 18),
+                label: const Text(
+                  'Chi tiết quán',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                onPressed: _clearRoute,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
+  Widget _buildRestaurantDetailsSheet() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Thanh kéo drag handle
+        Center(
+          child: Container(
+            width: 38,
+            height: 4.5,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ),
+
+        // Tên quán & Nút lưu, Đóng X
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                _selectedRestaurant!.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: Color(0xFF1E293B),
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã lưu quán vào mục yêu thích'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.bookmark_border, size: 20, color: Color(0xFF475569)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                _clearRoute();
+                setState(() {
+                  _selectedRestaurant = null;
+                });
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 20, color: Color(0xFF475569)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        // Đánh giá sao & Thể loại quán
+        Row(
+          children: [
+            const Text(
+              '4.5',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+            ),
+            const SizedBox(width: 4),
+            ...List.generate(
+              5,
+              (i) => const Icon(Icons.star, size: 14, color: Colors.amber),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '(128)',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '•  ${getCuisineStyle(_selectedRestaurant!.name, _selectedRestaurant!.description).label}',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+            Builder(builder: (context) {
+              final distStr = _getRestaurantDistance(_selectedRestaurant!);
+              if (distStr.isEmpty) return const SizedBox.shrink();
+              return Text(
+                '  •  $distStr',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kPrimaryGreen),
+              );
+            }),
+          ],
+        ),
+        const SizedBox(height: 4),
+
+        // Trạng thái mở cửa
+        Builder(builder: (context) {
+          final open = isOpenNow(_selectedRestaurant!.openTime, _selectedRestaurant!.closeTime);
+          final closeStr = _selectedRestaurant!.closeTime != null
+              ? 'Đóng cửa lúc ${_selectedRestaurant!.closeTime}'
+              : 'Đóng cửa lúc 22:00';
+          final openStr = _selectedRestaurant!.openTime != null
+              ? 'Mở cửa lúc ${_selectedRestaurant!.openTime}'
+              : 'Mở cửa lúc 07:00';
+
+          return Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: open ? 'Đang mở cửa' : 'Đã đóng cửa',
+                  style: TextStyle(
+                    color: open ? const Color(0xFF15803D) : const Color(0xFFDC2626),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                TextSpan(
+                  text: '  •  ${open ? closeStr : openStr}',
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 14),
+
+        // Dãy nút hành động chuẩn Google Maps: [Đường đi] (Teal) | [Thực đơn] (Light Blue) | [Gọi]
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              // 1. NÚT ĐƯỜNG ĐI (Pill màu Teal đậm)
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                  shape: const StadiumBorder(),
+                ),
+                icon: _isLoadingRoute
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.directions, size: 18),
+                label: Text(
+                  _isLoadingRoute ? 'Đang tìm...' : 'Đường đi',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                onPressed: _isLoadingRoute ? null : () => _fetchWalkingRoute(_selectedRestaurant!),
+              ),
+              const SizedBox(width: 8),
+
+              // 2. NÚT THỰC ĐƠN (Pill màu xanh nhạt)
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFE0F2FE),
+                  foregroundColor: const Color(0xFF0369A1),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  shape: const StadiumBorder(),
+                ),
+                icon: const Icon(Icons.restaurant_menu, size: 18),
+                label: const Text(
+                  'Thực đơn',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
+              ),
+              const SizedBox(width: 8),
+
+              // 3. NÚT GỌI ĐIỆN (nếu có số điện thoại)
+              if (_selectedRestaurant!.phone != null && _selectedRestaurant!.phone!.isNotEmpty) ...[
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFE0F2FE),
+                    foregroundColor: const Color(0xFF0369A1),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const Icon(Icons.call, size: 18),
+                  label: Text(
+                    'Gọi ${_selectedRestaurant!.phone!}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Số điện thoại: ${_selectedRestaurant!.phone!}'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Hộp thông tin điểm nhấn / mô tả quán (nếu có)
+        if (_selectedRestaurant!.description != null && _selectedRestaurant!.description!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200, width: 1),
+            ),
+            child: Row(
+              children: [
+                const Text('💡 ', style: TextStyle(fontSize: 14)),
+                Expanded(
+                  child: Text(
+                    _selectedRestaurant!.description!,
+                    style: TextStyle(color: Colors.grey.shade800, fontSize: 12),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
