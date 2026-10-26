@@ -42,7 +42,6 @@ erDiagram
         string budget_range "Khung ngân sách: budget, moderate..."
         boolean is_onboarded "Đã hoàn thành khảo sát (Default: false)"
         timestamp onboarded_at "Thời điểm hoàn thành khảo sát (UTC)"
-        boolean is_active "Trạng thái kích hoạt (Default: true)"
         timestamp created_at "Thời điểm tạo tài khoản (UTC)"
         timestamp updated_at "Thời điểm cập nhật hồ sơ (UTC)"
     }
@@ -186,7 +185,6 @@ Model ORM: `server/app/models/user.py` kế thừa `AccountMixin`. Bảng tích 
 | `budget_range` | `VARCHAR(20)` | `NULLABLE`, `budget / moderate / premium` | Khung chi tiêu ẩm thực |
 | `is_onboarded` | `BOOLEAN` | `NOT NULL`, Default: `FALSE` | Trạng thái hoàn thành khảo sát ban đầu |
 | `onboarded_at` | `TIMESTAMP WITH TIME ZONE` | `NULLABLE` | Thời điểm hoàn thành khảo sát (UTC) |
-| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt tài khoản |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian đăng ký (UTC) |
 | `updated_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian cập nhật gần nhất (UTC) |
 
@@ -422,7 +420,6 @@ CREATE TABLE IF NOT EXISTS users (
     budget_range VARCHAR(20) DEFAULT NULL,
     is_onboarded BOOLEAN NOT NULL DEFAULT FALSE,
     onboarded_at TIMESTAMPTZ DEFAULT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT ck_users_height CHECK (height_cm IS NULL OR (height_cm >= 50 AND height_cm <= 260)),

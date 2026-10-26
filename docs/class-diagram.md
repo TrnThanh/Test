@@ -45,7 +45,6 @@ classDiagram
         +str email
         +str password_hash
         +str full_name
-        +bool is_active
         +float height_cm
         +float weight_kg
         +str gender
@@ -349,7 +348,6 @@ classDiagram
   - `+email: str`: Email đăng nhập (Unique Index).
   - `+password_hash: str`: Mật khẩu băm an toàn PBKDF2-HMAC-SHA256 (100.000 rounds).
   - `+full_name: str`: Họ và tên người dùng.
-  - `+is_active: bool`: Cờ trạng thái kích hoạt tài khoản.
   - `+height_cm: float`: Chiều cao cơ thể (cm).
   - `+weight_kg: float`: Cân nặng cơ thể (kg).
   - `+gender: str`: Giới tính (`male`, `female`, `other`).
