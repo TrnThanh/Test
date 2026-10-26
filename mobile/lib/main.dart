@@ -1988,7 +1988,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                           children: [
                                             Flexible(
                                               child: Text(
-                                                'Đổi rồi, khám phá thôi!',
+                                                'Đói rồi, khám phá thôi!',
                                                 style: TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w900,
@@ -2639,6 +2639,318 @@ class _MapScreenState extends State<MapScreen> {
   }
   double _currentZoom = 14.0;
 
+  LatLngBounds? get _visibleBounds {
+    try {
+      return _mapController.camera.visibleBounds;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isRestaurantInVisibleBounds(Restaurant r, LatLngBounds? bounds) {
+    if (bounds == null) return true;
+    final lat = r.latitude;
+    final lon = r.longitude;
+    // Buffer mở rộng 0.005 độ (~550m) ra ngoài viền màn hình để cuộn mượt
+    return lat >= (bounds.south - 0.005) &&
+           lat <= (bounds.north + 0.005) &&
+           lon >= (bounds.west - 0.005) &&
+           lon <= (bounds.east + 0.005);
+  }
+
+  Offset? _getScreenOffset(LatLng point) {
+    try {
+      return _mapController.camera.latLngToScreenOffset(point);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _hasIconCollision(Offset pos, List<Offset> placed, double minDistance) {
+    final minSq = minDistance * minDistance;
+    for (final p in placed) {
+      final dx = pos.dx - p.dx;
+      final dy = pos.dy - p.dy;
+      if (dx * dx + dy * dy < minSq) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _hasLabelCollision(Offset pos, List<Offset> placedLabels) {
+    for (final p in placedLabels) {
+      final dx = (pos.dx - p.dx).abs();
+      final dy = (pos.dy - p.dy).abs();
+      if (dx < 75.0 && dy < 28.0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<Marker> _buildVisibleRestaurantMarkers() {
+    final bounds = _visibleBounds;
+    final isRouting = _isLoadingRoute || _routePoints.isNotEmpty;
+
+    if (isRouting) {
+      if (_selectedRestaurant != null) {
+        return [_buildRestaurantMarker(_selectedRestaurant!, isSelected: true, showLabel: true)];
+      }
+      return [];
+    }
+
+    final rawList = (_allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants)
+        .where((r) => _restaurantMatchesCategory(r, _selectedCategory));
+
+    final inViewSponsors = <Restaurant>[];
+    final inViewRegulars = <Restaurant>[];
+    Restaurant? inViewSelected;
+
+    for (final r in rawList) {
+      final isSelected = _selectedRestaurant?.id == r.id;
+      if (isSelected) {
+        inViewSelected = r;
+        continue;
+      }
+      if (!_isRestaurantInVisibleBounds(r, bounds)) {
+        continue;
+      }
+      if (r.isSponsor) {
+        inViewSponsors.add(r);
+      } else {
+        inViewRegulars.add(r);
+      }
+    }
+
+    final markers = <Marker>[];
+    final placedIconOffsets = <Offset>[];
+    final placedLabelOffsets = <Offset>[];
+
+    // 1. Quán đang chọn (Ưu tiên tuyệt đối): Luôn vẽ cả Icon và Tên
+    final selectedTarget = inViewSelected ?? _selectedRestaurant;
+    if (selectedTarget != null) {
+      markers.add(_buildRestaurantMarker(selectedTarget, isSelected: true, showLabel: true));
+      final pos = _getScreenOffset(LatLng(selectedTarget.latitude, selectedTarget.longitude));
+      if (pos != null) {
+        placedIconOffsets.add(pos);
+        placedLabelOffsets.add(pos);
+      }
+    }
+
+    // Khoảng cách tối thiểu giữa 2 icon trên màn hình (chống đè chùm icon):
+    final minIconDistance = _currentZoom >= 17.5 ? 28.0 : 38.0;
+
+    // 2. Quán Sponsor (xuất hiện làm mốc mỏ neo, tự động chống đè icon):
+    for (final r in inViewSponsors) {
+      final pos = _getScreenOffset(LatLng(r.latitude, r.longitude));
+      if (pos != null && _hasIconCollision(pos, placedIconOffsets, minIconDistance)) {
+        continue; // Bị đè chùm với icon đã có -> bỏ qua
+      }
+
+      // Quyết định hiện tên: Zoom >= 14.2 VÀ không đè chữ với nhãn khác
+      bool showLabel = false;
+      if (_currentZoom >= 14.2) {
+        if (pos == null || !_hasLabelCollision(pos, placedLabelOffsets)) {
+          showLabel = true;
+        }
+      }
+
+      markers.add(_buildRestaurantMarker(r, isSelected: false, showLabel: showLabel));
+      if (pos != null) {
+        placedIconOffsets.add(pos);
+        if (showLabel) placedLabelOffsets.add(pos);
+      }
+    }
+
+    // 3. Quán Thường (xuất hiện từ zoom >= 15.0):
+    if (_currentZoom >= 15.0) {
+      final centerLat = _currentCenter.latitude;
+      final centerLon = _currentCenter.longitude;
+      inViewRegulars.sort((a, b) {
+        final da = (a.latitude - centerLat) * (a.latitude - centerLat) + (a.longitude - centerLon) * (a.longitude - centerLon);
+        final db = (b.latitude - centerLat) * (b.latitude - centerLat) + (b.longitude - centerLon) * (b.longitude - centerLon);
+        return da.compareTo(db);
+      });
+
+      for (final r in inViewRegulars) {
+        final pos = _getScreenOffset(LatLng(r.latitude, r.longitude));
+        // Chống đè icon: Không cho phép 2 icon nằm gần nhau dưới minIconDistance
+        if (pos != null && _hasIconCollision(pos, placedIconOffsets, minIconDistance)) {
+          continue;
+        }
+
+        // Quyết định hiện tên: Zoom >= 15.6 VÀ không đè chữ với nhãn khác
+        bool showLabel = false;
+        if (_currentZoom >= 15.6) {
+          if (pos == null || !_hasLabelCollision(pos, placedLabelOffsets)) {
+            showLabel = true;
+          }
+        }
+
+        markers.add(_buildRestaurantMarker(r, isSelected: false, showLabel: showLabel));
+        if (pos != null) {
+          placedIconOffsets.add(pos);
+          if (showLabel) placedLabelOffsets.add(pos);
+        }
+      }
+    }
+
+    return markers;
+  }
+
+  Marker _buildRestaurantMarker(Restaurant r, {required bool isSelected, required bool showLabel}) {
+    final style = getCuisineStyle(r.name, r.description);
+    return Marker(
+      point: LatLng(r.latitude, r.longitude),
+      width: isSelected ? 120 : (showLabel ? 96 : 36),
+      height: isSelected ? 72 : (showLabel ? 58 : 36),
+      alignment: Alignment.center,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedRestaurant = r;
+            _showSearchResults = false;
+          });
+          _clearRoute();
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected)
+              AnimatedScale(
+                scale: 1.15,
+                duration: const Duration(milliseconds: 200),
+                child: SizedBox(
+                  width: 36,
+                  height: 40,
+                  child: Stack(
+                    alignment: Alignment.topCenter,
+                    children: [
+                      Positioned(
+                        bottom: 1,
+                        child: Container(
+                          width: 12,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.all(Radius.elliptical(12, 4)),
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.location_on,
+                        color: Color(0xFFEA4335),
+                        size: 38,
+                      ),
+                      Positioned(
+                        top: 9,
+                        child: Container(
+                          width: 9,
+                          height: 9,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF7A0909),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (r.isSponsor)
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: showLabel ? 32 : 28,
+                    height: showLabel ? 32 : 28,
+                    decoration: BoxDecoration(
+                      color: style.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFF59E0B), width: 2.0),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x66F59E0B),
+                          blurRadius: 4,
+                          offset: Offset(0, 1.5),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      style.icon,
+                      color: Colors.white,
+                      size: showLabel ? 16 : 14,
+                    ),
+                  ),
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF59E0B),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.star, color: Colors.white, size: 8),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Container(
+                width: showLabel ? 28 : 24,
+                height: showLabel ? 28 : 24,
+                decoration: BoxDecoration(
+                  color: style.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 3,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  style.icon,
+                  color: Colors.white,
+                  size: showLabel ? 15 : 13,
+                ),
+              ),
+            if (showLabel) ...[
+              const SizedBox(height: 2),
+              Flexible(
+                child: Text(
+                  r.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: isSelected ? 11 : 9.5,
+                    fontWeight: (isSelected || r.isSponsor) ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected
+                        ? const Color(0xFFB45309)
+                        : (r.isSponsor ? const Color(0xFF92400E) : const Color(0xFF202124)),
+                    height: 1.15,
+                    shadows: const [
+                      Shadow(offset: Offset(-1.2, -1.2), color: Colors.white, blurRadius: 1.5),
+                      Shadow(offset: Offset(1.2, -1.2), color: Colors.white, blurRadius: 1.5),
+                      Shadow(offset: Offset(1.2, 1.2), color: Colors.white, blurRadius: 1.5),
+                      Shadow(offset: Offset(-1.2, 1.2), color: Colors.white, blurRadius: 1.5),
+                      Shadow(offset: Offset(0, 0), color: Colors.white, blurRadius: 3),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   bool _loading = false;
   String? _error;
   bool _showSearchResults = false;
@@ -2963,7 +3275,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadAllRestaurants() async {
     try {
-      final list = await widget.api.getRestaurants(limit: 200);
+      final list = await widget.api.getRestaurants(limit: 500);
       if (mounted) {
         final giaLamOnly = list.where((r) => isPointInGiaLam(LatLng(r.latitude, r.longitude))).toList();
         setState(() {
@@ -3356,16 +3668,27 @@ class _MapScreenState extends State<MapScreen> {
               initialCenter: _currentCenter,
               initialZoom: 14.0,
               minZoom: 11.5,
-              maxZoom: 18.0,
+              maxZoom: 20.0,
               cameraConstraint: CameraConstraint.containCenter(
                 bounds: giaLamBounds,
               ),
               onPositionChanged: (pos, hasGesture) {
                 final z = pos.zoom;
-                if ((z - _currentZoom).abs() >= 0.2) {
+                final c = pos.center;
+                if (!hasGesture) {
+                  // Vừa thả ngón tay hoặc kết thúc gesture: cập nhật ngay tức thì
                   setState(() {
                     _currentZoom = z;
+                    _currentCenter = c;
                   });
+                } else {
+                  // Trong lúc đang chạm vuốt: chỉ setState khi zoom lệch lớn (>= 0.6) để giữ 60fps mượt mà
+                  if ((z - _currentZoom).abs() >= 0.6) {
+                    setState(() {
+                      _currentZoom = z;
+                      _currentCenter = c;
+                    });
+                  }
                 }
               },
               onTap: (tapPosition, point) => _onMapTap(point),
@@ -3376,6 +3699,8 @@ class _MapScreenState extends State<MapScreen> {
                 subdomains: const ['a', 'b', 'c'],
                 userAgentPackageName: 'com.ptc1.mobile',
                 tileBounds: giaLamBounds,
+                maxNativeZoom: 19,
+                maxZoom: 20.0,
               ),
               // 1.1 LOP MAT NA CAT MIENG BANH GIA LAM - CHE PHU VINH VIEN 100% CAC VUNG NGOAI
               PolygonLayer(
@@ -3488,91 +3813,8 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
 
-                  ...((_isLoadingRoute || _routePoints.isNotEmpty
-                          ? (_selectedRestaurant != null ? [_selectedRestaurant!] : <Restaurant>[])
-                          : (_allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants)
-                              .where((r) => _restaurantMatchesCategory(r, _selectedCategory)))
-                      .map((r) {
-                    final isSelected = _selectedRestaurant?.id == r.id;
-                    final style = getCuisineStyle(r.name, r.description);
-                    final showLabel = isSelected || _currentZoom >= 14.0;
-                    return Marker(
-                      point: LatLng(r.latitude, r.longitude),
-                      width: isSelected ? 120 : (showLabel ? 92 : 38),
-                      height: isSelected ? 72 : (showLabel ? 56 : 38),
-                      alignment: Alignment.center,
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedRestaurant = r;
-                            _showSearchResults = false;
-                          });
-                          _clearRoute();
-                          _mapController.move(LatLng(r.latitude, r.longitude), 15.5);
-                        },
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AnimatedScale(
-                              scale: isSelected ? 1.25 : 1.0,
-                              duration: const Duration(milliseconds: 200),
-                              child: Container(
-                                width: isSelected ? 40 : 32,
-                                height: isSelected ? 40 : 32,
-                                decoration: BoxDecoration(
-                                  color: isSelected ? Colors.amber.shade800 : style.color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: isSelected ? 2.5 : 1.8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: (isSelected ? Colors.amber.shade900 : style.color).withAlpha(120),
-                                      blurRadius: isSelected ? 8 : 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  style.icon,
-                                  color: Colors.white,
-                                  size: isSelected ? 22 : 17,
-                                ),
-                              ),
-                            ),
-                            if (showLabel) ...[
-                              const SizedBox(height: 2),
-                              Flexible(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? Colors.black87 : Colors.white.withAlpha(240),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: isSelected ? Colors.amber.shade700 : style.color.withAlpha(140),
-                                      width: 1,
-                                    ),
-                                    boxShadow: const [
-                                      BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1)),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    r.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: isSelected ? 11 : 9.5,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                      color: isSelected ? Colors.white : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  })),
+                  // Hiển thị danh sách quán ăn theo viewport và chống đè marker
+                  ..._buildVisibleRestaurantMarkers(),
                 ],
               ),
             ],
@@ -4250,14 +4492,6 @@ class _MapScreenState extends State<MapScreen> {
               '•  ${getCuisineStyle(_selectedRestaurant!.name, _selectedRestaurant!.description).label}',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
-            Builder(builder: (context) {
-              final distStr = _getRestaurantDistance(_selectedRestaurant!);
-              if (distStr.isEmpty) return const SizedBox.shrink();
-              return Text(
-                '  •  $distStr',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kPrimaryGreen),
-              );
-            }),
           ],
         ),
         const SizedBox(height: 4),

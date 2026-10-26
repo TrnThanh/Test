@@ -462,5 +462,21 @@ void main() {
     expect(find.text('Đường đi'), findsOneWidget);
     expect(find.text('Đi bộ'), findsNothing);
   });
-}
 
+  testWidgets('Kiểm thử Cụm ẩm thực LOD và Viewport Culling trên MapScreen', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MapScreen(
+          api: fakeApi,
+          currentUser: null,
+          onRequireLogin: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
+  });
+}
