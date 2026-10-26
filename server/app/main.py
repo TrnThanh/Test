@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
             conn.execute(text("ALTER TABLE IF EXISTS restaurants DROP COLUMN IF EXISTS seller_id CASCADE;"))
             conn.execute(text("DROP TABLE IF EXISTS sellers CASCADE;"))
+            conn.execute(text("DROP TABLE IF EXISTS user_profiles CASCADE;"))
             conn.execute(text("ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS open_time TIME;"))
             conn.execute(text("ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS close_time TIME;"))
             conn.execute(text("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS height_cm DOUBLE PRECISION DEFAULT NULL;"))

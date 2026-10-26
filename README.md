@@ -12,6 +12,7 @@ Dự án cung cấp script tự động 1-click cài đặt đầy đủ từ A-
 - **PostGIS 3.6.1 Spatial Extension**
 - **Flutter 3.44.9 (Dart 3.12.2 Mobile SDK)**
 - Khởi tạo Database `ptc1_db` và `ptc1_test_db` kèm PostGIS extension
+- Tự động nạp dữ liệu đầy đủ (204 quán ăn, 775 món ăn, danh mục, thời tiết) từ `scripts/database_dump.sql`
 - Khởi tạo file `.env`, môi trường ảo `.venv` và cài đặt `server/requirements.txt`
 - Chạy toàn bộ 36 tests backend + Flutter widget tests tự động kiểm thử
 
@@ -31,6 +32,8 @@ Dự án cung cấp các file batch khởi chạy 1-click chuẩn hoá:
 - **Backend FastAPI**: Click đúp file **`CHAY_SERVER.bat`** (Khởi chạy FastAPI tại [http://localhost:8001](http://localhost:8001) và tự mở Swagger UI).
 - **Web Frontend (Vue 3 + Vite)**: Click đúp file **`CHAY_WEB.bat`** (Khởi chạy Vite tại [http://localhost:5173](http://localhost:5173) và tự mở trình duyệt).
 - **Mobile Client (Flutter Web)**: Click đúp file **`CHAY_MOBILE.bat`** (Khởi chạy Flutter Chrome tại [http://localhost:3000](http://localhost:3000)).
+- **Nạp Database từ File Dự Án (1-Click Restore)**: Click đúp file **`NAP_DATABASE.bat`** (Tự động nạp toàn bộ dữ liệu từ `scripts/database_dump.sql` vào `ptc1_db`).
+- **Xuất Database ra File Dự Án (1-Click Dump)**: Click đúp file **`XUAT_DATABASE.bat`** (Trích xuất toàn bộ dữ liệu mới nhất trên máy vào `scripts/database_dump.sql` để commit lên Git).
 
 ### Khởi chạy thủ công qua dòng lệnh:
 ```powershell

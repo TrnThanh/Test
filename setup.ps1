@@ -250,6 +250,13 @@ Print-Info "Kich hoat PostGIS tren ptc1_test_db..."
 Execute-Sql "ptc1_test_db" "CREATE EXTENSION IF NOT EXISTS postgis;"
 Print-Success "Kich hoat extension PostGIS thanh cong tren ca 2 CSDL."
 
+$dumpFile = "$ProjectRoot\scripts\database_dump.sql"
+if (Test-Path $dumpFile) {
+    Print-Info "Dang tu dong nap du lieu du an tu scripts\database_dump.sql..."
+    & "$psqlPath" -h localhost -p 5432 -U postgres -d ptc1_db -q -f "$dumpFile" 2>$null
+    Print-Success "Da nap thanh cong toan bo du lieu khoi tao vao ptc1_db."
+}
+
 # ------------------------------------------------------------------------------
 # BUOC 5: CAU HINH FILE MOI TRUONG (.env)
 # ------------------------------------------------------------------------------
