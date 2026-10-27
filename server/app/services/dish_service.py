@@ -167,6 +167,8 @@ class DishService:
                 dish.category_id = cat_id
             else:
                 dish.category_id = None
+                if "category" not in update_data or not update_data["category"]:
+                    dish.category = None
 
         for key, value in update_data.items():
             if key in ["category_id"]:

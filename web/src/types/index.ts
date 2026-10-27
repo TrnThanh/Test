@@ -140,3 +140,26 @@ export interface AdminUser {
   is_active: boolean;
   created_at: string;
 }
+
+export interface UserProfile {
+  id: number;
+  user_id: number;
+  full_name?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  birth_year?: number | null;
+  activity_level?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
+  target_goal?: 'maintain' | 'lose_weight' | 'gain_muscle' | 'eat_healthy' | null;
+  favorite_category_ids?: number[];
+  dietary_preferences?: string[];
+  spicy_tolerance?: 'none' | 'mild' | 'medium' | 'hot' | null;
+  allergies?: string[];
+  budget_range?: 'budget' | 'moderate' | 'premium' | null;
+  is_onboarded: boolean;
+  onboarded_at?: string | null;
+  bmi?: number | null;
+  bmi_category?: 'underweight' | 'normal' | 'overweight' | 'obese' | null;
+  created_at: string;
+  updated_at: string;
+}

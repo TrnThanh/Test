@@ -1,4 +1,4 @@
-import type { Restaurant, GeocodePlace, RoleLoginResponse, SystemStats, AdminUser } from '../types';
+import type { Restaurant, GeocodePlace, RoleLoginResponse, SystemStats, AdminUser, UserProfile } from '../types';
 
 const API_BASE = 'http://localhost:8001/api/v1';
 
@@ -85,6 +85,15 @@ export const api = {
 
   getAdminUsers: () =>
     request<AdminUser[]>('/admin/users'),
+  getUserProfile: (userId: number) =>
+    request<UserProfile>(`/users/${userId}/profile`),
+
+  updateUserProfile: (userId: number, data: any) =>
+    request<UserProfile>(`/users/${userId}/profile`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
 
   toggleRestaurantStatus: (restaurantId: number, isActive: boolean) =>
     request<Restaurant>(`/admin/restaurants/${restaurantId}/status`, {
@@ -308,6 +317,28 @@ export const api = {
 
   deleteUserCategoryOption: (userId: number, optionId: number) =>
     request<void>(`/users/${userId}/options/${optionId}`, {
+      method: 'DELETE',
+    }),
+  // --- WEATHER & WEATHER-CATEGORY RULES ---
+  getAllWeathers: (activeOnly: boolean = false) =>
+    request<import('../types').Weather[]>(`/weather?active_only=${activeOnly}`),
+
+  createWeather: (data: Partial<import('../types').Weather>) =>
+    request<import('../types').Weather>('/weather', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getCategoriesByWeather: (weatherId: number) =>
+    request<import('../types').Category[]>(`/weather-categories/weathers/${weatherId}/categories`),
+
+  linkWeatherCategory: (weatherId: number, categoryId: number) =>
+    request<any>(`/weather-categories/weathers/${weatherId}/categories/${categoryId}`, {
+      method: 'POST',
+    }),
+
+  unlinkWeatherCategory: (weatherId: number, categoryId: number) =>
+    request<any>(`/weather-categories/weathers/${weatherId}/categories/${categoryId}`, {
       method: 'DELETE',
     }),
 };
