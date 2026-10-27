@@ -159,9 +159,9 @@ def run_detailed_workflows():
             page_web.screenshot(path=os.path.join(screenshots_dir, "04_admin_menu_master.png"))
 
             # 2.6 Chuyển sang Tab "Thực khách" & Kiểm tra hồ sơ người dùng
-            page_web.locator(".nav-tab", has_text="Thực khách").click()
+            page_web.locator(".nav-tab", has_text="Người dùng").click()
             page_web.wait_for_timeout(1500)
-            print("  ✓ 2.6 Đã chuyển sang tab Quản lý Thực khách.")
+            print("  ✓ 2.6 Đã chuyển sang tab Quản lý Người dùng.")
             user_table_text = page_web.locator(".data-table").inner_text()
             print(f"  ✓ 2.6.1 Bảng dữ liệu thực khách hiển thị đầy đủ tài khoản (tìm thấy email vừa đăng ký).")
             page_web.screenshot(path=os.path.join(screenshots_dir, "05_admin_users_table.png"))

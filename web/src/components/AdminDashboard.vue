@@ -558,7 +558,7 @@ onMounted(() => {
             :class="{ active: currentTab === 'accounts' }"
             @click="currentTab = 'accounts'; loadAccounts()"
           >
-            Thực khách
+            Người dùng
             <span class="tab-badge">{{ users.length }}</span>
           </button>
         </nav>
@@ -624,7 +624,7 @@ onMounted(() => {
           </div>
 
           <div class="kpi-box">
-            <span class="kpi-label">Thực khách đăng ký</span>
+            <span class="kpi-label">Người dùng đăng ký</span>
             <div class="kpi-num">{{ stats?.total_users ?? users.length }}</div>
             <div class="kpi-footnote">Tài khoản Mobile App</div>
           </div>
@@ -1030,8 +1030,8 @@ onMounted(() => {
       <section v-else-if="currentTab === 'accounts'" class="view-panel">
         <div class="view-header">
           <div>
-            <h1 class="view-title">Tài khoản thực khách</h1>
-            <p class="view-desc">Danh sách tài khách hàng đã đăng ký sử dụng ứng dụng di động PTC1</p>
+            <h1 class="view-title">Tài khoản người dùng</h1>
+            <p class="view-desc">Danh sách người dùng đã đăng ký sử dụng ứng dụng di động PTC1</p>
           </div>
           <button
             type="button"
@@ -1065,16 +1065,13 @@ onMounted(() => {
           <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 50px;">#</th>
                 <th>Người dùng</th>
                 <th>Họ và tên</th>
                 <th>Ngày tạo tài khoản</th>
-                <th>Trạng thái</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="u in filteredUsers" :key="u.id">
-                <td class="text-sub">#{{ u.id }}</td>
                 <td>
                   <div class="rest-title-cell">
                     <div class="user-avatar-circle">{{ (u.full_name || u.email).charAt(0).toUpperCase() }}</div>
@@ -1085,11 +1082,6 @@ onMounted(() => {
                 </td>
                 <td>{{ u.full_name || '—' }}</td>
                 <td class="text-sub">{{ new Date(u.created_at).toLocaleString('vi-VN') }}</td>
-                <td>
-                  <span :class="['status-dot-badge', u.is_active ? 'active' : 'inactive']">
-                    {{ u.is_active ? 'Hoạt động' : 'Bị khóa' }}
-                  </span>
-                </td>
               </tr>
             </tbody>
           </table>

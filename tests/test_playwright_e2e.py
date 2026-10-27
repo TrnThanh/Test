@@ -120,11 +120,11 @@ def run_e2e_tests():
             print(f"  ✓ Chuyển tab Thực đơn thành công: {screenshot_menu}")
 
             # Chuyển tab Thực khách
-            page_web.locator(".nav-tab", has_text="Thực khách").click()
+            page_web.locator(".nav-tab", has_text="Người dùng").click()
             page_web.wait_for_timeout(1000)
             screenshot_users = os.path.join(screenshots_dir, "web_admin_users.png")
             page_web.screenshot(path=screenshot_users)
-            print(f"  ✓ Chuyển tab Thực khách thành công: {screenshot_users}")
+            print(f"  ✓ Chuyển tab Người dùng thành công: {screenshot_users}")
 
             results.append(("Web Admin Portal", "PASS", f"Login, KPIs ({stats_text[:30]}...), Tabs 100% OK"))
         except Exception as e:
