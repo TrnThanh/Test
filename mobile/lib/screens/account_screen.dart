@@ -52,8 +52,66 @@ class _AccountScreenState extends State<AccountScreen> {
     try {
       final p = await widget.api.getUserProfile(widget.currentUser!.id);
       if (mounted) setState(() => _profile = p);
-    } catch (_) {}
-    if (mounted) setState(() => _loadingProfile = false);
+    } catch (err) {
+      debugPrint('Error loading user profile: $err');
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
+  }
+
+  String _formatBmiCategory(String? cat, double? bmi) {
+    if (cat == 'underweight' || (bmi != null && bmi < 18.5)) return 'Hơi gầy';
+    if (cat == 'normal' || (bmi != null && bmi < 23.0)) return 'Chuẩn dáng';
+    if (cat == 'overweight' || (bmi != null && bmi < 25.0)) return 'Thừa cân';
+    if (cat == 'obese' || (bmi != null && bmi >= 25.0)) return 'Thừa cân';
+    return 'Chuẩn dáng';
+  }
+
+  String _formatDietaryLabel(String tag) {
+    final key = tag.trim().toLowerCase();
+    const map = {
+      'clean_eating': 'Ăn sạch',
+      'eat_clean': 'Ăn sạch',
+      'eat clean': 'Ăn sạch',
+      'healthy': 'Ăn lành mạnh',
+      'eat_healthy': 'Ăn lành mạnh',
+      'low_carb': 'Ít tinh bột',
+      'low-carb': 'Ít tinh bột',
+      'keto': 'Keto',
+      'vegetarian': 'Ăn chay',
+      'vegan': 'Thuần chay',
+      'high_protein': 'Nhiều đạm',
+      'nhiều protein': 'Nhiều đạm',
+      'less_oil': 'Ít dầu mỡ',
+      'ít dầu mỡ': 'Ít dầu mỡ',
+      'low_fat': 'Ít chất béo',
+      'light': 'Ăn thanh đạm',
+      'ăn thanh đạm': 'Ăn thanh đạm',
+      'gluten_free': 'Không gluten',
+      'dairy_free': 'Không chứa sữa',
+      'organic': 'Hữu cơ',
+      'halal': 'Halal',
+      'kosher': 'Kosher',
+    };
+    return map[key] ?? tag.replaceAll('_', ' ');
+  }
+
+  String _formatAllergyLabel(String alg) {
+    final key = alg.trim().toLowerCase();
+    const map = {
+      'seafood': 'Hải sản',
+      'peanut': 'Đậu phộng',
+      'peanuts': 'Đậu phộng',
+      'egg': 'Trứng',
+      'eggs': 'Trứng',
+      'milk': 'Sữa bò',
+      'dairy': 'Chế phẩm sữa',
+      'gluten': 'Gluten',
+      'wheat': 'Lúa mì',
+      'soy': 'Đậu nành',
+      'soybean': 'Đậu nành',
+    };
+    return map[key] ?? alg.replaceAll('_', ' ');
   }
 
   void _openAuthSheet({bool isRegister = false, VoidCallback? onSuccess}) {
@@ -226,27 +284,9 @@ class _AccountScreenState extends State<AccountScreen> {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(user.fullName ?? 'Thực khách',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
-                        const SizedBox(height: 2),
-                        Text(user.email, style: const TextStyle(color: kTextMuted, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: kLightGreen,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: kPrimaryGreen.withAlpha(80)),
-                          ),
-                          child: const Text(
-                            'Thành Viên Thực Khách',
-                            style: TextStyle(color: kPrimaryGreen, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      user.fullName?.isNotEmpty == true ? user.fullName! : 'Thực khách',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
                     ),
                   ),
                 ],
@@ -345,9 +385,39 @@ class _AccountScreenState extends State<AccountScreen> {
                   ),
                   const Divider(height: 16),
                   if (_loadingProfile)
-                    const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                    const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
                   else if (_profile == null)
-                    const Text('Chưa có thông tin hồ sơ.')
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Column(
+                          children: [
+                            const Text('Chưa có thông tin hồ sơ sức khỏe & khẩu vị.', style: TextStyle(color: kTextMuted, fontSize: 13)),
+                            const SizedBox(height: 10),
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: kPrimaryGreen,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (ctx) => OnboardingSurveyDialog(
+                                    api: widget.api,
+                                    userId: widget.currentUser!.id,
+                                    initialProfile: _profile,
+                                    onCompleted: _loadProfile,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.add_task_rounded, size: 16),
+                              label: const Text('Thiết lập ngay', style: TextStyle(fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                   else ...[
                     Row(
                       children: [
@@ -416,37 +486,115 @@ class _AccountScreenState extends State<AccountScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    if (_profile!.bmiCategory != null)
+                    Row(
+                      children: [
+                        const Text('Thể trạng: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: kLightGreen,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _formatBmiCategory(_profile!.bmiCategory, _profile!.bmi),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: kPrimaryGreen),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('• Mục tiêu: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                        Text(
+                          _profile!.targetGoal == 'lose_weight'
+                              ? 'Giảm cân'
+                              : (_profile!.targetGoal == 'gain_muscle'
+                                  ? 'Tăng cơ'
+                                  : (_profile!.targetGoal == 'eat_healthy' ? 'Ăn healthy' : 'Duy trì vóc dáng')),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+
+                    if (_profile!.dietaryPreferences.isNotEmpty) ...[
+                      const SizedBox(height: 10),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Thể trạng: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: kLightGreen,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              _profile!.bmiCategory == 'normal'
-                                  ? 'Chuẩn dáng'
-                                  : (_profile!.bmiCategory == 'underweight' ? 'Hơi gầy' : 'Thừa cân'),
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: kPrimaryGreen),
+                          const Text('Chế độ ăn: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: _profile!.dietaryPreferences.map((diet) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                                  ),
+                                  child: Text(_formatDietaryLabel(diet), style: const TextStyle(fontSize: 11, color: Color(0xFF166534), fontWeight: FontWeight.w600)),
+                                );
+                              }).toList(),
                             ),
                           ),
-                          if (_profile!.targetGoal != null) ...[
-                            const SizedBox(width: 8),
-                            const Text('• Mục tiêu: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                        ],
+                      ),
+                    ],
+
+                    if (_profile!.allergies.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Dị ứng: ', style: TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: _profile!.allergies.map((alg) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF2F2),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFFECACA)),
+                                  ),
+                                  child: Text(_formatAllergyLabel(alg), style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    if (_profile!.spicyTolerance != null || _profile!.budgetRange != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          if (_profile!.spicyTolerance != null) ...[
+                            const Text('Độ cay: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
                             Text(
-                              _profile!.targetGoal == 'lose_weight'
-                                  ? 'Giảm cân'
-                                  : (_profile!.targetGoal == 'gain_muscle'
-                                      ? 'Tăng cơ'
-                                      : (_profile!.targetGoal == 'eat_healthy' ? 'Ăn healthy' : 'Duy trì vóc dáng')),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              _profile!.spicyTolerance == 'none'
+                                  ? 'Không cay'
+                                  : (_profile!.spicyTolerance == 'mild'
+                                      ? 'Cay nhẹ'
+                                      : (_profile!.spicyTolerance == 'medium' ? 'Cay vừa' : 'Ăn rất cay')),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          if (_profile!.budgetRange != null) ...[
+                            const Text('Ngân sách: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                            Text(
+                              _profile!.budgetRange == 'budget'
+                                  ? 'Tiết kiệm (< 40k)'
+                                  : (_profile!.budgetRange == 'moderate' ? 'Phổ thông (40k - 80k)' : 'Thoải mái (> 80k)'),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ],
                         ],
                       ),
+                    ],
                   ],
                 ],
               ),

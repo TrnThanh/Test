@@ -41,25 +41,27 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
   bool _saving = false;
   String? _error;
 
-  final List<String> _foodCategories = [
-    'Phở & Bún',
-    'Cơm văn phòng',
-    'Lẩu & Nướng',
-    'Đồ chay',
-    'Ăn vặt & Trà sữa',
-    'Món Hàn & Nhật',
-    'Fastfood & Đồ Tây',
-    'Hải sản',
+  static final List<Category> _defaultCategories = [
+    Category(id: 1, name: 'Phở & Bún', displayOrder: 1, isActive: true),
+    Category(id: 2, name: 'Cơm & Xôi', displayOrder: 2, isActive: true),
+    Category(id: 3, name: 'Bánh mì', displayOrder: 3, isActive: true),
+    Category(id: 4, name: 'Đồ ăn vặt', displayOrder: 4, isActive: true),
+    Category(id: 5, name: 'Cà phê & Trà sữa', displayOrder: 5, isActive: true),
+    Category(id: 6, name: 'Lẩu & Nướng', displayOrder: 6, isActive: true),
   ];
 
+  List<Category> _categories = [];
+  bool _loadingCategories = false;
+  final Set<int> _selectedCategoryIds = {};
+
   final List<String> _dietOptions = [
+    'Ăn sạch',
     'Ăn thanh đạm',
     'Ít dầu mỡ',
-    'Eat clean',
     'Low-carb',
     'Keto',
     'Ăn chay',
-    'Nhiều protein',
+    'Nhiều đạm',
   ];
 
   final List<String> _allergyOptions = [
@@ -86,14 +88,38 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
       _targetGoal = p.targetGoal ?? 'maintain';
       _spicyTolerance = p.spicyTolerance ?? 'mild';
       _budgetRange = p.budgetRange ?? 'moderate';
-      _selectedDiets.addAll(p.dietaryPreferences);
+      for (final d in p.dietaryPreferences) {
+        if (d == 'clean_eating' || d == 'eat_clean' || d == 'Eat clean') {
+          _selectedDiets.add('Ăn sạch');
+        } else if (d == 'high_protein' || d == 'Nhiều protein') {
+          _selectedDiets.add('Nhiều đạm');
+        } else {
+          _selectedDiets.add(d);
+        }
+      }
       _selectedAllergies.addAll(p.allergies);
+      _selectedCategoryIds.addAll(p.favoriteCategoryIds);
     } else {
       _targetGoal = 'maintain';
       _spicyTolerance = 'mild';
       _budgetRange = 'moderate';
       _gender = 'male';
     }
+    _categories = _defaultCategories;
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() => _loadingCategories = true);
+    try {
+      final list = await widget.api.getAllCategories(isActiveOnly: true);
+      if (mounted && list.isNotEmpty) {
+        setState(() {
+          _categories = list;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingCategories = false);
   }
 
   @override
@@ -122,6 +148,7 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
         'target_goal': _targetGoal,
         'spicy_tolerance': _spicyTolerance,
         'budget_range': _budgetRange,
+        'favorite_category_ids': _selectedCategoryIds.toList(),
         'dietary_preferences': _selectedDiets.toList(),
         'allergies': _selectedAllergies.toList(),
         'complete_onboarding': true,
@@ -217,33 +244,36 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
                       const Text('Bạn thích những thể loại món ăn nào?',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _foodCategories.map((cat) {
-                          final selected = _selectedCategories.contains(cat);
-                          return FilterChip(
-                            label: Text(cat),
-                            selected: selected,
-                            selectedColor: kPrimaryGreen,
-                            labelStyle: TextStyle(
-                              color: selected ? Colors.white : kTextDark,
-                              fontSize: 13,
-                              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                            backgroundColor: Colors.grey[100],
-                            onSelected: (val) {
-                              setState(() {
-                                if (val) {
-                                  _selectedCategories.add(cat);
-                                } else {
-                                  _selectedCategories.remove(cat);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
+                      if (_loadingCategories && _categories.isEmpty)
+                        const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _categories.map((cat) {
+                            final selected = _selectedCategoryIds.contains(cat.id);
+                            return FilterChip(
+                              label: Text(cat.name),
+                              selected: selected,
+                              selectedColor: kPrimaryGreen,
+                              labelStyle: TextStyle(
+                                color: selected ? Colors.white : kTextDark,
+                                fontSize: 13,
+                                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                              backgroundColor: Colors.grey[100],
+                              onSelected: (val) {
+                                setState(() {
+                                  if (val) {
+                                    _selectedCategoryIds.add(cat.id);
+                                  } else {
+                                    _selectedCategoryIds.remove(cat.id);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
                       const SizedBox(height: 20),
                       const Text('Chế độ ăn uống quan tâm:',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),

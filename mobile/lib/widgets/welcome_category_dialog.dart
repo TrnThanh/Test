@@ -20,13 +20,11 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
 
   final List<Map<String, dynamic>> _categories = const [
     {'name': 'Phở & Bún', 'icon': Icons.ramen_dining, 'desc': 'Phở bò, bún bò huế, bún chả'},
-    {'name': 'Cơm văn phòng', 'icon': Icons.rice_bowl, 'desc': 'Cơm tấm, cơm gà, cơm sườn'},
+    {'name': 'Cơm & Xôi', 'icon': Icons.rice_bowl, 'desc': 'Cơm tấm, cơm gà, xôi xéo'},
+    {'name': 'Bánh mì', 'icon': Icons.bakery_dining, 'desc': 'Bánh mì pate, chả, trứng giòn'},
+    {'name': 'Đồ ăn vặt', 'icon': Icons.fastfood, 'desc': 'Trà sữa, bánh tráng, xiên que'},
+    {'name': 'Cà phê & Trà sữa', 'icon': Icons.local_cafe, 'desc': 'Cà phê muối, trà sen, trà đào'},
     {'name': 'Lẩu & Nướng', 'icon': Icons.outdoor_grill, 'desc': 'Lẩu thái, nướng BBQ, bò tơ'},
-    {'name': 'Đồ chay', 'icon': Icons.eco, 'desc': 'Thanh đạm, thuần chay, healthy'},
-    {'name': 'Ăn vặt', 'icon': Icons.local_cafe, 'desc': 'Trà sữa, bánh tráng, xiên que'},
-    {'name': 'Món Hàn & Nhật', 'icon': Icons.set_meal, 'desc': 'Sushi, sashimi, mì cay, tokbokki'},
-    {'name': 'Fastfood', 'icon': Icons.fastfood, 'desc': 'Pizza, gà rán, hamburger'},
-    {'name': 'Hải sản', 'icon': Icons.water_drop, 'desc': 'Tôm, cua, ốc cay nóng hổi'},
   ];
 
   @override

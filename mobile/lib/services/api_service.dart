@@ -294,6 +294,18 @@ class ApiService {
     _throwError(res);
   }
 
+  Future<List<Category>> getAllCategories({bool isActiveOnly = true}) async {
+    final res = await _requestWithFallback((base) {
+      final uri = Uri.parse('$base/categories?is_active_only=$isActiveOnly');
+      return _client.get(uri);
+    });
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(utf8.decode(res.bodyBytes)) as List;
+      return list.map((e) => Category.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
   // --- DISHES ---
   Future<List<Dish>> getRestaurantDishes(int restaurantId, {int? categoryId}) async {
     final res = await _requestWithFallback((base) {
@@ -431,7 +443,7 @@ class ApiService {
   // --- USER PROFILE & ONBOARDING ---
   Future<UserProfile> getUserProfile(int userId) async {
     final res = await _requestWithFallback((base) {
-      final uri = Uri.parse('/users//profile');
+      final uri = Uri.parse('$base/users/$userId/profile');
       return _client.get(uri);
     });
     if (res.statusCode == 200) {
@@ -442,7 +454,7 @@ class ApiService {
 
   Future<UserProfile> updateUserProfile(int userId, Map<String, dynamic> data) async {
     final res = await _requestWithFallback((base) {
-      final uri = Uri.parse('/users//profile');
+      final uri = Uri.parse('$base/users/$userId/profile');
       return _client.put(
         uri,
         headers: {'Content-Type': 'application/json'},
