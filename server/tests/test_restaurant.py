@@ -126,7 +126,7 @@ def test_restaurant_coordinate_validation(client: TestClient):
             "longitude": 105.0,
         },
     )
-    assert resp_lat.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_lat.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # Longitude > 180
     resp_lon = client.post(
@@ -138,7 +138,7 @@ def test_restaurant_coordinate_validation(client: TestClient):
             "longitude": 195.0,
         },
     )
-    assert resp_lon.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_lon.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_public_get_restaurants(client: TestClient):
@@ -225,7 +225,7 @@ def test_create_restaurant_invalid_time_format(client: TestClient):
         "close_time": "22:00",
     }
     response = client.post("/api/v1/restaurants", json=payload)
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_legacy_seller_routes_removed(client: TestClient):

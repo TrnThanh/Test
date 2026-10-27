@@ -1,14 +1,21 @@
-import collections
-import math
-from server.app.schemas.restaurant import RestaurantRouteResponse
-import ipaddress
 import logging
 import time
 from typing import Any, Dict, List, Optional
+
 import httpx
 from fastapi import HTTPException, Request, status
+
 from server.app.core.config import settings
-from server.app.schemas.map import MapSearchResponse, MapReverseResponse, PlaceItem, IpLocationResponse
+from server.app.schemas.map import (
+    MapSearchResponse,
+    MapReverseResponse,
+    PlaceItem,
+    IpLocationResponse,
+)
+from server.app.schemas.restaurant import RestaurantRouteResponse
+from server.app.utils.cache import FIFOTtlCache
+from server.app.utils.geo import haversine_distance
+from server.app.utils.network import fallback_ip_location, get_client_ip, is_public_ip
 
 logger = logging.getLogger(__name__)
 
@@ -16,81 +23,6 @@ _NOMINATIM_FAILS_UNTIL: float = 0.0
 _IP_LOCATION_CACHE: Dict[str, tuple[float, IpLocationResponse]] = {}
 _IP_CACHE_TTL = 3600.0  # 1 giờ
 
-
-def fallback_ip_location(ip: Optional[str] = None) -> IpLocationResponse:
-    """Trả về toạ độ dự phòng ước lượng khi không lấy được IP hoặc mất kết nối mạng (Hà Nội, không gán cứng HVNN)."""
-    return IpLocationResponse(
-        lat=21.0285,
-        lon=105.8542,
-        city="Hà Nội",
-        region="Hà Nội",
-        country="Vietnam",
-        location_name="Hà Nội, Việt Nam (Vị trí ước lượng)",
-        is_fallback=True,
-        ip=ip,
-    )
-
-
-def get_client_ip(request: Request) -> str:
-    """Trích xuất địa chỉ IP thực của client từ request hoặc các header proxy."""
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    x_real_ip = request.headers.get("x-real-ip")
-    if x_real_ip:
-        return x_real_ip.strip()
-    return request.client.host if request.client else ""
-
-
-def is_public_ip(ip: str) -> bool:
-    """Kiểm tra địa chỉ IP có phải là IP public Internet hay không (loại trừ loopback, private, link-local)."""
-    try:
-        addr = ipaddress.ip_address(ip)
-        return addr.is_global and not (addr.is_loopback or addr.is_private or addr.is_link_local or addr.is_reserved)
-    except ValueError:
-        return False
-
-
-
-class FIFOTtlCache:
-    """Bộ nhớ đệm FIFO có giới hạn kích thước và thời gian sống TTL, đo bằng monotonic clock."""
-    def __init__(self, maxsize: int = 1000, ttl_seconds: float = 300.0, clock=None):
-        import time
-        self.maxsize = maxsize
-        self.ttl = ttl_seconds
-        self.clock = clock or time.monotonic
-        self._cache = collections.OrderedDict()
-
-    def get(self, key):
-        if key not in self._cache:
-            return None
-        ts, val = self._cache[key]
-        if self.clock() - ts >= self.ttl:
-            del self._cache[key]
-            return None
-        return val
-
-    def set(self, key, val):
-        if key in self._cache:
-            del self._cache[key]
-        elif len(self._cache) >= self.maxsize:
-            self._cache.popitem(last=False)
-        self._cache[key] = (self.clock(), val)
-
-    def clear(self):
-        self._cache.clear()
-
-
-def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Tính khoảng cách Haversine (mét) giữa 2 toạ độ GPS thuần Python (không gọi DB)."""
-    r = 6371000.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * (math.sin(delta_lambda / 2.0) ** 2)
-    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
-    return r * c
 
 class MapService:
     def __init__(
@@ -377,7 +309,6 @@ class MapService:
 
         return fallback_ip_location(ip)
 
-
     async def get_walking_route_to_restaurant(
         self,
         restaurant_id: int,
@@ -477,4 +408,3 @@ class MapService:
 
 
 map_service = MapService()
-

@@ -92,11 +92,11 @@ def test_map_search_validation_error(client: TestClient):
     """Kiểm tra validation query parameter: thiếu query hoặc limit vượt ngưỡng."""
     # Thiếu param 'q'
     response_missing = client.get("/api/v1/map/search")
-    assert response_missing.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response_missing.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # Param 'limit' vượt quá giới hạn le=50
     response_invalid_limit = client.get("/api/v1/map/search", params={"q": "Hanoi", "limit": 100})
-    assert response_invalid_limit.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response_invalid_limit.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_map_reverse_success(client: TestClient):
@@ -140,11 +140,11 @@ def test_map_reverse_coordinate_validation(client: TestClient):
     """Kiểm tra ràng buộc toạ độ: lat [-90, 90], lon [-180, 180]."""
     # lat ngoài phạm vi
     resp_lat = client.get("/api/v1/map/reverse", params={"lat": 95.0, "lon": 105.0})
-    assert resp_lat.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_lat.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # lon ngoài phạm vi
     resp_lon = client.get("/api/v1/map/reverse", params={"lat": 21.0, "lon": 185.0})
-    assert resp_lon.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_lon.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_map_error_rate_limited_403(client: TestClient):

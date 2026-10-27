@@ -233,27 +233,27 @@ def test_dish_validation_errors(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món Quá Cay", "price": 50000.0, "spicy_level": 5},
     )
-    assert err_spicy.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert err_spicy.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     err_spicy_neg = client.post(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món Cay Âm", "price": 50000.0, "spicy_level": -1},
     )
-    assert err_spicy_neg.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert err_spicy_neg.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # 2. price âm
     err_price = client.post(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món Giá Âm", "price": -1000.0},
     )
-    assert err_price.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert err_price.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # 3. calories âm (< 0)
     err_calories = client.post(
         f"/api/v1/restaurants/{test_restaurant.id}/dishes",
         json={"name": "Món Calo Âm", "price": 50000.0, "calories": -50},
     )
-    assert err_calories.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert err_calories.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_favourite_dishes_without_tag(

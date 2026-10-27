@@ -662,9 +662,11 @@ def build_manual_test_excel():
     setup_test_sheet("Backend API (Swagger)", cases_api)
     setup_bug_sheet()
 
-    output_path = "PTC1_Manual_Test_Cases.xlsx"
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "reports")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, "PTC1_Manual_Test_Cases.xlsx")
     wb.save(output_path)
-    print(f"[V] Da tao thanh cong file Excel Manual Test: {os.path.abspath(output_path)}")
+    print(f"[V] Da tao thanh cong file Excel Manual Test: {output_path}")
 
 if __name__ == "__main__":
     build_manual_test_excel()

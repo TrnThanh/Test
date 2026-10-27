@@ -1022,21 +1022,12 @@ def create_excel_report():
     for col_idx, width in bug_widths.items():
         ws_bug.column_dimensions[get_column_letter(col_idx)].width = width
 
-    # Lưu file
-    output_path = "tests/PTC1_Test_Cases_Report.xlsx"
+    # Lưu file vào thư mục docs/reports
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "reports")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, "PTC1_Test_Cases_Report.xlsx")
     wb.save(output_path)
     print(f"[SUCCESS] Exported Excel file to: {output_path}")
-
-    # Copy ra root và thư mục artifact
-    root_path = "PTC1_Test_Cases_Report.xlsx"
-    wb.save(root_path)
-    print(f"[SUCCESS] Exported Excel file to: {root_path}")
-
-    # Thư mục artifact hiện tại
-    current_artifact_dir = "C:/Users/admin/.gemini/antigravity/brain/6c0a9142-3f0e-43b4-9dc6-1611011b3baf"
-    if os.path.exists(current_artifact_dir):
-        wb.save(os.path.join(current_artifact_dir, "PTC1_Test_Cases_Report.xlsx"))
-        print(f"[SUCCESS] Copied Excel report to current Artifact Directory: {current_artifact_dir}")
 
 if __name__ == "__main__":
     if hasattr(sys.stdout, 'reconfigure'):

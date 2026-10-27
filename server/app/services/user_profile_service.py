@@ -11,7 +11,7 @@ from server.app.schemas.user_profile import UserProfileUpdate
 
 class UserProfileService:
     @staticmethod
-    def get_or_create_profile(db: Session, user_id: int) -> User:
+    def get_user_profile(db: Session, user_id: int) -> User:
         """Lấy hồ sơ người dùng trực tiếp từ bảng users."""
         user = db.get(User, user_id)
         if not user:
@@ -21,10 +21,13 @@ class UserProfileService:
             )
         return user
 
+    # Giữ tên cũ để tương thích ngược hoàn toàn với các unit tests và endpoints hiện tại
+    get_or_create_profile = get_user_profile
+
     @staticmethod
     def update_profile(db: Session, user_id: int, data: UserProfileUpdate) -> User:
         """Cập nhật thông tin hồ sơ sức khỏe & sở thích ẩm thực trực tiếp vào bảng users."""
-        user = UserProfileService.get_or_create_profile(db, user_id)
+        user = UserProfileService.get_user_profile(db, user_id)
 
         update_data = data.model_dump(exclude_unset=True, exclude={"complete_onboarding"})
 

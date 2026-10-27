@@ -121,11 +121,11 @@ def test_validation_constraints(client: TestClient, test_user: User):
     """Kiểm tra validate dữ liệu chiều cao/cân nặng/gender ngoài phạm vi cho phép."""
     # Chiều cao quá bé (< 50cm)
     res1 = client.put(f"/api/v1/users/{test_user.id}/profile", json={"height_cm": 30.0})
-    assert res1.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert res1.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # Giới tính không thuộc enum
     res2 = client.put(f"/api/v1/users/{test_user.id}/profile", json={"gender": "invalid_gender"})
-    assert res2.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert res2.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_delete_user_cleans_up_data(

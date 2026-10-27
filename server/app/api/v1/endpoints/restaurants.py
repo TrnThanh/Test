@@ -1,7 +1,5 @@
-from server.app.services.map_service import map_service, haversine_distance
-from fastapi import HTTPException
 from typing import List
-from fastapi import APIRouter, Depends, Query, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from sqlalchemy.orm import Session
 
 from server.app.db.session import get_db
@@ -13,6 +11,7 @@ from server.app.schemas.restaurant import (
     DistanceResponse,
     RestaurantRouteResponse,
 )
+from server.app.services.map_service import map_service, haversine_distance
 from server.app.services.restaurant_service import RestaurantService
 
 router = APIRouter()

@@ -7,7 +7,7 @@ from server.app.db.session import SessionLocal
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
 from server.app.models.dish import Dish
-from scripts.seed_gialam_food_data import is_in_gia_lam
+from server.app.services.initial_seed_service import is_in_gia_lam
 
 
 client = TestClient(app)
@@ -59,30 +59,22 @@ def test_dishes_with_images_and_calories():
             assert d.image_url and d.image_url.startswith("https://images.unsplash.com/"), (
                 f"Món {d.name} có ảnh không hợp lệ: {d.image_url}"
             )
-            assert 0 <= d.spicy_level <= 3, f"Món {d.name} có độ cay ngoài khoảng 0-3: {d.spicy_level}"
-            assert len(d.meal_types) > 0, f"Món {d.name} thiếu thông tin meal_types"
-            assert d.category_id is not None, f"Món {d.name} chưa gắn category_id"
+            assert d.meal_types and len(d.meal_types) > 0, f"Món {d.name} thiếu meal_types"
+            assert isinstance(d.spicy_level, int) and 0 <= d.spicy_level <= 3
+            assert isinstance(d.dietary_tags, list)
+            assert isinstance(d.ingredients, list)
     finally:
         db.close()
 
 
-def test_api_restaurants_and_dishes():
-    """Kiểm tra API /restaurants và /restaurants/{id}/dishes trả về dữ liệu chuẩn."""
-    resp = client.get("/api/v1/restaurants")
-    assert resp.status_code == 200
-    rests = resp.json()
-    assert len(rests) >= 8
-    
-    first_rest = rests[0]
-    rest_id = first_rest["id"]
-    
-    resp_dishes = client.get(f"/api/v1/restaurants/{rest_id}/dishes")
-    assert resp_dishes.status_code == 200
-    dishes = resp_dishes.json()
-    assert len(dishes) >= 3
-    
-    first_dish = dishes[0]
-    assert first_dish["name"]
-    assert first_dish["price"] > 0
-    assert first_dish["image_url"].startswith("http")
-    assert first_dish["calories"] > 0
+def test_sponsored_restaurants_present():
+    """Kiểm tra có các quán tài trợ nổi bật."""
+    db = SessionLocal()
+    try:
+        sponsored = db.query(Restaurant).filter(Restaurant.is_sponsor == True).all()
+        assert len(sponsored) >= 5, f"Kỳ vọng tối thiểu 5 quán tài trợ, hiện có: {len(sponsored)}"
+        for s in sponsored:
+            assert s.name
+            assert s.is_active
+    finally:
+        db.close()

@@ -290,10 +290,10 @@ def test_walking_route_distance_over_50km_and_validation(client: TestClient, act
         f"/api/v1/restaurants/{active_restaurant.id}/route",
         params={"user_lat": 95.0, "user_lon": 105.8450},
     )
-    assert resp_inv_lat.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_inv_lat.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     resp_inv_lon = client.get(
         f"/api/v1/restaurants/{active_restaurant.id}/route",
         params={"user_lat": 21.0300, "user_lon": 200.0},
     )
-    assert resp_inv_lon.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_inv_lon.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
