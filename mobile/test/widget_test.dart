@@ -379,7 +379,7 @@ void main() {
   testWidgets('Kiểm thử Bản đồ MapScreen hiển thị đầy đủ và các điều khiển trực quan', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: MapScreen(
           api: fakeApi,
           currentUser: null,
@@ -397,7 +397,7 @@ void main() {
   testWidgets('Kiểm thử Chỉ đường đi bộ trên MapScreen hiển thị nút và banner', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: MapScreen(
           api: fakeApi,
           currentUser: null,
@@ -453,7 +453,7 @@ void main() {
   testWidgets('Kiểm thử Cụm ẩm thực LOD và Viewport Culling trên MapScreen', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: MapScreen(
           api: fakeApi,
           currentUser: null,

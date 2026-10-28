@@ -17,4 +17,6 @@ postgis-bundle-*/
 .idea/
 .metadata
 ~$*
+e2e_flows/screenshots/
+e2e_flows/reports/
 
