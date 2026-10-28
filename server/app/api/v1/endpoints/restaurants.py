@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from sqlalchemy.orm import Session
 
@@ -115,7 +115,7 @@ def find_nearby_restaurants(
 )
 def list_public_restaurants(
     skip: int = Query(0, ge=0, description="Số lượng bản ghi bỏ qua"),
-    limit: int = Query(200, ge=1, le=500, description="Số lượng bản ghi tối đa"),
+    limit: Optional[int] = Query(None, description="Số lượng bản ghi tối đa (để trống để lấy tất cả)"),
     db: Session = Depends(get_db),
 ) -> List[RestaurantResponse]:
     """Lấy danh sách các quán ăn đang hoạt động để hiển thị lên bản đồ hoặc danh sách khám phá."""

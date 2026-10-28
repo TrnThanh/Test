@@ -141,3 +141,54 @@ def test_create_dish_with_ingredients_and_meal_type_id(
     )
     assert filter_empty.status_code == 200
     assert len(filter_empty.json()) == 0
+
+
+def test_update_and_delete_weather(client: TestClient):
+    """Kiểm tra cập nhật và xoá trạng thái thời tiết."""
+    # 1. Tạo thời tiết tạm
+    create_resp = client.post(
+        "/api/v1/weather",
+        json={
+            "code": "test_foggy",
+            "name": "Sương mù dày đặc",
+            "description": "Tầm nhìn hạn chế",
+            "min_temp": 12.0,
+            "max_temp": 18.0,
+            "season": "winter",
+        },
+    )
+    assert create_resp.status_code == 201
+    w_id = create_resp.json()["id"]
+
+    # 2. Cập nhật thông tin
+    update_resp = client.put(
+        f"/api/v1/weather/{w_id}",
+        json={
+            "name": "Sương mù buổi sáng",
+            "description": "Sương mù kèm se lạnh",
+            "min_temp": 14.0,
+            "max_temp": 20.0,
+            "season": "spring",
+        },
+    )
+    assert update_resp.status_code == 200
+    updated_data = update_resp.json()
+    assert updated_data["name"] == "Sương mù buổi sáng"
+    assert updated_data["min_temp"] == 14.0
+    assert updated_data["max_temp"] == 20.0
+    assert updated_data["season"] == "spring"
+
+    # 3. Thử cập nhật min_temp > max_temp -> 400
+    bad_resp = client.put(
+        f"/api/v1/weather/{w_id}",
+        json={"min_temp": 30.0, "max_temp": 20.0},
+    )
+    assert bad_resp.status_code == 400
+
+    # 4. Xoá thời tiết
+    del_resp = client.delete(f"/api/v1/weather/{w_id}")
+    assert del_resp.status_code == 200
+
+    # 5. Kiểm tra không còn tồn tại -> 404
+    get_resp = client.get(f"/api/v1/weather/{w_id}")
+    assert get_resp.status_code == 404

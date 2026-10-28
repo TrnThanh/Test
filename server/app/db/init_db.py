@@ -65,6 +65,7 @@ def apply_schema_patches(conn) -> None:
             IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='meal_type') THEN
                 UPDATE dishes SET meal_types = ARRAY[meal_type] WHERE (meal_types IS NULL OR cardinality(meal_types) = 0) AND meal_type IS NOT NULL;
             END IF;
+            UPDATE dishes SET meal_types = ARRAY['all_day'] WHERE (meal_types IS NULL OR cardinality(meal_types) = 0);
         END $$;
     """))
 

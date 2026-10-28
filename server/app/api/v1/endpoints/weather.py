@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from server.app.db.session import get_db
-from server.app.schemas.weather import WeatherResponse, WeatherCreate, CurrentWeatherResponse
+from server.app.schemas.weather import WeatherResponse, WeatherCreate, WeatherUpdate, CurrentWeatherResponse
 from server.app.services.weather_service import WeatherService
 
 router = APIRouter()
@@ -75,3 +75,32 @@ def create_weather(
     """Tạo mới một trạng thái thời tiết."""
     # Tạo bản ghi thời tiết mới
     return WeatherService.create_weather(db, data)
+
+
+# Cập nhật thông tin cấu hình trạng thái thời tiết
+@router.put(
+    "/{weather_id}",
+    response_model=WeatherResponse,
+    summary="Cập nhật trạng thái thời tiết",
+)
+def update_weather(
+    weather_id: int,
+    data: WeatherUpdate,
+    db: Session = Depends(get_db),
+):
+    """Cập nhật thông tin cấu hình của một kiểu thời tiết."""
+    return WeatherService.update_weather(db, weather_id, data)
+
+
+# Xoá một trạng thái thời tiết khỏi hệ thống
+@router.delete(
+    "/{weather_id}",
+    summary="Xoá trạng thái thời tiết",
+)
+def delete_weather(
+    weather_id: int,
+    db: Session = Depends(get_db),
+):
+    """Xoá một trạng thái thời tiết khỏi hệ thống."""
+    WeatherService.delete_weather(db, weather_id)
+    return {"message": f"Đã xoá trạng thái thời tiết ID {weather_id} thành công."}

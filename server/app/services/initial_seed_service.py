@@ -341,6 +341,15 @@ class InitialSeedService:
             for d_idx in range(num_dishes_for_rest):
                 dish_meta = catalog[(idx + d_idx) % len(catalog)]
                 d_name, d_price, d_calo, d_spicy, img_key, m_types = dish_meta
+                meal_map = {
+                    "Bữa sáng": "breakfast",
+                    "Bữa trưa": "lunch",
+                    "Bữa tối": "dinner",
+                    "Bữa xế / Ăn vặt": "snack",
+                    "Ăn vặt": "snack",
+                    "Cả ngày": "all_day",
+                }
+                normalized_m_types = [meal_map.get(m, m) for m in m_types] if m_types else ["all_day"]
 
                 img_url = FOOD_IMAGES.get(img_key, FOOD_IMAGES["Phở"])
 
@@ -352,7 +361,7 @@ class InitialSeedService:
                     calories=d_calo,
                     spicy_level=d_spicy,
                     image_url=img_url,
-                    meal_types=m_types,
+                    meal_types=normalized_m_types,
                     ingredients=["Thực phẩm tươi sạch Gia Lâm", "Gia vị tự nhiên", "Chứng nhận ATTP"],
                     dietary_tags=["Chay"] if cat_name == "Món chay" else ["Đặc sản Hà Nội"],
                 )

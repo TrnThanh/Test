@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
@@ -24,11 +24,11 @@ router = APIRouter()
 )
 def get_all_restaurants_for_admin(
     skip: int = Query(0, ge=0, description="Số lượng bản ghi bỏ qua"),
-    limit: int = Query(100, ge=1, le=500, description="Số lượng bản ghi tối đa (lên tới 500)"),
+    limit: Optional[int] = Query(None, description="Số lượng bản ghi tối đa (để trống hoặc 0 để lấy tất cả)"),
     active_only: bool = Query(False, description="Chỉ lấy quán đang hoạt động"),
     db: Session = Depends(get_db),
 ) -> List[RestaurantResponse]:
-    """Admin lấy danh sách quán ăn toàn hệ thống với giới hạn linh hoạt lên đến 500 bản ghi."""
+    """Admin lấy danh sách toàn bộ quán ăn toàn hệ thống (không giới hạn để quản lý toàn diện)."""
     # Truy vấn danh sách toàn bộ quán từ cơ sở dữ liệu
     return RestaurantService.get_all_active_restaurants(
         db=db, skip=skip, limit=limit, active_only=active_only

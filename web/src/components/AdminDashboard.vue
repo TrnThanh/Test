@@ -130,7 +130,8 @@ function openEditDishModal(d: Dish) {
   } else {
     editDishCategoryId.value = null;
   }
-  editDishMealType.value = ((d.meal_types && d.meal_types.length > 0) ? (d.meal_types[0] as MealType) : d.meal_type) || 'all_day';
+  const rawMeal = (d.meal_types && d.meal_types.length > 0) ? d.meal_types[0] : (d.meal_type || null);
+  editDishMealType.value = normalizeMealTypeCode(rawMeal);
   editDishIngredients.value = (d.ingredients && d.ingredients.length > 0) ? d.ingredients.join(', ') : '';
   editDishCalories.value = d.calories ?? null;
   editDishSpicyLevel.value = d.spicy_level ?? 0;
@@ -158,13 +159,14 @@ async function handleSaveEditDish() {
       ? Number(editDishCategoryId.value)
       : null;
 
+    const mealCode = normalizeMealTypeCode(editDishMealType.value);
     const payload: Partial<Dish> = {
       name: editDishName.value.trim(),
       price: Number(editDishPrice.value),
       calories: editDishCalories.value != null ? Number(editDishCalories.value) : undefined,
       description: editDishDesc.value.trim() || undefined,
       category_id: catId,
-      meal_types: [editDishMealType.value],
+      meal_types: [mealCode],
       ingredients: ingList,
       spicy_level: editDishSpicyLevel.value,
       is_available: editDishIsAvailable.value,
@@ -195,6 +197,163 @@ const showCreateCategoryModal = ref(false);
 const newCatName = ref('');
 const newCatDesc = ref('');
 const newCatSaving = ref(false);
+
+// Edit Weather State
+const showEditWeatherModal = ref(false);
+const editingWeather = ref<Weather | null>(null);
+const editWeatherName = ref('');
+const editWeatherSeason = ref('');
+const editWeatherMinTemp = ref<number | null>(null);
+const editWeatherMaxTemp = ref<number | null>(null);
+const editWeatherDesc = ref('');
+const editWeatherIsActive = ref(true);
+const editWeatherSaving = ref(false);
+
+function openEditWeatherModal(w: Weather) {
+  editingWeather.value = w;
+  editWeatherName.value = w.name;
+  editWeatherSeason.value = w.season || '';
+  editWeatherMinTemp.value = w.min_temp ?? null;
+  editWeatherMaxTemp.value = w.max_temp ?? null;
+  editWeatherDesc.value = w.description || '';
+  editWeatherIsActive.value = w.is_active ?? true;
+  showEditWeatherModal.value = true;
+}
+
+async function handleSaveEditWeather() {
+  if (!editingWeather.value) return;
+  if (!editWeatherName.value.trim()) {
+    showError('Tên kiểu thời tiết không được để trống');
+    return;
+  }
+  if (
+    editWeatherMinTemp.value != null &&
+    editWeatherMaxTemp.value != null &&
+    Number(editWeatherMinTemp.value) > Number(editWeatherMaxTemp.value)
+  ) {
+    showError('Nhiệt độ tối thiểu không được lớn hơn nhiệt độ tối đa');
+    return;
+  }
+
+  editWeatherSaving.value = true;
+  try {
+    const payload: Partial<Weather> = {
+      name: editWeatherName.value.trim(),
+      season: editWeatherSeason.value || undefined,
+      min_temp: editWeatherMinTemp.value != null ? Number(editWeatherMinTemp.value) : undefined,
+      max_temp: editWeatherMaxTemp.value != null ? Number(editWeatherMaxTemp.value) : undefined,
+      description: editWeatherDesc.value.trim() || undefined,
+      is_active: editWeatherIsActive.value,
+    };
+    const updated = await api.updateWeather(editingWeather.value.id, payload);
+    const idx = weathers.value.findIndex(w => w.id === editingWeather.value!.id);
+    if (idx !== -1) {
+      weathers.value[idx] = { ...weathers.value[idx], ...updated };
+    }
+    if (selectedWeather.value?.id === editingWeather.value.id) {
+      selectedWeather.value = { ...selectedWeather.value, ...updated };
+    }
+    showEditWeatherModal.value = false;
+    showNotice(`Đã cập nhật kiểu thời tiết "${updated.name}" thành công!`);
+  } catch (err: any) {
+    showError(err?.message || 'Không thể cập nhật kiểu thời tiết');
+  } finally {
+    editWeatherSaving.value = false;
+  }
+}
+
+async function handleDeleteWeather(w: Weather) {
+  if (!confirm(`Xác nhận xóa kiểu thời tiết "${w.name}"? Các liên kết danh mục với thời tiết này cũng sẽ bị xóa.`)) {
+    return;
+  }
+  try {
+    await api.deleteWeather(w.id);
+    weathers.value = weathers.value.filter(item => item.id !== w.id);
+    if (selectedWeather.value?.id === w.id) {
+      selectedWeather.value = weathers.value[0] || null;
+      if (selectedWeather.value) {
+        selectWeather(selectedWeather.value);
+      } else {
+        weatherCategoryIds.value = new Set();
+      }
+    }
+    showNotice(`Đã xóa kiểu thời tiết "${w.name}".`);
+  } catch (err: any) {
+    showError(err?.message || 'Không thể xóa kiểu thời tiết');
+  }
+}
+
+// Edit Category State
+const showEditCategoryModal = ref(false);
+const editingCategory = ref<Category | null>(null);
+const editCatName = ref('');
+const editCatDesc = ref('');
+const editCatDisplayOrder = ref(0);
+const editCatIsActive = ref(true);
+const editCatSaving = ref(false);
+
+function openEditCategoryModal(cat: Category) {
+  editingCategory.value = cat;
+  editCatName.value = cat.name;
+  editCatDesc.value = cat.description || '';
+  editCatDisplayOrder.value = cat.display_order ?? 0;
+  editCatIsActive.value = cat.is_active ?? true;
+  showEditCategoryModal.value = true;
+}
+
+async function handleSaveEditCategory() {
+  if (!editingCategory.value) return;
+  if (!editCatName.value.trim()) {
+    showError('Tên danh mục không được để trống');
+    return;
+  }
+
+  editCatSaving.value = true;
+  try {
+    const payload = {
+      name: editCatName.value.trim(),
+      description: editCatDesc.value.trim() || undefined,
+      display_order: Number(editCatDisplayOrder.value) || 0,
+      is_active: editCatIsActive.value,
+    };
+    const updated = await api.updateCategory(editingCategory.value.id, payload);
+
+    // Cập nhật trong các danh sách đang lưu
+    const updateInList = (list: Category[]) => {
+      const idx = list.findIndex(c => c.id === editingCategory.value!.id);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updated };
+      }
+    };
+    updateInList(masterCategories.value);
+    updateInList(globalCategories.value);
+    updateInList(menuCategories.value);
+
+    showEditCategoryModal.value = false;
+    showNotice(`Đã cập nhật danh mục "${updated.name}" thành công!`);
+  } catch (err: any) {
+    showError(err?.message || 'Không thể cập nhật danh mục');
+  } finally {
+    editCatSaving.value = false;
+  }
+}
+
+async function deleteGlobalCategoryItem(cat: Category) {
+  if (!confirm(`Xác nhận xóa danh mục "${cat.name}"? Các món trong danh mục này trên hệ thống sẽ được chuyển về nhóm chưa phân loại.`)) {
+    return;
+  }
+  try {
+    await api.deleteCategory(cat.id);
+    globalCategories.value = globalCategories.value.filter(c => c.id !== cat.id);
+    masterCategories.value = masterCategories.value.filter(c => c.id !== cat.id);
+    menuCategories.value = menuCategories.value.filter(c => c.id !== cat.id);
+    weatherCategoryIds.value.delete(cat.id);
+    weatherCategoryIds.value = new Set(weatherCategoryIds.value);
+    showNotice(`Đã xóa danh mục "${cat.name}".`);
+  } catch (err: any) {
+    showError(err?.message || 'Không thể xóa danh mục');
+  }
+}
 
 // Weather Rules State
 const weathers = ref<Weather[]>([]);
@@ -694,7 +853,7 @@ async function loadStats() {
 async function loadRestaurants() {
   restaurantsLoading.value = true;
   try {
-    restaurants.value = await api.getAdminRestaurants(0, 100);
+    restaurants.value = await api.getAdminRestaurants(0);
     // Nếu chưa chọn quán cho tab menu thì mặc định quán đầu tiên
     if (!selectedMenuRestaurantId.value && restaurants.value.length > 0) {
       selectedMenuRestaurantId.value = restaurants.value[0].id;
@@ -921,13 +1080,14 @@ async function handleCreateDish() {
       ? Number(newDishCategoryId.value)
       : null;
 
+    const mealCode = normalizeMealTypeCode(newDishMealType.value);
     const created = await api.createDish(selectedMenuRestaurantId.value, {
       name: newDishName.value.trim(),
       price: Number(newDishPrice.value),
       calories: newDishCalories.value != null ? Number(newDishCalories.value) : undefined,
       description: newDishDesc.value.trim() || undefined,
       category_id: catId,
-      meal_types: [newDishMealType.value],
+      meal_types: [mealCode],
       ingredients: ingList,
       is_available: true,
     });
@@ -1073,10 +1233,21 @@ const filteredUsers = computed(() => {
   );
 });
 
-// Helper chuyển meal type sang tiếng Việt
+// Chuẩn hoá mã bữa ăn sang code chuẩn (nếu là null/rỗng thì mặc định là 'all_day')
+function normalizeMealTypeCode(mt?: MealType | string | null): MealType {
+  if (!mt) return 'all_day';
+  const s = mt.toLowerCase().trim();
+  if (s === 'breakfast' || s.includes('sáng')) return 'breakfast';
+  if (s === 'lunch' || s.includes('trưa')) return 'lunch';
+  if (s === 'dinner' || s.includes('tối')) return 'dinner';
+  if (s === 'snack' || s.includes('vặt') || s.includes('xế')) return 'snack';
+  return 'all_day';
+}
+
+// Helper chuyển meal type sang nhãn tiếng Việt
 function formatMealType(mt?: MealType | string | null): string {
-  if (!mt) return 'Cả ngày';
-  switch (mt) {
+  const code = normalizeMealTypeCode(mt);
+  switch (code) {
     case 'breakfast':
       return 'Bữa sáng';
     case 'lunch':
@@ -1084,7 +1255,8 @@ function formatMealType(mt?: MealType | string | null): string {
     case 'dinner':
       return 'Bữa tối';
     case 'snack':
-      return 'Ăn vặt';
+      return 'Ăn vặt / Xế';
+    case 'all_day':
     default:
       return 'Cả ngày';
   }
@@ -1533,6 +1705,14 @@ onMounted(() => {
                   </button>
                   <button
                     type="button"
+                    class="cat-edit-btn"
+                    title="Sửa nhóm này"
+                    @click.stop="openEditCategoryModal(c)"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
                     class="cat-del-btn"
                     title="Xóa nhóm này"
                     @click.stop="deleteCategoryItem(c)"
@@ -1589,7 +1769,7 @@ onMounted(() => {
                     <p v-if="d.description" class="dish-card-desc">{{ d.description }}</p>
 
                     <div class="dish-meta-row">
-                      <span class="meal-tag">{{ formatMealType((d.meal_types && d.meal_types.length > 0) ? d.meal_types[0] : d.meal_type) }}</span>
+                      <span class="meal-tag">{{ formatMealType((d.meal_types && d.meal_types.length > 0) ? d.meal_types[0] : (d.meal_type || null)) }}</span>
                       <span v-if="d.category_name" class="category-tag">{{ d.category_name }}</span>
                       <span v-if="d.calories" class="meal-tag" style="background: #fff1f2; color: #e11d48; border-color: #fecdd3;">🔥 {{ d.calories }} kcal</span>
                       <span v-if="d.spicy_level && d.spicy_level > 0" class="spicy-tag">🌶️ {{ d.spicy_level === 1 ? 'Cay nhẹ' : d.spicy_level === 2 ? 'Cay vừa' : 'Rất cay' }}</span>
@@ -1798,7 +1978,27 @@ onMounted(() => {
               <!-- Banner thông tin thời tiết đang chọn -->
               <div class="weather-selected-card">
                 <div class="weather-selected-info">
-                  <h3 class="weather-selected-title">{{ selectedWeather.name }}</h3>
+                  <div class="weather-title-with-actions">
+                    <h3 class="weather-selected-title">{{ selectedWeather.name }}</h3>
+                    <div class="weather-actions-group">
+                      <button
+                        type="button"
+                        class="btn-action-pill btn-action-edit"
+                        title="Chỉnh sửa thông tin kiểu thời tiết"
+                        @click="openEditWeatherModal(selectedWeather)"
+                      >
+                        ✎ Sửa thời tiết
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-action-pill btn-action-del"
+                        title="Xóa kiểu thời tiết này"
+                        @click="handleDeleteWeather(selectedWeather)"
+                      >
+                        🗑 Xóa
+                      </button>
+                    </div>
+                  </div>
                   <p class="weather-selected-desc">
                     {{ selectedWeather.description || 'Chưa có mô tả chi tiết cho trạng thái này.' }}
                   </p>
@@ -1844,6 +2044,24 @@ onMounted(() => {
                   <div class="weather-cat-card-body">
                     <div class="weather-cat-title-row">
                       <span class="weather-cat-name">{{ cat.name }}</span>
+                      <div class="weather-cat-inline-actions" @click.stop>
+                        <button
+                          type="button"
+                          class="cat-inline-btn"
+                          title="Chỉnh sửa danh mục"
+                          @click="openEditCategoryModal(cat)"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          class="cat-inline-btn cat-inline-del"
+                          title="Xóa danh mục này"
+                          @click="deleteGlobalCategoryItem(cat)"
+                        >
+                          ✕
+                        </button>
+                      </div>
                       <span
                         class="weather-cat-status"
                         :class="weatherCategoryIds.has(cat.id) ? 'status-linked' : 'status-unlinked'"
@@ -2664,6 +2882,178 @@ onMounted(() => {
               :disabled="newWeatherSaving"
             >
               {{ newWeatherSaving ? 'Đang tạo...' : 'Tạo kiểu thời tiết' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL: CHỈNH SỬA KIỂU THỜI TIẾT                 -->
+    <!-- ============================================== -->
+    <div v-if="showEditWeatherModal && editingWeather" class="modal-backdrop" @click.self="showEditWeatherModal = false">
+      <div class="modal-sheet" style="max-width: 480px;">
+        <div class="modal-sheet-header">
+          <h3>Chỉnh sửa kiểu thời tiết ({{ editingWeather.code }})</h3>
+          <button type="button" class="btn-close" @click="showEditWeatherModal = false">✕</button>
+        </div>
+
+        <form class="modal-sheet-body" @submit.prevent="handleSaveEditWeather">
+          <div class="form-item">
+            <label>Tên kiểu thời tiết *</label>
+            <input
+              v-model="editWeatherName"
+              type="text"
+              class="field-input"
+              placeholder="Ví dụ: Trời nồm ẩm, Gió mùa đông bắc..."
+              required
+            />
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Mã định danh</label>
+              <input
+                :value="editingWeather.code"
+                type="text"
+                class="field-input font-mono"
+                disabled
+                style="background-color: #f1f5f9; cursor: not-allowed;"
+              />
+            </div>
+            <div class="form-item">
+              <label>Mùa áp dụng</label>
+              <select v-model="editWeatherSeason" class="field-select">
+                <option value="">Quanh năm</option>
+                <option value="spring">Mùa xuân</option>
+                <option value="summer">Mùa hè</option>
+                <option value="autumn">Mùa thu</option>
+                <option value="winter">Mùa đông</option>
+                <option value="rainy">Mùa mưa</option>
+                <option value="dry">Mùa khô</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-item">
+              <label>Nhiệt độ tối thiểu (°C)</label>
+              <input
+                v-model.number="editWeatherMinTemp"
+                type="number"
+                step="0.5"
+                class="field-input"
+                placeholder="Ví dụ: 15"
+              />
+            </div>
+            <div class="form-item">
+              <label>Nhiệt độ tối đa (°C)</label>
+              <input
+                v-model.number="editWeatherMaxTemp"
+                type="number"
+                step="0.5"
+                class="field-input"
+                placeholder="Ví dụ: 25"
+              />
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label>Mô tả gợi ý ẩm thực</label>
+            <textarea
+              v-model="editWeatherDesc"
+              class="field-textarea"
+              rows="3"
+              placeholder="Mô tả điều kiện thời tiết và loại món ăn phù hợp nên gợi ý..."
+            ></textarea>
+          </div>
+
+          <div class="form-item" style="display: flex; align-items: center; gap: 8px;">
+            <input id="editWeatherActive" v-model="editWeatherIsActive" type="checkbox" />
+            <label for="editWeatherActive" style="margin: 0; cursor: pointer; font-size: 13px;">Đang kích hoạt trạng thái này</label>
+          </div>
+
+          <div class="modal-sheet-footer">
+            <button
+              type="button"
+              class="btn-cancel"
+              @click="showEditWeatherModal = false"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              class="btn-primary-action"
+              :disabled="editWeatherSaving"
+            >
+              {{ editWeatherSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- MODAL: CHỈNH SỬA DANH MỤC MÓN ĂN                -->
+    <!-- ============================================== -->
+    <div v-if="showEditCategoryModal && editingCategory" class="modal-backdrop" @click.self="showEditCategoryModal = false">
+      <div class="modal-sheet" style="max-width: 460px;">
+        <div class="modal-sheet-header">
+          <h3>Chỉnh sửa danh mục món ăn</h3>
+          <button type="button" class="btn-close" @click="showEditCategoryModal = false">✕</button>
+        </div>
+
+        <form class="modal-sheet-body" @submit.prevent="handleSaveEditCategory">
+          <div class="form-item">
+            <label>Tên danh mục món ăn *</label>
+            <input
+              v-model="editCatName"
+              type="text"
+              class="field-input"
+              placeholder="Ví dụ: Lẩu & Nướng, Cơm & Mì..."
+              required
+            />
+          </div>
+
+          <div class="form-item">
+            <label>Thứ tự hiển thị</label>
+            <input
+              v-model.number="editCatDisplayOrder"
+              type="number"
+              class="field-input"
+              placeholder="0"
+            />
+          </div>
+
+          <div class="form-item">
+            <label>Mô tả danh mục</label>
+            <textarea
+              v-model="editCatDesc"
+              class="field-textarea"
+              rows="3"
+              placeholder="Mô tả nhóm món ăn hoặc đối tượng phục vụ..."
+            ></textarea>
+          </div>
+
+          <div class="form-item" style="display: flex; align-items: center; gap: 8px;">
+            <input id="editCatActive" v-model="editCatIsActive" type="checkbox" />
+            <label for="editCatActive" style="margin: 0; cursor: pointer; font-size: 13px;">Đang hoạt động</label>
+          </div>
+
+          <div class="modal-sheet-footer">
+            <button
+              type="button"
+              class="btn-cancel"
+              @click="showEditCategoryModal = false"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              class="btn-primary-action"
+              :disabled="editCatSaving"
+            >
+              {{ editCatSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
             </button>
           </div>
         </form>
@@ -3567,6 +3957,94 @@ button.cat-pill.active {
 
 .cat-del-btn:hover {
   color: #ef4444;
+}
+
+.cat-edit-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.cat-edit-btn:hover {
+  color: #3b82f6;
+}
+
+.cat-pill-wrapper:has(.active) .cat-edit-btn {
+  color: #cbd5e1;
+}
+
+.weather-title-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.weather-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-action-pill {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #334155;
+  transition: all 0.15s ease;
+}
+
+.btn-action-edit:hover {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.btn-action-del:hover {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.weather-cat-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cat-inline-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 5px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.cat-inline-btn:hover {
+  background-color: #f1f5f9;
+  color: #2563eb;
+  border-color: #cbd5e1;
+}
+
+.cat-inline-del:hover {
+  color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  border-color: #fca5a5 !important;
 }
 
 .add-cat-pill {

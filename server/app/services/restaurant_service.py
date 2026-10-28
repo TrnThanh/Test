@@ -107,16 +107,17 @@ class RestaurantService:
     def get_all_active_restaurants(
         db: Session,
         skip: int = 0,
-        limit: int = 100,
+        limit: Optional[int] = None,
         active_only: bool = True,
     ) -> List[Restaurant]:
-        """Lấy danh sách các quán ăn công khai cho khách hàng và bản đồ."""
+        """Lấy danh sách các quán ăn công khai cho khách hàng và bản đồ (không giới hạn nếu limit là None hoặc <= 0)."""
         # 1. Khởi tạo truy vấn danh sách quán ăn theo phân trang
         stmt = select(Restaurant).order_by(Restaurant.id.desc()).offset(skip)
         # 2. Áp dụng bộ lọc trạng thái hoạt động nếu yêu cầu
         if active_only:
             stmt = stmt.where(Restaurant.is_active.is_(True))
-        stmt = stmt.limit(limit)
+        if limit is not None and limit > 0:
+            stmt = stmt.limit(limit)
         # 3. Trả về danh sách kết quả
         return list(db.scalars(stmt).all())
 

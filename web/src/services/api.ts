@@ -120,8 +120,10 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getAdminRestaurants: (skip = 0, limit = 100, activeOnly = false) =>
-    request<Restaurant[]>(`/admin/restaurants?skip=${skip}&limit=${limit}&active_only=${activeOnly}`),
+  getAdminRestaurants: (skip = 0, limit?: number, activeOnly = false) => {
+    const qs = limit ? `&limit=${limit}` : '';
+    return request<Restaurant[]>(`/admin/restaurants?skip=${skip}${qs}&active_only=${activeOnly}`);
+  },
 
   deleteRestaurantAsAdmin: (restaurantId: number) =>
     request<{ message: string; restaurant_id: number }>(`/admin/restaurants/${restaurantId}`, {
@@ -129,8 +131,10 @@ export const api = {
     }),
 
   // --- RESTAURANTS (PUBLIC) ---
-  getRestaurants: (skip = 0, limit = 50) =>
-    request<Restaurant[]>(`/restaurants?skip=${skip}&limit=${Math.min(limit, 100)}`),
+  getRestaurants: (skip = 0, limit?: number) => {
+    const qs = limit ? `&limit=${limit}` : '';
+    return request<Restaurant[]>(`/restaurants?skip=${skip}${qs}`);
+  },
 
   getRestaurantDetail: (id: number) =>
     request<Restaurant>(`/restaurants/${id}`),
@@ -334,6 +338,17 @@ export const api = {
     request<import('../types').Weather>('/weather', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  updateWeather: (weatherId: number, data: Partial<import('../types').Weather>) =>
+    request<import('../types').Weather>(`/weather/${weatherId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteWeather: (weatherId: number) =>
+    request<{ message: string }>(`/weather/${weatherId}`, {
+      method: 'DELETE',
     }),
 
   getCategoriesByWeather: (weatherId: number) =>

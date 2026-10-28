@@ -152,6 +152,46 @@ class WeatherService:
         return w
 
     @staticmethod
+    def update_weather(db: Session, weather_id: int, data: WeatherUpdate) -> Weather:
+        """Cập nhật thông tin cấu hình một trạng thái thời tiết."""
+        w = db.get(Weather, weather_id)
+        if not w:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Không tìm thấy trạng thái thời tiết với ID {weather_id}.",
+            )
+
+        update_dict = data.model_dump(exclude_unset=True)
+        for key, val in update_dict.items():
+            if val is not None and isinstance(val, str):
+                setattr(w, key, val.strip())
+            else:
+                setattr(w, key, val)
+
+        if w.min_temp is not None and w.max_temp is not None and w.min_temp > w.max_temp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nhiệt độ tối thiểu không được lớn hơn nhiệt độ tối đa.",
+            )
+
+        db.add(w)
+        db.commit()
+        db.refresh(w)
+        return w
+
+    @staticmethod
+    def delete_weather(db: Session, weather_id: int) -> None:
+        """Xoá một trạng thái thời tiết khỏi hệ thống."""
+        w = db.get(Weather, weather_id)
+        if not w:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Không tìm thấy trạng thái thời tiết với ID {weather_id}.",
+            )
+        db.delete(w)
+        db.commit()
+
+    @staticmethod
     def map_condition_to_code(
         temp: float,
         condition_main: Optional[str] = None,

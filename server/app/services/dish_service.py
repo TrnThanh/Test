@@ -17,7 +17,16 @@ class DishService:
         cat_name = dish.parent_category.name if dish.parent_category else dish.category
         res = DishResponse.model_validate(dish)
         res.category_name = cat_name
-        res.meal_type_name = ", ".join(dish.meal_types) if dish.meal_types else None
+        meal_types = [m for m in dish.meal_types if m] if dish.meal_types else ["all_day"]
+        res.meal_types = meal_types
+        label_map = {
+            "breakfast": "Bữa sáng",
+            "lunch": "Bữa trưa",
+            "dinner": "Bữa tối",
+            "snack": "Bữa xế / Ăn vặt",
+            "all_day": "Cả ngày",
+        }
+        res.meal_type_name = ", ".join(label_map.get(m, m) for m in meal_types)
         return res
 
     @staticmethod
@@ -47,7 +56,7 @@ class DishService:
 
         cleaned_ingredients = [i.strip() for i in data.ingredients if i.strip()] if data.ingredients else []
         cleaned_dietary = [d.strip() for d in data.dietary_tags if d.strip()] if data.dietary_tags else []
-        cleaned_meal_types = [m.strip() for m in data.meal_types if m.strip()] if data.meal_types else []
+        cleaned_meal_types = [m.strip() for m in data.meal_types if m.strip()] if data.meal_types else ["all_day"]
         cleaned_allergens = [a.strip() for a in data.allergens if a.strip()] if data.allergens else []
 
         dish = Dish(
@@ -168,8 +177,16 @@ class DishService:
                 if "category" not in update_data or not update_data["category"]:
                     dish.category = None
 
+        if "meal_types" in update_data:
+            val = update_data["meal_types"]
+            if val is not None:
+                cleaned = [m.strip() for m in val if m.strip()]
+                dish.meal_types = cleaned if cleaned else ["all_day"]
+            else:
+                dish.meal_types = ["all_day"]
+
         for key, value in update_data.items():
-            if key in ["category_id"]:
+            if key in ["category_id", "meal_types"]:
                 continue
             if isinstance(value, str):
                 value = value.strip()
