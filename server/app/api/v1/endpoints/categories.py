@@ -9,7 +9,11 @@ from server.app.services.category_service import CategoryService
 router = APIRouter()
 
 
-# --- DANH MỤC TOÀN CỤC (GLOBAL MASTER CATEGORIES) ---
+# ==============================================================================
+# PHÂN HỆ 1: Danh mục toàn cục (Global Master Categories)
+# ==============================================================================
+
+# Tạo mới một danh mục phân loại món ăn dùng chung cho toàn bộ hệ thống
 @router.post(
     "/categories",
     response_model=CategoryResponse,
@@ -21,12 +25,14 @@ def create_category(
     db: Session = Depends(get_db),
 ):
     """Tạo danh mục mới dùng chung cho toàn bộ hệ thống."""
+    # Gọi service thêm danh mục toàn cục vào cơ sở dữ liệu
     return CategoryService.create_category(
         db=db,
         data=category_in,
     )
 
 
+# Lấy danh sách toàn bộ các nhóm danh mục món ăn trong hệ thống
 @router.get(
     "/categories",
     response_model=List[CategoryResponse],
@@ -38,6 +44,7 @@ def get_categories(
     db: Session = Depends(get_db),
 ):
     """Lấy danh sách nhóm danh mục món ăn, sắp xếp theo thứ tự hiển thị."""
+    # Lấy danh sách danh mục theo trạng thái và quán ăn
     return CategoryService.get_categories(
         db=db,
         restaurant_id=restaurant_id,
@@ -45,7 +52,11 @@ def get_categories(
     )
 
 
-# --- TƯƠNG THÍCH NGƯỢC: ENDPOINTS CATEGORY THEO RESTAURANT ---
+# ==============================================================================
+# PHÂN HỆ 2: Endpoints danh mục tương thích ngược theo quán ăn
+# ==============================================================================
+
+# Tạo nhóm danh mục món ăn gắn với một quán ăn cụ thể (tương thích ngược)
 @router.post(
     "/restaurants/{restaurant_id}/categories",
     response_model=CategoryResponse,
@@ -58,6 +69,7 @@ def create_category_legacy(
     db: Session = Depends(get_db),
 ):
     """Tạo nhóm danh mục (tương thích endpoint cũ)."""
+    # Tạo danh mục có gắn restaurant_id
     return CategoryService.create_category(
         db=db,
         data=category_in,
@@ -65,6 +77,7 @@ def create_category_legacy(
     )
 
 
+# Lấy danh sách các nhóm danh mục của quán ăn cụ thể
 @router.get(
     "/restaurants/{restaurant_id}/categories",
     response_model=List[CategoryResponse],
@@ -76,6 +89,7 @@ def get_restaurant_categories(
     db: Session = Depends(get_db),
 ):
     """Lấy danh sách nhóm danh mục có món ăn của một quán ăn."""
+    # Lấy danh sách danh mục theo quán ăn cụ thể
     return CategoryService.get_categories(
         db=db,
         restaurant_id=restaurant_id,
@@ -83,6 +97,7 @@ def get_restaurant_categories(
     )
 
 
+# Lấy thông tin chi tiết một danh mục món ăn theo ID
 @router.get(
     "/categories/{category_id}",
     response_model=CategoryResponse,
@@ -93,9 +108,11 @@ def get_category_detail(
     db: Session = Depends(get_db),
 ):
     """Lấy thông tin chi tiết của một danh mục."""
+    # Truy vấn chi tiết danh mục theo ID
     return CategoryService.get_category_by_id(db=db, category_id=category_id)
 
 
+# Cập nhật thông tin danh mục món ăn (tên, thứ tự hiển thị, trạng thái)
 @router.put(
     "/categories/{category_id}",
     response_model=CategoryResponse,
@@ -107,6 +124,7 @@ def update_category(
     db: Session = Depends(get_db),
 ):
     """Chỉnh sửa tên, mô tả, thứ tự hiển thị danh mục."""
+    # Cập nhật thông tin danh mục qua service
     return CategoryService.update_category(
         db=db,
         category_id=category_id,
@@ -114,6 +132,7 @@ def update_category(
     )
 
 
+# Xoá một danh mục món ăn (các món ăn thuộc danh mục sẽ chuyển thành không phân loại)
 @router.delete(
     "/categories/{category_id}",
     summary="Xoá danh mục món ăn",
@@ -123,8 +142,10 @@ def delete_category(
     db: Session = Depends(get_db),
 ):
     """Xoá danh mục món ăn (các món ăn thuộc danh mục sẽ chuyển thành không phân loại)."""
+    # 1. Gọi service xoá danh mục và gán category_id = None cho các món liên quan
     CategoryService.delete_category(
         db=db,
         category_id=category_id,
     )
+    # 2. Trả về thông báo hoàn tất
     return {"message": f"Danh mục {category_id} đã được xoá thành công. Các món ăn liên quan đã được chuyển thành chưa phân loại."}

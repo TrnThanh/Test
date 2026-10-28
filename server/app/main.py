@@ -13,20 +13,25 @@ from server.app.api.v1.router import api_router
 
 logger = logging.getLogger(__name__)
 
-
+# Quản lý vòng đời khởi động và dọn dẹp tài nguyên của ứng dụng FastAPI
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Khởi tạo vòng đời ứng dụng: cấu hình HTTP client bản đồ và khởi tạo cơ sở dữ liệu."""
+    # 1. Khởi tạo HTTP Client dùng chung cho dịch vụ bản đồ OSRM với timeout 5 giây
     shared_client = httpx.AsyncClient(timeout=5.0)
+    # 2. Gán shared client vào singleton map_service
     map_service.set_route_client(shared_client)
     try:
+        # 3. Khởi tạo cấu trúc bảng CSDL PostgreSQL và tự động nạp dữ liệu ban đầu
         init_database()
         logger.info("Khởi tạo PostgreSQL tables và seed dữ liệu ban đầu thành công.")
     except Exception as exc:
         logger.warning("Không thể tự động tạo bảng DB khi khởi động: %s", exc)
     try:
+        # 4. Nhường quyền điều khiển cho server FastAPI hoạt động phục vụ request
         yield
     finally:
+        # 5. Dọn dẹp tài nguyên: Đóng HTTP client khi server dừng
         await shared_client.aclose()
         map_service.set_route_client(None)
 
@@ -42,7 +47,7 @@ openapi_tags = [
     },
 ]
 
-
+# Hàm khởi tạo và đóng gói cấu hình cho toàn bộ ứng dụng FastAPI
 def create_app() -> FastAPI:
     """Khởi tạo FastAPI app với giao diện Swagger UI tương tác."""
     app = FastAPI(
@@ -66,10 +71,13 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
         allow_headers=["*"],
     )
 
+    # Đăng ký tập hợp các endpoint API phiên bản 1 (v1) với tiền tố /api/v1
     app.include_router(api_router, prefix="/api/v1")
 
+    # Endpoint kiểm tra trạng thái sức khoẻ máy chủ (Health Check)
     @app.get("/", tags=["Health Check"])
     def root():
+        """Trả về thông tin phiên bản hệ thống và các liên kết tài liệu Swagger / Redoc."""
         return {
             "app": settings.APP_NAME,
             "version": settings.APP_VERSION,
@@ -81,5 +89,5 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
 
     return app
 
-
+# Đối tượng ứng dụng FastAPI chính để Uvicorn nạp và thực thi
 app = create_app()

@@ -38,7 +38,12 @@ class ApiService {
     }
   }
 
-  // --- RESTAURANTS ---
+  // ==============================================================================
+  // PHAN HE 1: QUAN AN & NHA HANG (RESTAURANTS)
+  // ==============================================================================
+
+  // Lay danh sach tat ca quan an dang hoat dong trong he thong
+  /// Goi API GET /restaurants de lay danh sach quan an theo phan trang [skip] va [limit].
   Future<List<Restaurant>> getRestaurants({int skip = 0, int limit = 200}) async {
     final res = await _requestWithFallback((base) {
       final uri = Uri.parse('$base/restaurants?skip=$skip&limit=$limit');
@@ -52,6 +57,8 @@ class ApiService {
     throw Exception('Lỗi tải danh sách quán: ${res.statusCode}');
   }
 
+  // Tim kiem cac quan an xung quanh theo ban kinh khong gian PostGIS
+  /// Goi API GET /restaurants/nearby voi toa do [lat], [lon] va ban kinh [radiusKm].
   Future<List<Restaurant>> getNearbyRestaurants({
     required double lat,
     required double lon,

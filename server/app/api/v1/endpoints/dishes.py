@@ -9,7 +9,11 @@ from server.app.services.dish_service import DishService
 router = APIRouter()
 
 
-# --- QUẢN LÝ MÓN ĂN (DISHES) ---
+# ==============================================================================
+# PHÂN HỆ 1: Quản lý Món ăn (Dishes & Menu Management)
+# ==============================================================================
+
+# Tạo mới món ăn cho cơ sở ẩm thực kèm phân loại danh mục, độ cay và dị ứng
 @router.post(
     "/restaurants/{restaurant_id}/dishes",
     response_model=DishResponse,
@@ -26,14 +30,17 @@ def create_dish(
     - Bắt buộc: `name`, `price >= 0`.
     - Tuỳ chọn: `category_id`, `category`, `spicy_level`, `dietary_tags`, `meal_types`, `allergens`, `ingredients`.
     """
+    # 1. Gọi service để kiểm tra dữ liệu và thêm món ăn vào CSDL
     dish = DishService.create_dish(
         db=db,
         restaurant_id=restaurant_id,
         data=dish_in,
     )
+    # 2. Chuyển đổi thực thể ORM sang schema DishResponse chuẩn
     return DishService.to_dish_response(dish)
 
 
+# Lấy danh sách thực đơn món ăn của quán theo nhiều tiêu chí lọc linh hoạt
 @router.get(
     "/restaurants/{restaurant_id}/dishes",
     response_model=List[DishResponse],
@@ -54,6 +61,7 @@ def get_restaurant_dishes(
     db: Session = Depends(get_db),
 ):
     """Lấy danh sách các món ăn trong thực đơn của một quán ăn."""
+    # 1. Truy vấn danh sách món ăn từ service theo các điều kiện lọc
     dishes = DishService.get_dishes_by_restaurant(
         db=db,
         restaurant_id=restaurant_id,
@@ -68,9 +76,11 @@ def get_restaurant_dishes(
         skip=skip,
         limit=limit,
     )
+    # 2. Format từng món ăn thành đối tượng DishResponse
     return [DishService.to_dish_response(d) for d in dishes]
 
 
+# Lấy danh sách tên các nhóm món (categories) duy nhất của một quán ăn
 @router.get(
     "/restaurants/{restaurant_id}/dish-categories",
     response_model=List[str],
@@ -81,12 +91,14 @@ def get_dish_categories(
     db: Session = Depends(get_db),
 ):
     """Trả về danh sách các category duy nhất để gợi ý / autocomplete."""
+    # Lấy danh sách chuỗi category duy nhất
     return DishService.get_distinct_categories_by_restaurant(
         db=db,
         restaurant_id=restaurant_id,
     )
 
 
+# Xem chi tiết một món ăn cụ thể theo mã định danh ID
 @router.get(
     "/dishes/{dish_id}",
     response_model=DishResponse,
@@ -97,10 +109,13 @@ def get_dish_detail(
     db: Session = Depends(get_db),
 ):
     """Xem chi tiết một món ăn cụ thể."""
+    # 1. Tìm kiếm món ăn theo ID
     dish = DishService.get_dish_by_id(db=db, dish_id=dish_id)
+    # 2. Trả về thông tin chi tiết
     return DishService.to_dish_response(dish)
 
 
+# Cập nhật thông tin chi tiết của món ăn đã có
 @router.put(
     "/dishes/{dish_id}",
     response_model=DishResponse,
@@ -112,14 +127,17 @@ def update_dish(
     db: Session = Depends(get_db),
 ):
     """Cập nhật thông tin món ăn."""
+    # 1. Gọi service cập nhật các trường mới của món ăn
     dish = DishService.update_dish(
         db=db,
         dish_id=dish_id,
         data=dish_in,
     )
+    # 2. Trả về thông tin món ăn sau khi cập nhật
     return DishService.to_dish_response(dish)
 
 
+# Xoá một món ăn khỏi thực đơn của quán
 @router.delete(
     "/dishes/{dish_id}",
     summary="Xoá món ăn",
@@ -129,11 +147,17 @@ def delete_dish(
     db: Session = Depends(get_db),
 ):
     """Xoá một món ăn khỏi thực đơn quán."""
+    # 1. Xoá món ăn khỏi cơ sở dữ liệu
     DishService.delete_dish(db=db, dish_id=dish_id)
+    # 2. Trả về thông báo hoàn tất
     return {"message": f"Món ăn với ID {dish_id} đã được xoá thành công."}
 
 
-# --- MÓN ĂN YÊU THÍCH (FAVOURITE DISHES - Bỏ trường tag) ---
+# ==============================================================================
+# PHÂN HỆ 2: Món ăn yêu thích (Favourite Dishes)
+# ==============================================================================
+
+# Lưu một món ăn vào danh sách yêu thích của người dùng
 @router.post(
     "/users/{user_id}/favourites/{dish_id}",
     response_model=FavouriteDishResponse,
@@ -146,7 +170,9 @@ def add_dish_to_favourites(
     db: Session = Depends(get_db),
 ):
     """Lưu một món ăn vào danh sách yêu thích của người dùng (idempotent)."""
+    # 1. Thêm bản ghi vào bảng favourite_dishes (đảm bảo tính idempotent)
     fav = DishService.add_to_favourites(db=db, user_id=user_id, dish_id=dish_id)
+    # 2. Đóng gói kết quả phản hồi kèm thông tin món ăn
     return FavouriteDishResponse(
         id=fav.id,
         user_id=fav.user_id,
@@ -156,6 +182,7 @@ def add_dish_to_favourites(
     )
 
 
+# Bỏ một món ăn khỏi danh sách yêu thích của người dùng
 @router.delete(
     "/users/{user_id}/favourites/{dish_id}",
     summary="Thực khách bỏ lưu món ăn khỏi danh sách yêu thích",
@@ -166,10 +193,13 @@ def remove_dish_from_favourites(
     db: Session = Depends(get_db),
 ):
     """Bỏ một món ăn khỏi danh sách yêu thích."""
+    # 1. Xoá bản ghi món yêu thích của người dùng
     DishService.remove_from_favourites(db=db, user_id=user_id, dish_id=dish_id)
+    # 2. Trả về thông báo phản hồi
     return {"message": f"Đã bỏ món ăn ID {dish_id} khỏi danh sách yêu thích."}
 
 
+# Lấy danh sách toàn bộ món ăn yêu thích của một người dùng
 @router.get(
     "/users/{user_id}/favourites",
     response_model=List[FavouriteDishResponse],
@@ -182,7 +212,9 @@ def get_user_favourite_dishes(
     db: Session = Depends(get_db),
 ):
     """Xem danh sách các món ăn yêu thích của người dùng kèm thông tin chi tiết món."""
+    # 1. Truy vấn các món yêu thích của người dùng theo phân trang
     favs = DishService.get_user_favourites(db=db, user_id=user_id, skip=skip, limit=limit)
+    # 2. Map dữ liệu sang danh sách FavouriteDishResponse
     return [
         FavouriteDishResponse(
             id=f.id,

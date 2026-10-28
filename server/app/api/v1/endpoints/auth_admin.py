@@ -9,6 +9,7 @@ from server.app.services.admin_service import AdminService
 router = APIRouter()
 
 
+# Xác thực đăng nhập quản trị viên hệ thống (Admin Console)
 @router.post(
     "/login",
     response_model=RoleLoginResponse,
@@ -20,20 +21,24 @@ def login_admin(
     admin_in: AdminLogin,
     db: Session = Depends(get_db),
 ) -> RoleLoginResponse:
+    """Xác thực tài khoản quản trị viên và khởi tạo phiên làm việc."""
+    # 1. Gọi service xác thực thông tin đăng nhập admin
     admin = AdminService.authenticate_admin(db=db, email=admin_in.email, password=admin_in.password)
+    # 2. Kiểm tra nếu thông tin đăng nhập không hợp lệ
     if not admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
+    # 3. Chuẩn bị dữ liệu thông tin quản trị viên trả về
     admin_dict = {
         "id": admin.id,
         "email": admin.email,
         "full_name": admin.full_name,
-        "role_level": admin.role_level,
         "is_active": admin.is_active,
         "created_at": admin.created_at.isoformat(),
     }
+    # 4. Trả về phản hồi đăng nhập thành công kèm session ID ngẫu nhiên
     return RoleLoginResponse(
         message="Admin login successful",
         role="admin",

@@ -7,13 +7,15 @@ from server.app.models.dish import Dish
 from server.app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 
 
+# Lớp dịch vụ quản lý danh mục món ăn toàn cục và phân nhóm thực đơn
 class CategoryService:
-    @classmethod
+    # Tạo mới một danh mục phân loại món ăn toàn hệ thống
+    @staticmethod
     def create_category(
-        cls, db: Session, data: CategoryCreate, restaurant_id: Optional[int] = None
+        db: Session, data: CategoryCreate, restaurant_id: Optional[int] = None
     ) -> CategoryResponse:
         """Tạo danh mục mới toàn cục (Master Category). Tham số restaurant_id giữ lại để tương thích ngược."""
-        # Kiểm tra trùng tên danh mục toàn hệ thống (không phân biệt hoa/thường)
+        # 1. Kiểm tra trùng tên danh mục toàn hệ thống (không phân biệt hoa/thường)
         existing = db.execute(
             select(Category).where(
                 func.lower(Category.name) == data.name.lower(),
@@ -25,6 +27,7 @@ class CategoryService:
                 detail=f"Danh mục '{data.name}' đã tồn tại trong hệ thống",
             )
 
+        # 2. Tạo thực thể danh mục mới
         category = Category(
             name=data.name,
             description=data.description,
@@ -35,24 +38,29 @@ class CategoryService:
         db.commit()
         db.refresh(category)
 
+        # 3. Đóng gói kết quả trả về kèm số lượng món ăn ban đầu là 0
         res = CategoryResponse.model_validate(category)
         res.dish_count = 0
         return res
 
+    # Lấy danh sách toàn bộ các danh mục kèm số lượng món ăn tương ứng
     @staticmethod
     def get_categories(
         db: Session, restaurant_id: Optional[int] = None, is_active_only: bool = False
     ) -> List[CategoryResponse]:
         """Lấy danh sách các nhóm danh mục (toàn cục hoặc theo quán ăn)."""
+        # 1. Khởi tạo câu truy vấn danh mục
         query = select(Category)
+        # 2. Lọc các danh mục mà quán này đang có món ăn phục vụ nếu truyền restaurant_id
         if restaurant_id is not None:
-            # Lọc các danh mục mà quán này đang có món ăn phục vụ
             query = query.join(Dish, Dish.category_id == Category.id).where(Dish.restaurant_id == restaurant_id).distinct()
+        # 3. Lọc theo trạng thái hoạt động nếu yêu cầu
         if is_active_only:
             query = query.where(Category.is_active == True)  # noqa: E712
         query = query.order_by(Category.display_order.asc(), Category.id.asc())
         categories = db.execute(query).scalars().all()
 
+        # 4. Đếm số lượng món ăn thuộc từng danh mục
         results: List[CategoryResponse] = []
         for cat in categories:
             dish_count_query = select(func.count(Dish.id)).where(Dish.category_id == cat.id)
@@ -65,25 +73,33 @@ class CategoryService:
             results.append(cat_res)
         return results
 
+    # Lấy thông tin chi tiết một danh mục món ăn theo ID kèm số lượng món ăn
     @staticmethod
     def get_category_by_id(db: Session, category_id: int) -> CategoryResponse:
+        """Lấy thông tin chi tiết một danh mục theo ID."""
+        # 1. Tìm danh mục trong CSDL
         cat = db.get(Category, category_id)
         if not cat:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Không tìm thấy danh mục món ăn",
             )
+        # 2. Đếm số món ăn đang thuộc danh mục này
         dish_count = db.execute(
             select(func.count(Dish.id)).where(Dish.category_id == cat.id)
         ).scalar() or 0
+        # 3. Đóng gói phản hồi
         res = CategoryResponse.model_validate(cat)
         res.dish_count = dish_count
         return res
 
-    @classmethod
+    # Chỉnh sửa thông tin danh mục món ăn (tên, mô tả, thứ tự sắp xếp)
+    @staticmethod
     def update_category(
-        cls, db: Session, category_id: int, data: CategoryUpdate
+        db: Session, category_id: int, data: CategoryUpdate
     ) -> CategoryResponse:
+        """Cập nhật thông tin danh mục món ăn."""
+        # 1. Tìm danh mục cần sửa
         cat = db.get(Category, category_id)
         if not cat:
             raise HTTPException(
@@ -91,6 +107,7 @@ class CategoryService:
                 detail="Không tìm thấy danh mục món ăn",
             )
 
+        # 2. Kiểm tra nếu đổi tên thì tên mới không được trùng với danh mục khác
         update_dict = data.model_dump(exclude_unset=True)
         if "name" in update_dict and update_dict["name"] is not None:
             new_name = update_dict["name"]
@@ -106,12 +123,14 @@ class CategoryService:
                     detail=f"Danh mục '{new_name}' đã tồn tại trong hệ thống",
                 )
 
+        # 3. Gán các trường mới và commit
         for key, value in update_dict.items():
             setattr(cat, key, value)
 
         db.commit()
         db.refresh(cat)
 
+        # 4. Đếm số lượng món ăn và trả về
         dish_count = db.execute(
             select(func.count(Dish.id)).where(Dish.category_id == cat.id)
         ).scalar() or 0
@@ -119,8 +138,11 @@ class CategoryService:
         res.dish_count = dish_count
         return res
 
-    @classmethod
-    def delete_category(cls, db: Session, category_id: int) -> None:
+    # Xoá hoàn toàn danh mục món ăn khỏi cơ sở dữ liệu
+    @staticmethod
+    def delete_category(db: Session, category_id: int) -> None:
+        """Xoá một danh mục món ăn."""
+        # 1. Tìm danh mục theo ID
         cat = db.get(Category, category_id)
         if not cat:
             raise HTTPException(
@@ -128,5 +150,6 @@ class CategoryService:
                 detail="Không tìm thấy danh mục món ăn",
             )
 
+        # 2. Xoá bản ghi danh mục
         db.delete(cat)
         db.commit()

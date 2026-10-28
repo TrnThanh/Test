@@ -14,15 +14,14 @@ from server.app.schemas.dish import DishCreate, DishUpdate, DishResponse
 class DishService:
     @staticmethod
     def to_dish_response(dish: Dish) -> DishResponse:
-        cat_name = dish.category_rel.name if dish.category_rel else dish.category
+        cat_name = dish.parent_category.name if dish.parent_category else dish.category
         res = DishResponse.model_validate(dish)
         res.category_name = cat_name
         res.meal_type_name = ", ".join(dish.meal_types) if dish.meal_types else None
         return res
 
-    @classmethod
+    @staticmethod
     def create_dish(
-        cls,
         db: Session,
         restaurant_id: int,
         data: DishCreate,
@@ -70,7 +69,7 @@ class DishService:
         db.add(dish)
         db.commit()
         db.refresh(dish)
-        return cls.get_dish_by_id(db, dish.id)
+        return DishService.get_dish_by_id(db, dish.id)
 
     @staticmethod
     def get_dishes_by_restaurant(
@@ -97,7 +96,7 @@ class DishService:
 
         stmt = (
             select(Dish)
-            .options(joinedload(Dish.category_rel))
+            .options(joinedload(Dish.parent_category))
             .where(Dish.restaurant_id == restaurant_id)
         )
         if available_only:
@@ -126,7 +125,7 @@ class DishService:
         """Lấy chi tiết một món ăn theo ID."""
         stmt = (
             select(Dish)
-            .options(joinedload(Dish.category_rel))
+            .options(joinedload(Dish.parent_category))
             .where(Dish.id == dish_id)
         )
         dish = db.scalar(stmt)
@@ -137,9 +136,8 @@ class DishService:
             )
         return dish
 
-    @classmethod
+    @staticmethod
     def update_dish(
-        cls,
         db: Session,
         dish_id: int,
         data: DishUpdate,
@@ -179,7 +177,7 @@ class DishService:
 
         db.commit()
         db.refresh(dish)
-        return cls.get_dish_by_id(db, dish.id)
+        return DishService.get_dish_by_id(db, dish.id)
 
     @staticmethod
     def delete_dish(
@@ -290,7 +288,7 @@ class DishService:
         stmt = (
             select(FavouriteDish)
             .options(
-                joinedload(FavouriteDish.dish).joinedload(Dish.category_rel),
+                joinedload(FavouriteDish.dish).joinedload(Dish.parent_category),
                 joinedload(FavouriteDish.dish).joinedload(Dish.restaurant),
             )
             .where(FavouriteDish.user_id == user_id)

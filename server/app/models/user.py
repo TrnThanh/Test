@@ -10,9 +10,10 @@ from sqlalchemy import (
     Text,
     func,
     text,
+    Column,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlmodel import Field, Relationship
 from server.app.db.base import Base
 from server.app.models.base import AccountMixin
 
@@ -20,7 +21,8 @@ if TYPE_CHECKING:
     from server.app.models.option_user import OptionUser
 
 
-class User(AccountMixin, Base):
+# Model thực thể người dùng hệ thống kèm hồ sơ sức khoẻ
+class User(AccountMixin, Base, table=True):
     """Bảng người dùng thông thường (Customer / User) tích hợp hồ sơ sức khỏe và sở thích ẩm thực."""
     __tablename__ = "users"
     __table_args__ = (
@@ -35,58 +37,70 @@ class User(AccountMixin, Base):
     )
 
     # Chỉ số sức khỏe & thể chất
-    height_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
-    weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
-    gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default=None)  # male, female, other
-    birth_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
-    activity_level: Mapped[Optional[str]] = mapped_column(
-        String(30), nullable=True, default=None
+    height_cm: Optional[float] = Field(default=None, sa_type=Float, nullable=True)
+    weight_kg: Optional[float] = Field(default=None, sa_type=Float, nullable=True)
+    gender: Optional[str] = Field(default=None, sa_type=String(20), nullable=True)  # male, female, other
+    birth_year: Optional[int] = Field(default=None, sa_type=Integer, nullable=True)
+    activity_level: Optional[str] = Field(
+        default=None, sa_type=String(30), nullable=True
     )  # sedentary, light, moderate, active, very_active
-    target_goal: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True, default=None
+    target_goal: Optional[str] = Field(
+        default=None, sa_type=String(50), nullable=True
     )  # maintain, lose_weight, gain_muscle, eat_healthy
 
     # Tùy chọn ẩm thực & Khẩu vị
-    favorite_category_ids: Mapped[List[int]] = mapped_column(
-        ARRAY(Integer), nullable=False, default=list, server_default=text("'{}'::integer[]")
+    favorite_category_ids: List[int] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(Integer), nullable=False, server_default=text("'{}'::integer[]")),
     )
-    dietary_preferences: Mapped[List[str]] = mapped_column(
-        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
+    dietary_preferences: List[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
     )  # vegetarian, vegan, low_carb, keto, healthy, clean_eating...
-    spicy_tolerance: Mapped[Optional[str]] = mapped_column(
-        String(20), nullable=True, default=None
+    spicy_tolerance: Optional[str] = Field(
+        default=None, sa_type=String(20), nullable=True
     )  # none, mild, medium, hot
-    allergies: Mapped[List[str]] = mapped_column(
-        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'::text[]")
+    allergies: List[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
     )  # seafood, peanut, dairy, gluten, egg...
-    budget_range: Mapped[Optional[str]] = mapped_column(
-        String(20), nullable=True, default=None
+    budget_range: Optional[str] = Field(
+        default=None, sa_type=String(20), nullable=True
     )  # budget, moderate, premium
 
     # Trạng thái khảo sát Onboarding
-    is_onboarded: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default=text("false"), nullable=False
+    is_onboarded: bool = Field(
+        default=False,
+        sa_column=Column(Boolean, default=False, server_default=text("false"), nullable=False),
     )
-    onboarded_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True, default=None
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-        server_default=func.now(),
-        nullable=False,
+    onboarded_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True, default=None),
     )
 
-    options: Mapped[List["OptionUser"]] = relationship(
-        "OptionUser",
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(
+            DateTime(timezone=True),
+            default=lambda: datetime.now(timezone.utc),
+            onupdate=lambda: datetime.now(timezone.utc),
+            server_default=func.now(),
+            nullable=False,
+        ),
+    )
+
+    # --- CÁC QUAN HỆ ORM (RELATIONSHIPS) ---
+    # Danh sách tùy chọn ẩn/hiện danh mục món ăn của người dùng (Quan hệ 1-N: 1 User -> Nhiều OptionUser)
+    # cascade="all, delete-orphan": Khi xóa người dùng, toàn bộ tùy chọn tương ứng sẽ tự động bị xóa theo
+    options: List["OptionUser"] = Relationship(
         back_populates="user",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "passive_deletes": True,
+        },
     )
 
     @property
     def user_id(self) -> int:
         """Alias tương thích trả về id người dùng trong UserProfileResponse."""
-        return self.id
+        return self.id  # type: ignore[return-value]

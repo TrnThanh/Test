@@ -7,6 +7,7 @@ from server.app.services.user_profile_service import UserProfileService
 router = APIRouter()
 
 
+# Lấy thông tin hồ sơ sức khoẻ, thể trạng (BMI) và sở thích dinh dưỡng của người dùng
 @router.get(
     "/{user_id}/profile",
     response_model=UserProfileResponse,
@@ -18,9 +19,12 @@ def get_user_profile(
     user_id: int,
     db: Session = Depends(get_db),
 ) -> UserProfileResponse:
+    """Truy xuất hoặc tự động khởi tạo hồ sơ dinh dưỡng người dùng."""
+    # Gọi service lấy hồ sơ hoặc tạo mặc định nếu người dùng mới
     return UserProfileService.get_or_create_profile(db=db, user_id=user_id)
 
 
+# Cập nhật thông tin hồ sơ thể trạng và hoàn tất khảo sát Onboarding ban đầu
 @router.put(
     "/{user_id}/profile",
     response_model=UserProfileResponse,
@@ -33,4 +37,6 @@ def update_user_profile(
     data: UserProfileUpdate,
     db: Session = Depends(get_db),
 ) -> UserProfileResponse:
+    """Cập nhật các chỉ số sức khoẻ, sở thích ẩm thực và cờ hoàn thành onboarding."""
+    # Cập nhật thông tin qua service
     return UserProfileService.update_profile(db=db, user_id=user_id, data=data)

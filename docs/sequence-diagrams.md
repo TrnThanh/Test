@@ -253,7 +253,7 @@ sequenceDiagram
     DB-->>Svc: db.commit() + db.refresh() -> Dish (id, created_at)
     deactivate DB
 
-    Svc->>Svc: to_dish_response(dish) (nạp category_name từ quan hệ category_rel)
+    Svc->>Svc: to_dish_response(dish) (nạp category_name từ quan hệ parent_category)
     Svc-->>API: DishResponse
     deactivate Svc
     API-->>Admin: HTTP 201 Created (DishResponse)

@@ -187,9 +187,8 @@ class WeatherService:
         # Mặc định mát mẻ
         return "mild"
 
-    @classmethod
+    @staticmethod
     async def fetch_current_weather(
-        cls,
         db: Session,
         lat: Optional[float] = None,
         lon: Optional[float] = None,
@@ -257,17 +256,17 @@ class WeatherService:
         icon_url = f"https://openweathermap.org/img/wn/{icon_code}@2x.png" if icon_code else None
 
         # Khớp mã trạng thái trong hệ thống
-        code = cls.map_condition_to_code(
+        code = WeatherService.map_condition_to_code(
             temp=temp,
             condition_main=condition,
             description=desc,
             weather_id=w_id,
         )
 
-        matched_weather = cls.get_weather_by_code(db, code)
+        matched_weather = WeatherService.get_weather_by_code(db, code)
         if not matched_weather:
-            cls.seed_default_weathers(db)
-            matched_weather = cls.get_weather_by_code(db, code)
+            WeatherService.seed_default_weathers(db)
+            matched_weather = WeatherService.get_weather_by_code(db, code)
 
         recommended_categories: List[CategoryResponse] = []
         if matched_weather:

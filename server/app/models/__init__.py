@@ -1,4 +1,5 @@
-"""SQLAlchemy models package."""
+"""SQLModel models package."""
+# Nạp toàn bộ các model SQLModel để khởi tạo quan hệ và metadata CSDL
 from server.app.models.user import User
 from server.app.models.admin import Admin
 from server.app.models.restaurant import Restaurant

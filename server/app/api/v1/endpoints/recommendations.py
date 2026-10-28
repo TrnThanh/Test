@@ -9,6 +9,7 @@ from server.app.services.recommendation_service import RecommendationService
 router = APIRouter()
 
 
+# Hệ thống gợi ý ẩm thực theo ngữ cảnh đa chiều (Context-Aware Recommender System - CARS)
 @router.get(
     "/contextual",
     response_model=ContextualRecommendationResponse,
@@ -28,6 +29,8 @@ def get_contextual_recommendations(
     seed: Optional[int] = Query(None, description="Seed ngẫu nhiên phục vụ kiểm thử đơn vị"),
     db: Session = Depends(get_db),
 ) -> ContextualRecommendationResponse:
+    """Đề xuất thực đơn và quán ăn dựa trên ngữ cảnh thời tiết, vị trí GPS và hồ sơ người dùng."""
+    # Kích hoạt thuật toán tính điểm và xếp hạng CARS từ RecommendationService
     return RecommendationService.get_contextual_recommendations(
         db=db,
         lat=lat,

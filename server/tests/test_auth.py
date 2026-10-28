@@ -117,7 +117,7 @@ def test_login_admin_default_success(client: TestClient) -> None:
     assert data["role"] == "admin"
     assert "session_id" in data and len(data["session_id"]) >= 32
     assert data["data"]["email"] == "admin@example.com"
-    assert data["data"]["role_level"] == 1
+    assert "role_level" not in data["data"]
 
 
 def test_login_admin_wrong_password(client: TestClient) -> None:

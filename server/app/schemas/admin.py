@@ -12,7 +12,6 @@ class AdminResponse(BaseModel):
     id: int = Field(..., description="ID của quản trị viên", examples=[1])
     email: str = Field(..., description="Địa chỉ email", examples=["admin@example.com"])
     full_name: Optional[str] = Field(None, description="Họ và tên")
-    role_level: int = Field(1, description="Cấp bậc quản trị (1: Super Admin)")
     is_active: bool = Field(True, description="Trạng thái kích hoạt")
     created_at: datetime = Field(..., description="Thời gian tạo tài khoản")
 

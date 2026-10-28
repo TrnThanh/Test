@@ -201,8 +201,8 @@ class InitialSeedService:
                 return alt
         return json_path
 
-    @classmethod
-    def seed_initial_data_if_needed(cls, db: Session, force: bool = False) -> bool:
+    @staticmethod
+    def seed_initial_data_if_needed(db: Session, force: bool = False) -> bool:
         """
         Tự động nạp 204 quán ăn và thực đơn món ăn vào CSDL nếu chưa có dữ liệu.
         - Đảm bảo 100% không xoá hoặc thay đổi bảng `users`.
@@ -228,7 +228,7 @@ class InitialSeedService:
             return False
 
         # 3. Đọc dữ liệu JSON
-        json_path = cls.get_json_data_path()
+        json_path = InitialSeedService.get_json_data_path()
         if not json_path.exists():
             logger.warning("Không tìm thấy file dữ liệu JSON tại: %s. Bỏ qua auto-seed.", json_path)
             return False

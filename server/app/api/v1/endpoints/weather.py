@@ -9,6 +9,7 @@ from server.app.services.weather_service import WeatherService
 router = APIRouter()
 
 
+# Lấy dữ liệu thời tiết thực tế từ OpenWeatherMap kèm các danh mục món ăn phù hợp với thời tiết
 @router.get(
     "/current",
     response_model=CurrentWeatherResponse,
@@ -20,11 +21,14 @@ async def get_current_weather(
     lon: Optional[float] = Query(None, description="Kinh độ (mặc định: toạ độ HVNN 105.9387)"),
     db: Session = Depends(get_db),
 ) -> CurrentWeatherResponse:
-    # Đảm bảo dữ liệu thời tiết mặc định đã được khởi tạo
+    """Truy vấn thời tiết hiện tại và gợi ý danh mục món ăn tương ứng."""
+    # 1. Đảm bảo dữ liệu thời tiết mặc định đã được khởi tạo trong CSDL
     WeatherService.seed_default_weathers(db)
+    # 2. Gọi OpenWeatherMap API hoặc fallback dữ liệu nếu không có API key
     return await WeatherService.fetch_current_weather(db=db, lat=lat, lon=lon)
 
 
+# Lấy danh sách toàn bộ các trạng thái thời tiết được cấu hình trong hệ thống
 @router.get(
     "",
     response_model=List[WeatherResponse],
@@ -35,11 +39,14 @@ def list_weathers(
     active_only: bool = True,
     db: Session = Depends(get_db),
 ):
-    # Đảm bảo luôn có dữ liệu mặc định
+    """Lấy danh sách các kiểu thời tiết được hỗ trợ."""
+    # 1. Khởi tạo dữ liệu seed nếu chưa có
     WeatherService.seed_default_weathers(db)
+    # 2. Lấy danh sách thời tiết từ database
     return WeatherService.get_all_weathers(db, active_only=active_only)
 
 
+# Lấy chi tiết thông tin một trạng thái thời tiết cụ thể theo ID
 @router.get(
     "/{weather_id}",
     response_model=WeatherResponse,
@@ -49,9 +56,12 @@ def get_weather(
     weather_id: int,
     db: Session = Depends(get_db),
 ):
+    """Xem thông tin chi tiết của một kiểu thời tiết."""
+    # Tìm kiếm kiểu thời tiết theo ID
     return WeatherService.get_weather_by_id(db, weather_id)
 
 
+# Tạo mới một trạng thái thời tiết vào hệ thống
 @router.post(
     "",
     response_model=WeatherResponse,
@@ -62,4 +72,6 @@ def create_weather(
     data: WeatherCreate,
     db: Session = Depends(get_db),
 ):
+    """Tạo mới một trạng thái thời tiết."""
+    # Tạo bản ghi thời tiết mới
     return WeatherService.create_weather(db, data)
