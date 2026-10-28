@@ -1,3 +1,4 @@
+import 'package:mobile/services/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -98,20 +99,6 @@ class FakeApiService extends ApiService {
         [105.8572, 21.0185],
       ],
       isFallback: false,
-    );
-  }
-
-  @override
-  Future<IpLocation> getIpLocation() async {
-    return IpLocation(
-      lat: 21.0046,
-      lon: 105.9387,
-      city: 'Huyện Gia Lâm',
-      region: 'Hà Nội',
-      country: 'Vietnam',
-      locationName: 'Học viện Nông nghiệp Việt Nam (HVNN Gia Lâm, Hà Nội)',
-      isFallback: true,
-      ip: '127.0.0.1',
     );
   }
 
@@ -374,7 +361,7 @@ void main() {
 
     // Kiểm tra render độc lập WeatherLandscapePainter cho cả ban ngày và ban đêm
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: Column(
             children: const [
@@ -392,7 +379,7 @@ void main() {
   testWidgets('Kiểm thử Bản đồ MapScreen hiển thị đầy đủ và các điều khiển trực quan', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: MapScreen(
           api: fakeApi,
           currentUser: null,
@@ -410,7 +397,7 @@ void main() {
   testWidgets('Kiểm thử Chỉ đường đi bộ trên MapScreen hiển thị nút và banner', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: MapScreen(
           api: fakeApi,
           currentUser: null,
@@ -466,7 +453,7 @@ void main() {
   testWidgets('Kiểm thử Cụm ẩm thực LOD và Viewport Culling trên MapScreen', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: MapScreen(
           api: fakeApi,
           currentUser: null,
@@ -478,5 +465,20 @@ void main() {
 
     expect(find.byType(FlutterMap), findsOneWidget);
     expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
+  });
+
+  test('LocationService.getDeviceLocation trả về null an toàn khi chạy headless test', () async {
+    final pos = await LocationService.getDeviceLocation();
+    expect(pos, isNull);
+  });
+
+  test('LocationService sử dụng debugProvider khi được inject trong môi trường kiểm thử', () async {
+    LocationService.debugProvider = () async => {'lat': 21.0046, 'lon': 105.9387};
+    addTearDown(() => LocationService.debugProvider = null);
+
+    final pos = await LocationService.getDeviceLocation();
+    expect(pos, isNotNull);
+    expect(pos!['lat'], 21.0046);
+    expect(pos['lon'], 105.9387);
   });
 }

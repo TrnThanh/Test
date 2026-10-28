@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Request
-from server.app.schemas.map import MapSearchResponse, MapReverseResponse, IpLocationResponse
+from server.app.schemas.map import MapSearchResponse, MapReverseResponse
 from server.app.services.map_service import MapService, map_service
 
 router = APIRouter()
@@ -10,22 +10,6 @@ def get_map_service() -> MapService:
     """Trả về thể hiện singleton của MapService."""
     # Trả về đối tượng map_service toàn cục
     return map_service
-
-
-# Tự động xác định toạ độ địa lý theo địa chỉ IP của client (có fallback về Học viện Nông nghiệp)
-@router.get(
-    "/ip-location",
-    response_model=IpLocationResponse,
-    summary="Định vị toạ độ trực tuyến theo IP client (Online IP Geolocation)",
-    description="Tự động xác định toạ độ địa lý của người dùng qua mạng Internet. Tự động fallback về toạ độ Học viện Nông nghiệp Việt Nam khi chạy trên IP localhost/private hoặc lỗi mạng.",
-)
-async def get_ip_location(
-    request: Request,
-    service: MapService = Depends(get_map_service),
-) -> IpLocationResponse:
-    """Xác định vị trí toạ độ địa lý của thiết bị dựa trên IP client."""
-    # Gọi hàm định vị IP từ map_service
-    return await service.get_ip_location(request=request)
 
 
 # Tìm kiếm địa điểm theo tên hoặc địa chỉ sử dụng OpenStreetMap Nominatim (Forward Geocoding)

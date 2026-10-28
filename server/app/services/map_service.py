@@ -10,18 +10,14 @@ from server.app.schemas.map import (
     MapSearchResponse,
     MapReverseResponse,
     PlaceItem,
-    IpLocationResponse,
 )
 from server.app.schemas.restaurant import RestaurantRouteResponse
 from server.app.utils.cache import FIFOTtlCache
 from server.app.utils.geo import haversine_distance
-from server.app.utils.network import fallback_ip_location, get_client_ip, is_public_ip
 
 logger = logging.getLogger(__name__)
 
 _NOMINATIM_FAILS_UNTIL: float = 0.0
-_IP_LOCATION_CACHE: Dict[str, tuple[float, IpLocationResponse]] = {}
-_IP_CACHE_TTL = 3600.0  # 1 giờ
 
 
 class MapService:
@@ -252,62 +248,6 @@ class MapService:
             display_name=disp_name,
             address={"city": city, "country": "Việt Nam"},
         )
-
-    async def get_ip_location(
-        self,
-        request: Request,
-        client: Optional[httpx.AsyncClient] = None,
-    ) -> IpLocationResponse:
-        """
-        Định vị toạ độ người dùng trực tuyến theo địa chỉ IP qua mạng Internet (IP Geolocation).
-        - Nếu client kết nối từ loopback/private IP (127.0.0.1, localhost, mạng LAN nội bộ) -> fallback HVNN Gia Lâm.
-        - Nếu client kết nối từ public IP -> truy vấn dịch vụ ip-api.com với bộ đệm in-memory cache TTL 1 giờ.
-        - Khi có lỗi mạng hoặc API gián đoạn -> tự động fallback an toàn về toạ độ mặc định HVNN.
-        """
-        ip = get_client_ip(request)
-        is_pub = is_public_ip(ip) if ip else False
-        cache_key = ip if is_pub else "__host_ip__"
-
-        now = time.time()
-        hit = _IP_LOCATION_CACHE.get(cache_key)
-        if hit and (now - hit[0]) < _IP_CACHE_TTL:
-            return hit[1]
-
-        url = f"http://ip-api.com/json/{ip}" if is_pub else "http://ip-api.com/json"
-        params = {"fields": "status,message,country,regionName,city,lat,lon,query"}
-        try:
-            if client is not None:
-                resp = await client.get(url, params=params, timeout=3.0)
-            elif self._client is not None:
-                resp = await self._client.get(url, params=params, timeout=3.0)
-            else:
-                async with httpx.AsyncClient(timeout=3.0) as c:
-                    resp = await c.get(url, params=params)
-
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("status") == "success":
-                    city = data.get("city")
-                    region = data.get("regionName")
-                    country = data.get("country")
-                    parts = [p for p in (city, region, country) if p]
-                    loc_name = ", ".join(parts) if parts else "Vị trí người dùng (theo IP)"
-                    result = IpLocationResponse(
-                        lat=float(data["lat"]),
-                        lon=float(data["lon"]),
-                        city=city,
-                        region=region,
-                        country=country,
-                        location_name=loc_name,
-                        is_fallback=False,
-                        ip=data.get("query") or ip,
-                    )
-                    _IP_LOCATION_CACHE[cache_key] = (now, result)
-                    return result
-        except Exception as exc:
-            logger.warning("Lỗi tra cứu IP geolocation (%s): %s", ip, exc)
-
-        return fallback_ip_location(ip)
 
     async def get_walking_route_to_restaurant(
         self,
