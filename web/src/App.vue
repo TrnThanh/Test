@@ -54,7 +54,7 @@ onMounted(() => {
     </main>
 
     <!-- Formal Admin Footer -->
-    <footer class="app-footer">
+    <footer v-if="currentUser?.role !== 'admin'" class="app-footer">
       <div class="container footer-content">
         <div class="footer-left">
           <span class="footer-brand">PTC1 Admin Console</span>

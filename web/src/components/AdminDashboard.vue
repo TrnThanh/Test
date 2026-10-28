@@ -6,13 +6,17 @@ import type {
   Restaurant,
   Category,
   Dish,
-  MealType,
   SystemStats,
   AdminUser,
-  UserProfile,
-  FavouriteDish,
 } from '../types';
 import { api } from '../services/api';
+import AppLayout from './common/AppLayout.vue';
+import DashboardOverviewTab from './admin/DashboardOverviewTab.vue';
+import RestaurantsTab from './admin/RestaurantsTab.vue';
+import MenusTab from './admin/MenusTab.vue';
+import UsersTab from './admin/UsersTab.vue';
+import WeatherRulesTab from './admin/WeatherRulesTab.vue';
+import { useToast } from '../composables/useToast';
 
 const props = defineProps<{
   admin: RoleLoginResponse;
@@ -26,43 +30,100 @@ const emit = defineEmits<{
 type TabKey = 'dashboard' | 'restaurants' | 'menus' | 'accounts' | 'weather_rules';
 const currentTab = ref<TabKey>('dashboard');
 
+const { showToast } = useToast();
+
+function handleRefreshDashboard() {
+  loadStats();
+  loadRestaurants();
+  loadAccounts();
+  loadMasterCategories();
+  showToast('Đã làm mới dữ liệu tổng quan');
+}
+
+function handleDishCreated(dish: Dish) {
+  menuDishes.value.unshift(dish);
+  loadStats();
+}
+
+function handleDishUpdated(dish: Dish) {
+  const idx = menuDishes.value.findIndex((d) => d.id === dish.id);
+  if (idx !== -1) {
+    menuDishes.value[idx] = dish;
+  }
+  loadStats();
+}
+
+function handleDishDeleted(dishId: number) {
+  menuDishes.value = menuDishes.value.filter((d) => d.id !== dishId);
+  loadStats();
+}
+
+function handleCategoryCreated(cat: Category) {
+  masterCategories.value.push(cat);
+  if (!menuCategories.value.some((c) => c.id === cat.id)) {
+    menuCategories.value.push(cat);
+  }
+  loadStats();
+}
+
+function handleCategoryUpdated(cat: Category) {
+  const updateInList = (list: Category[]) => {
+    const idx = list.findIndex((c) => c.id === cat.id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...cat };
+    }
+  };
+  updateInList(masterCategories.value);
+  updateInList(menuCategories.value);
+  updateInList(globalCategories.value);
+}
+
+function handleCategoryDeleted(catId: number) {
+  menuCategories.value = menuCategories.value.filter((c) => c.id !== catId);
+  masterCategories.value = masterCategories.value.filter((c) => c.id !== catId);
+  globalCategories.value = globalCategories.value.filter((c) => c.id !== catId);
+  weatherCategoryIds.value.delete(catId);
+  weatherCategoryIds.value = new Set(weatherCategoryIds.value);
+  loadMenuData();
+  loadStats();
+}
+
+function handleTabChange(tab: TabKey) {
+  currentTab.value = tab;
+  if (tab === 'menus') loadMenuData();
+  else if (tab === 'accounts') loadAccounts();
+  else if (tab === 'weather_rules') loadWeatherRulesData();
+}
+
+function handleRestaurantCreated(r: Restaurant) {
+  restaurants.value.unshift(r);
+  selectedMenuRestaurantId.value = r.id;
+  loadStats();
+}
+
+function handleRestaurantUpdated(r: Restaurant) {
+  const idx = restaurants.value.findIndex((item) => item.id === r.id);
+  if (idx !== -1) {
+    restaurants.value[idx] = r;
+  }
+  loadStats();
+}
+
+function handleRestaurantDeleted(id: number) {
+  restaurants.value = restaurants.value.filter((r) => r.id !== id);
+  if (selectedMenuRestaurantId.value === id) {
+    selectedMenuRestaurantId.value = restaurants.value.length > 0 ? restaurants.value[0].id : null;
+    loadMenuData();
+  }
+  loadStats();
+}
+
 // --- DATA STATES ---
 const stats = ref<SystemStats | null>(null);
 const statsLoading = ref(false);
 
 const restaurants = ref<Restaurant[]>([]);
 const restaurantsLoading = ref(false);
-const restaurantSearch = ref('');
-const restaurantStatusFilter = ref<'all' | 'active' | 'inactive'>('all');
-
-// Edit Restaurant Modal State
-const showEditModal = ref(false);
-const editingRestaurant = ref<Restaurant | null>(null);
-const editName = ref('');
-const editAddress = ref('');
-const editPhone = ref('');
-const editDesc = ref('');
-const editOpenTime = ref('');
-const editCloseTime = ref('');
-const editLat = ref(21.0055);
-const editLon = ref(105.9325);
-const editIsActive = ref(true);
-const editSaving = ref(false);
-const editLicenses = ref('');
-
-// Create Restaurant Modal State
-const showCreateRestaurantModal = ref(false);
-const newRestName = ref('');
-const newRestAddress = ref('');
-const newRestPhone = ref('');
-const newRestDesc = ref('');
-const newRestOpenTime = ref('08:00');
-const newRestCloseTime = ref('22:00');
-const newRestLat = ref(21.0055); // Toạ độ trung tâm HVNN Gia Lâm
-const newRestLon = ref(105.9325);
-const newRestSaving = ref(false);
-const newRestLicenses = ref('');
-
 // Menus State
 const selectedMenuRestaurantId = ref<number | null>(null);
 const menuCategories = ref<Category[]>([]);
@@ -88,272 +149,12 @@ async function loadMasterCategories() {
   }
 }
 const menuLoading = ref(false);
-const selectedCategoryId = ref<number | 'all'>('all');
-const dishSearchQuery = ref('');
-const menuRestSearch = ref('');
 
 // Create Dish Modal State
-const showCreateDishModal = ref(false);
-const newDishName = ref('');
-const newDishPrice = ref(35000);
-const newDishDesc = ref('');
-const newDishCategoryId = ref<number | null>(null);
-const newDishMealType = ref<MealType>('all_day');
-const newDishIngredients = ref('');
-const newDishCalories = ref<number | null>(null);
-const newDishSaving = ref(false);
 
 // Edit Dish Modal State
-const showEditDishModal = ref(false);
-const editingDish = ref<Dish | null>(null);
-const editDishName = ref('');
-const editDishPrice = ref(0);
-const editDishDesc = ref('');
-const editDishCategoryId = ref<number | null>(null);
-const editDishMealType = ref<MealType>('all_day');
-const editDishIngredients = ref('');
-const editDishCalories = ref<number | null>(null);
-const editDishSpicyLevel = ref<number>(0);
-const editDishIsAvailable = ref<boolean>(true);
-const editDishSaving = ref(false);
-
-function openEditDishModal(d: Dish) {
-  editingDish.value = d;
-  editDishName.value = d.name;
-  editDishPrice.value = d.price;
-  editDishDesc.value = d.description || '';
-  if (d.category_id != null) {
-    editDishCategoryId.value = Number(d.category_id);
-  } else if (d.category) {
-    const found = masterCategories.value.find(c => c.name.toLowerCase() === d.category!.toLowerCase());
-    editDishCategoryId.value = found ? found.id : null;
-  } else {
-    editDishCategoryId.value = null;
-  }
-  const rawMeal = (d.meal_types && d.meal_types.length > 0) ? d.meal_types[0] : (d.meal_type || null);
-  editDishMealType.value = normalizeMealTypeCode(rawMeal);
-  editDishIngredients.value = (d.ingredients && d.ingredients.length > 0) ? d.ingredients.join(', ') : '';
-  editDishCalories.value = d.calories ?? null;
-  editDishSpicyLevel.value = d.spicy_level ?? 0;
-  editDishIsAvailable.value = d.is_available ?? true;
-  showEditDishModal.value = true;
-}
-
-async function handleSaveEditDish() {
-  if (!editingDish.value) return;
-  if (!editDishName.value.trim()) {
-    showError('Tên món ăn không được để trống');
-    return;
-  }
-  if (editDishPrice.value < 0) {
-    showError('Đơn giá món ăn không được âm');
-    return;
-  }
-  editDishSaving.value = true;
-  try {
-    const ingList = editDishIngredients.value
-      ? editDishIngredients.value.split(',').map(s => s.trim()).filter(Boolean)
-      : [];
-
-    const catId = (editDishCategoryId.value != null)
-      ? Number(editDishCategoryId.value)
-      : null;
-
-    const mealCode = normalizeMealTypeCode(editDishMealType.value);
-    const payload: Partial<Dish> = {
-      name: editDishName.value.trim(),
-      price: Number(editDishPrice.value),
-      calories: editDishCalories.value != null ? Number(editDishCalories.value) : undefined,
-      description: editDishDesc.value.trim() || undefined,
-      category_id: catId,
-      meal_types: [mealCode],
-      ingredients: ingList,
-      spicy_level: editDishSpicyLevel.value,
-      is_available: editDishIsAvailable.value,
-    };
-
-    const updated = await api.updateDish(editingDish.value.id, payload);
-    const idx = menuDishes.value.findIndex(item => item.id === editingDish.value!.id);
-    if (idx !== -1) {
-      menuDishes.value[idx] = { ...menuDishes.value[idx], ...updated };
-    }
-    if (selectedMenuRestaurantId.value) {
-      try {
-        const cats = await api.getRestaurantCategories(selectedMenuRestaurantId.value);
-        menuCategories.value = cats;
-      } catch (_) {}
-    }
-    showEditDishModal.value = false;
-    showNotice(`Đã cập nhật món "${updated.name}" thành công!`);
-  } catch (err: any) {
-    showError(err?.message || 'Không thể cập nhật món ăn');
-  } finally {
-    editDishSaving.value = false;
-  }
-}
 
 // Create Category Modal State
-const showCreateCategoryModal = ref(false);
-const newCatName = ref('');
-const newCatDesc = ref('');
-const newCatSaving = ref(false);
-
-// Edit Weather State
-const showEditWeatherModal = ref(false);
-const editingWeather = ref<Weather | null>(null);
-const editWeatherName = ref('');
-const editWeatherSeason = ref('');
-const editWeatherMinTemp = ref<number | null>(null);
-const editWeatherMaxTemp = ref<number | null>(null);
-const editWeatherDesc = ref('');
-const editWeatherIsActive = ref(true);
-const editWeatherSaving = ref(false);
-
-function openEditWeatherModal(w: Weather) {
-  editingWeather.value = w;
-  editWeatherName.value = w.name;
-  editWeatherSeason.value = w.season || '';
-  editWeatherMinTemp.value = w.min_temp ?? null;
-  editWeatherMaxTemp.value = w.max_temp ?? null;
-  editWeatherDesc.value = w.description || '';
-  editWeatherIsActive.value = w.is_active ?? true;
-  showEditWeatherModal.value = true;
-}
-
-async function handleSaveEditWeather() {
-  if (!editingWeather.value) return;
-  if (!editWeatherName.value.trim()) {
-    showError('Tên kiểu thời tiết không được để trống');
-    return;
-  }
-  if (
-    editWeatherMinTemp.value != null &&
-    editWeatherMaxTemp.value != null &&
-    Number(editWeatherMinTemp.value) > Number(editWeatherMaxTemp.value)
-  ) {
-    showError('Nhiệt độ tối thiểu không được lớn hơn nhiệt độ tối đa');
-    return;
-  }
-
-  editWeatherSaving.value = true;
-  try {
-    const payload: Partial<Weather> = {
-      name: editWeatherName.value.trim(),
-      season: editWeatherSeason.value || undefined,
-      min_temp: editWeatherMinTemp.value != null ? Number(editWeatherMinTemp.value) : undefined,
-      max_temp: editWeatherMaxTemp.value != null ? Number(editWeatherMaxTemp.value) : undefined,
-      description: editWeatherDesc.value.trim() || undefined,
-      is_active: editWeatherIsActive.value,
-    };
-    const updated = await api.updateWeather(editingWeather.value.id, payload);
-    const idx = weathers.value.findIndex(w => w.id === editingWeather.value!.id);
-    if (idx !== -1) {
-      weathers.value[idx] = { ...weathers.value[idx], ...updated };
-    }
-    if (selectedWeather.value?.id === editingWeather.value.id) {
-      selectedWeather.value = { ...selectedWeather.value, ...updated };
-    }
-    showEditWeatherModal.value = false;
-    showNotice(`Đã cập nhật kiểu thời tiết "${updated.name}" thành công!`);
-  } catch (err: any) {
-    showError(err?.message || 'Không thể cập nhật kiểu thời tiết');
-  } finally {
-    editWeatherSaving.value = false;
-  }
-}
-
-async function handleDeleteWeather(w: Weather) {
-  if (!confirm(`Xác nhận xóa kiểu thời tiết "${w.name}"? Các liên kết danh mục với thời tiết này cũng sẽ bị xóa.`)) {
-    return;
-  }
-  try {
-    await api.deleteWeather(w.id);
-    weathers.value = weathers.value.filter(item => item.id !== w.id);
-    if (selectedWeather.value?.id === w.id) {
-      selectedWeather.value = weathers.value[0] || null;
-      if (selectedWeather.value) {
-        selectWeather(selectedWeather.value);
-      } else {
-        weatherCategoryIds.value = new Set();
-      }
-    }
-    showNotice(`Đã xóa kiểu thời tiết "${w.name}".`);
-  } catch (err: any) {
-    showError(err?.message || 'Không thể xóa kiểu thời tiết');
-  }
-}
-
-// Edit Category State
-const showEditCategoryModal = ref(false);
-const editingCategory = ref<Category | null>(null);
-const editCatName = ref('');
-const editCatDesc = ref('');
-const editCatDisplayOrder = ref(0);
-const editCatIsActive = ref(true);
-const editCatSaving = ref(false);
-
-function openEditCategoryModal(cat: Category) {
-  editingCategory.value = cat;
-  editCatName.value = cat.name;
-  editCatDesc.value = cat.description || '';
-  editCatDisplayOrder.value = cat.display_order ?? 0;
-  editCatIsActive.value = cat.is_active ?? true;
-  showEditCategoryModal.value = true;
-}
-
-async function handleSaveEditCategory() {
-  if (!editingCategory.value) return;
-  if (!editCatName.value.trim()) {
-    showError('Tên danh mục không được để trống');
-    return;
-  }
-
-  editCatSaving.value = true;
-  try {
-    const payload = {
-      name: editCatName.value.trim(),
-      description: editCatDesc.value.trim() || undefined,
-      display_order: Number(editCatDisplayOrder.value) || 0,
-      is_active: editCatIsActive.value,
-    };
-    const updated = await api.updateCategory(editingCategory.value.id, payload);
-
-    // Cập nhật trong các danh sách đang lưu
-    const updateInList = (list: Category[]) => {
-      const idx = list.findIndex(c => c.id === editingCategory.value!.id);
-      if (idx !== -1) {
-        list[idx] = { ...list[idx], ...updated };
-      }
-    };
-    updateInList(masterCategories.value);
-    updateInList(globalCategories.value);
-    updateInList(menuCategories.value);
-
-    showEditCategoryModal.value = false;
-    showNotice(`Đã cập nhật danh mục "${updated.name}" thành công!`);
-  } catch (err: any) {
-    showError(err?.message || 'Không thể cập nhật danh mục');
-  } finally {
-    editCatSaving.value = false;
-  }
-}
-
-async function deleteGlobalCategoryItem(cat: Category) {
-  if (!confirm(`Xác nhận xóa danh mục "${cat.name}"? Các món trong danh mục này trên hệ thống sẽ được chuyển về nhóm chưa phân loại.`)) {
-    return;
-  }
-  try {
-    await api.deleteCategory(cat.id);
-    globalCategories.value = globalCategories.value.filter(c => c.id !== cat.id);
-    masterCategories.value = masterCategories.value.filter(c => c.id !== cat.id);
-    menuCategories.value = menuCategories.value.filter(c => c.id !== cat.id);
-    weatherCategoryIds.value.delete(cat.id);
-    weatherCategoryIds.value = new Set(weatherCategoryIds.value);
-    showNotice(`Đã xóa danh mục "${cat.name}".`);
-  } catch (err: any) {
-    showError(err?.message || 'Không thể xóa danh mục');
-  }
-}
 
 // Weather Rules State
 const weathers = ref<Weather[]>([]);
@@ -362,79 +163,6 @@ const weatherRulesLoading = ref(false);
 const selectedWeather = ref<Weather | null>(null);
 const weatherCategoryIds = ref<Set<number>>(new Set());
 const weatherLinkingMap = ref<Record<number, boolean>>({});
-const weatherSearchQuery = ref('');
-const categorySearchQuery = ref('');
-
-// Create Weather State
-const showCreateWeatherModal = ref(false);
-const newWeatherName = ref('');
-const newWeatherCode = ref('');
-const newWeatherSeason = ref('');
-const newWeatherMinTemp = ref<number | null>(null);
-const newWeatherMaxTemp = ref<number | null>(null);
-const newWeatherDesc = ref('');
-const newWeatherSaving = ref(false);
-
-function openCreateWeatherModal() {
-  newWeatherName.value = '';
-  newWeatherCode.value = '';
-  newWeatherSeason.value = '';
-  newWeatherMinTemp.value = null;
-  newWeatherMaxTemp.value = null;
-  newWeatherDesc.value = '';
-  showCreateWeatherModal.value = true;
-}
-
-async function handleCreateWeather() {
-  if (!newWeatherName.value.trim() || !newWeatherCode.value.trim()) {
-    showError('Tên và mã định danh thời tiết không được để trống');
-    return;
-  }
-  newWeatherSaving.value = true;
-  try {
-    const payload: any = {
-      name: newWeatherName.value.trim(),
-      code: newWeatherCode.value.trim().toLowerCase(),
-      season: newWeatherSeason.value || null,
-      min_temp: newWeatherMinTemp.value != null ? Number(newWeatherMinTemp.value) : null,
-      max_temp: newWeatherMaxTemp.value != null ? Number(newWeatherMaxTemp.value) : null,
-      description: newWeatherDesc.value.trim() || null,
-      sort_order: weathers.value.length,
-      is_active: true,
-    };
-    const created = await api.createWeather(payload);
-    weathers.value.push(created);
-    selectWeather(created);
-    showCreateWeatherModal.value = false;
-    showNotice(`Đã thêm kiểu thời tiết "${created.name}" thành công!`);
-  } catch (err: any) {
-    showError(err?.message || 'Không thể tạo kiểu thời tiết mới');
-  } finally {
-    newWeatherSaving.value = false;
-  }
-}
-
-// Global Category Create State
-const showCreateGlobalCatModal = ref(false);
-const newGlobalCatName = ref('');
-const newGlobalCatDesc = ref('');
-const newGlobalCatSaving = ref(false);
-
-const filteredWeathers = computed(() => {
-  const q = weatherSearchQuery.value.trim().toLowerCase();
-  if (!q) return weathers.value;
-  return weathers.value.filter(
-    w => w.name.toLowerCase().includes(q) || w.code.toLowerCase().includes(q) || (w.description && w.description.toLowerCase().includes(q))
-  );
-});
-
-const filteredGlobalCategories = computed(() => {
-  const q = categorySearchQuery.value.trim().toLowerCase();
-  if (!q) return globalCategories.value;
-  return globalCategories.value.filter(
-    cat => cat.name.toLowerCase().includes(q) || (cat.description && cat.description.toLowerCase().includes(q))
-  );
-});
 
 async function loadWeatherRulesData() {
   weatherRulesLoading.value = true;
@@ -492,333 +220,12 @@ async function handleToggleWeatherCategory(cat: Category) {
   }
 }
 
-function openCreateGlobalCatModal() {
-  newGlobalCatName.value = '';
-  newGlobalCatDesc.value = '';
-  showCreateGlobalCatModal.value = true;
-}
 
-async function handleCreateGlobalCategory() {
-  if (!newGlobalCatName.value.trim()) {
-    showError('Tên danh mục không được để trống');
-    return;
-  }
-  newGlobalCatSaving.value = true;
-  try {
-    const created = await api.createGlobalCategory({
-      name: newGlobalCatName.value.trim(),
-      description: newGlobalCatDesc.value.trim() || undefined,
-      is_active: true,
-      display_order: globalCategories.value.length,
-    });
-    globalCategories.value.push(created);
-    showCreateGlobalCatModal.value = false;
-    showNotice(`Đã tạo danh mục "${created.name}" thành công!`);
-  } catch (err: any) {
-    showError(err?.message || 'Không thể tạo danh mục mới');
-  } finally {
-    newGlobalCatSaving.value = false;
-  }
-}
 
 // Accounts State
 const users = ref<AdminUser[]>([]);
 const accountsLoading = ref(false);
-const userSearchQuery = ref('');
 
-// User Detail Modal State
-const showUserDetailModal = ref(false);
-const selectedUser = ref<AdminUser | null>(null);
-const selectedUserProfile = ref<UserProfile | null>(null);
-const selectedUserFavourites = ref<FavouriteDish[]>([]);
-const userDetailLoading = ref(false);
-const userDetailError = ref<string | null>(null);
-
-// Edit User State
-const isEditingUser = ref(false);
-const userSaving = ref(false);
-
-const editFullName = ref('');
-const editHeightCm = ref<number | null>(null);
-const editWeightKg = ref<number | null>(null);
-const editBirthYear = ref<number | null>(null);
-const editGender = ref<string>('');
-const editActivityLevel = ref<string>('');
-const editTargetGoal = ref<string>('');
-const editSpicyTolerance = ref<string>('');
-const editBudgetRange = ref<string>('');
-const editDietaryPreferences = ref<string[]>([]);
-const editAllergies = ref<string[]>([]);
-
-const AVAILABLE_DIETS = [
-  { key: 'clean_eating', label: 'Ăn sạch' },
-  { key: 'light', label: 'Ăn thanh đạm' },
-  { key: 'less_oil', label: 'Ít dầu mỡ' },
-  { key: 'low_carb', label: 'Ít tinh bột' },
-  { key: 'keto', label: 'Chế độ Keto' },
-  { key: 'vegetarian', label: 'Ăn chay' },
-  { key: 'vegan', label: 'Thuần chay' },
-  { key: 'high_protein', label: 'Nhiều đạm' },
-];
-
-const AVAILABLE_ALLERGIES = [
-  { key: 'seafood', label: 'Hải sản' },
-  { key: 'peanut', label: 'Đậu phộng' },
-  { key: 'egg', label: 'Trứng' },
-  { key: 'milk', label: 'Sữa bò' },
-  { key: 'gluten', label: 'Gluten / Lúa mì' },
-  { key: 'soy', label: 'Đậu nành' },
-];
-
-function startEditUser() {
-  if (!selectedUser.value) return;
-  editFullName.value = selectedUser.value.full_name || '';
-  const p = selectedUserProfile.value;
-  editHeightCm.value = p?.height_cm ?? null;
-  editWeightKg.value = p?.weight_kg ?? null;
-  editBirthYear.value = p?.birth_year ?? null;
-  editGender.value = p?.gender || '';
-  editActivityLevel.value = p?.activity_level || '';
-  editTargetGoal.value = p?.target_goal || '';
-  editSpicyTolerance.value = p?.spicy_tolerance || '';
-  editBudgetRange.value = p?.budget_range || '';
-  editDietaryPreferences.value = p?.dietary_preferences ? [...p.dietary_preferences] : [];
-  editAllergies.value = p?.allergies ? [...p.allergies] : [];
-  isEditingUser.value = true;
-}
-
-function cancelEditUser() {
-  isEditingUser.value = false;
-}
-
-function toggleDietaryPreference(key: string) {
-  const idx = editDietaryPreferences.value.indexOf(key);
-  if (idx >= 0) {
-    editDietaryPreferences.value.splice(idx, 1);
-  } else {
-    editDietaryPreferences.value.push(key);
-  }
-}
-
-function toggleAllergy(key: string) {
-  const idx = editAllergies.value.indexOf(key);
-  if (idx >= 0) {
-    editAllergies.value.splice(idx, 1);
-  } else {
-    editAllergies.value.push(key);
-  }
-}
-
-async function saveUserChanges() {
-  if (!selectedUser.value) return;
-  userSaving.value = true;
-  try {
-    const payload: any = {
-      full_name: editFullName.value.trim() || null,
-      height_cm: editHeightCm.value ? Number(editHeightCm.value) : null,
-      weight_kg: editWeightKg.value ? Number(editWeightKg.value) : null,
-      birth_year: editBirthYear.value ? Number(editBirthYear.value) : null,
-      gender: editGender.value || null,
-      activity_level: editActivityLevel.value || null,
-      target_goal: editTargetGoal.value || null,
-      spicy_tolerance: editSpicyTolerance.value || null,
-      budget_range: editBudgetRange.value || null,
-      dietary_preferences: editDietaryPreferences.value,
-      allergies: editAllergies.value,
-    };
-
-    const updatedProfile = await api.updateUserProfile(selectedUser.value.id, payload);
-    selectedUserProfile.value = updatedProfile;
-    selectedUser.value.full_name = editFullName.value.trim() || null;
-
-    const uInList = users.value.find(u => u.id === selectedUser.value!.id);
-    if (uInList) {
-      uInList.full_name = editFullName.value.trim() || null;
-    }
-
-    isEditingUser.value = false;
-    showNotice('Cập nhật thông tin người dùng thành công!');
-  } catch (err: any) {
-    showError(err?.message || 'Không thể cập nhật thông tin người dùng');
-  } finally {
-    userSaving.value = false;
-  }
-}
-
-async function openUserDetail(u: AdminUser) {
-  selectedUser.value = u;
-  showUserDetailModal.value = true;
-  userDetailLoading.value = true;
-  userDetailError.value = null;
-  selectedUserProfile.value = null;
-  selectedUserFavourites.value = [];
-  isEditingUser.value = false;
-
-  try {
-    const [profRes, favRes] = await Promise.allSettled([
-      api.getUserProfile(u.id),
-      api.getUserFavourites(u.id),
-    ]);
-    if (profRes.status === 'fulfilled') {
-      selectedUserProfile.value = profRes.value;
-    }
-    if (favRes.status === 'fulfilled') {
-      selectedUserFavourites.value = favRes.value;
-    }
-  } catch (err: any) {
-    userDetailError.value = err?.message || 'Không thể nạp hồ sơ người dùng';
-  } finally {
-    userDetailLoading.value = false;
-  }
-}
-
-
-function getGoalLabel(goal?: string | null) {
-  if (!goal) return 'Chưa thiết lập';
-  const map: Record<string, string> = {
-    maintain: 'Duy trì vóc dáng',
-    lose_weight: 'Giảm cân & Đốt mỡ',
-    gain_muscle: 'Tăng cơ & Bổ sung đạm',
-    eat_healthy: 'Ăn lành mạnh',
-  };
-  return map[goal] || goal;
-}
-
-function getActivityLabel(lvl?: string | null) {
-  if (!lvl) return 'Chưa thiết lập';
-  const map: Record<string, string> = {
-    sedentary: 'Ít vận động',
-    light: 'Vận động nhẹ',
-    moderate: 'Vận động vừa',
-    active: 'Năng động',
-    very_active: 'Cường độ cao',
-  };
-  return map[lvl] || lvl;
-}
-
-function getGenderLabel(gender?: string | null) {
-  if (!gender) return 'Chưa cập nhật';
-  const map: Record<string, string> = {
-    male: 'Nam',
-    female: 'Nữ',
-    other: 'Khác',
-  };
-  return map[gender] || gender;
-}
-
-function getSpicyLabel(spicy?: string | null) {
-  if (!spicy) return 'Chưa thiết lập';
-  const map: Record<string, string> = {
-    none: 'Không ăn cay',
-    mild: 'Cay nhẹ',
-    medium: 'Cay vừa',
-    hot: 'Rất cay',
-  };
-  return map[spicy] || spicy;
-}
-
-function getBudgetLabel(budget?: string | null) {
-  if (!budget) return 'Chưa thiết lập';
-  const map: Record<string, string> = {
-    budget: 'Tiết kiệm, dưới 50.000đ',
-    moderate: 'Vừa phải, 50.000đ - 100.000đ',
-    premium: 'Cao cấp, trên 100.000đ',
-  };
-  return map[budget] || budget;
-}
-
-function getBmiLabel(cat?: string | null) {
-  if (!cat) return '';
-  const map: Record<string, string> = {
-    underweight: 'Hơi gầy',
-    normal: 'Chuẩn dáng',
-    overweight: 'Thừa cân',
-    obese: 'Béo phì',
-  };
-  return map[cat] || cat;
-}
-
-function getBmiClass(cat?: string | null) {
-  if (!cat) return '';
-  const map: Record<string, string> = {
-    underweight: 'bmi-underweight',
-    normal: 'bmi-normal',
-    overweight: 'bmi-overweight',
-    obese: 'bmi-obese',
-  };
-  return map[cat] || '';
-}
-
-function getSeasonLabel(season?: string | null): string {
-  if (!season) return 'Quanh năm';
-  const key = season.trim().toLowerCase();
-  const map: Record<string, string> = {
-    spring: 'Mùa xuân',
-    summer: 'Mùa hè',
-    autumn: 'Mùa thu',
-    winter: 'Mùa đông',
-    rainy: 'Mùa mưa',
-    dry: 'Mùa khô',
-    all: 'Quanh năm',
-  };
-  return map[key] || season;
-}
-
-function getDietaryLabel(tag?: string | null): string {
-  if (!tag) return '';
-  const key = tag.trim().toLowerCase();
-  const map: Record<string, string> = {
-    clean_eating: 'Ăn sạch',
-    eat_clean: 'Ăn sạch',
-    'eat clean': 'Ăn sạch',
-    healthy: 'Ăn lành mạnh',
-    eat_healthy: 'Ăn lành mạnh',
-    low_carb: 'Ít tinh bột',
-    'low-carb': 'Ít tinh bột',
-    keto: 'Chế độ Keto',
-    vegetarian: 'Ăn chay',
-    vegan: 'Thuần chay',
-    high_protein: 'Nhiều đạm',
-    less_oil: 'Ít dầu mỡ',
-    low_fat: 'Ít chất béo',
-    light: 'Ăn thanh đạm',
-    gluten_free: 'Không chứa Gluten',
-    dairy_free: 'Không chứa sữa',
-    organic: 'Thực phẩm hữu cơ',
-    halal: 'Chuẩn Halal',
-    kosher: 'Chuẩn Kosher',
-  };
-  if (map[key]) return map[key];
-  return tag.replace(/_/g, ' ');
-}
-
-function getAllergyLabel(alg?: string | null): string {
-  if (!alg) return '';
-  const key = alg.trim().toLowerCase();
-  const map: Record<string, string> = {
-    seafood: 'Hải sản',
-    peanut: 'Đậu phộng',
-    peanuts: 'Đậu phộng',
-    egg: 'Trứng',
-    eggs: 'Trứng',
-    milk: 'Sữa bò',
-    dairy: 'Chế phẩm từ sữa',
-    gluten: 'Gluten / Lúa mì',
-    wheat: 'Lúa mì',
-    soy: 'Đậu nành',
-    soybean: 'Đậu nành',
-    fish: 'Cá',
-    shellfish: 'Hải sản có vỏ',
-    crustacean: 'Hải sản giáp xác',
-    nut: 'Các loại hạt',
-    nuts: 'Các loại hạt',
-    tree_nuts: 'Hạt cây',
-    sesame: 'Mè / Vừng',
-    mushroom: 'Nấm',
-  };
-  if (map[key]) return map[key];
-  return alg.replace(/_/g, ' ');
-}
 
 // Notification Alert
 const noticeMsg = ref<string | null>(null);
@@ -839,6 +246,44 @@ function showError(msg: string) {
 }
 
 // --- API ACTIONS ---
+
+function handleWeatherCreated(w: Weather) {
+  weathers.value.push(w);
+  selectedWeather.value = w;
+  weatherCategoryIds.value = new Set();
+  loadStats();
+}
+
+function handleWeatherUpdated(w: Weather) {
+  const idx = weathers.value.findIndex(item => item.id === w.id);
+  if (idx !== -1) {
+    weathers.value[idx] = { ...weathers.value[idx], ...w };
+  }
+  if (selectedWeather.value?.id === w.id) {
+    selectedWeather.value = { ...selectedWeather.value, ...w };
+  }
+  loadStats();
+}
+
+function handleWeatherDeleted(id: number) {
+  weathers.value = weathers.value.filter(item => item.id !== id);
+  if (selectedWeather.value?.id === id) {
+    selectedWeather.value = weathers.value[0] || null;
+    if (selectedWeather.value) {
+      selectWeather(selectedWeather.value);
+    } else {
+      weatherCategoryIds.value = new Set();
+    }
+  }
+  loadStats();
+}
+
+function handleGlobalCategoryCreated(cat: Category) {
+  globalCategories.value.push(cat);
+  masterCategories.value.push(cat);
+  loadStats();
+}
+
 async function loadStats() {
   statsLoading.value = true;
   try {
@@ -865,115 +310,34 @@ async function loadRestaurants() {
   }
 }
 
-async function toggleRestaurantStatus(rest: Restaurant) {
-  const newStatus = !rest.is_active;
-  try {
-    const updated = await api.updateRestaurantAsAdmin(rest.id, { is_active: newStatus });
-    const idx = restaurants.value.findIndex((r) => r.id === rest.id);
-    if (idx !== -1) {
-      restaurants.value[idx] = updated;
-    }
-    showNotice(`Đã chuyển trạng thái "${rest.name}" sang: ${newStatus ? 'Đang hoạt động' : 'Tạm dừng'}`);
-    loadStats();
-  } catch (err: any) {
-    showError(err.message || 'Không thể cập nhật trạng thái quán');
-  }
-}
-
-function openEditRestaurant(rest: Restaurant) {
-  editingRestaurant.value = rest;
-  editName.value = rest.name;
-  editAddress.value = rest.address || '';
-  editPhone.value = rest.phone || '';
-  editDesc.value = rest.description || '';
-  editOpenTime.value = rest.open_time || '';
-  editCloseTime.value = rest.close_time || '';
-  editLat.value = rest.latitude;
-  editLon.value = rest.longitude;
-  editIsActive.value = rest.is_active;
-  editLicenses.value = (rest.service_licenses || []).join(', ');
-  showEditModal.value = true;
-}
-
-async function saveRestaurantChanges() {
-  if (!editingRestaurant.value) return;
-  if (!editName.value.trim() || !editAddress.value.trim()) {
-    showError('Vui lòng nhập tên quán và địa chỉ');
-    return;
-  }
-
-  editSaving.value = true;
-  try {
-    const updated = await api.updateRestaurantAsAdmin(editingRestaurant.value.id, {
-      name: editName.value.trim(),
-      address: editAddress.value.trim(),
-      phone: editPhone.value.trim() || undefined,
-      description: editDesc.value.trim() || undefined,
-      open_time: editOpenTime.value || null,
-      close_time: editCloseTime.value || null,
-      latitude: Number(editLat.value),
-      longitude: Number(editLon.value),
-      is_active: editIsActive.value,
-      service_licenses: editLicenses.value.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
-    });
-
-    const idx = restaurants.value.findIndex((r) => r.id === updated.id);
-    if (idx !== -1) {
-      restaurants.value[idx] = updated;
-    }
-
-    showNotice(`Cập nhật thông tin quán "${updated.name}" thành công!`);
-    showEditModal.value = false;
-    loadStats();
-  } catch (err: any) {
-    showError(err.message || 'Không thể cập nhật quán ăn');
-  } finally {
-    editSaving.value = false;
-  }
-}
-
-async function deleteRestaurant(rest: Restaurant) {
-  if (!confirm(`Bạn có chắc muốn xoá vĩnh viễn quán "${rest.name}"? Dữ liệu thực đơn và món ăn của quán sẽ bị xoá kèm.`)) {
-    return;
-  }
-
-  try {
-    await api.deleteRestaurant(rest.id);
-    restaurants.value = restaurants.value.filter((r) => r.id !== rest.id);
-    if (selectedMenuRestaurantId.value === rest.id) {
-      selectedMenuRestaurantId.value = restaurants.value.length > 0 ? restaurants.value[0].id : null;
-      loadMenuData();
-    }
-    showNotice(`Đã xoá quán "${rest.name}" khỏi hệ thống.`);
-    loadStats();
-  } catch (err: any) {
-    showError(err.message || 'Không thể xoá quán ăn.');
-  }
-}
-
-// Menus
+let currentMenuRequestId = 0;
 async function loadMenuData() {
   if (!selectedMenuRestaurantId.value) {
     menuCategories.value = [];
     menuDishes.value = [];
     return;
   }
+  const reqId = ++currentMenuRequestId;
   menuLoading.value = true;
-  selectedCategoryId.value = 'all';
   try {
+    const targetId = selectedMenuRestaurantId.value;
     const [cats, dishes] = await Promise.all([
-      api.getRestaurantCategories(selectedMenuRestaurantId.value),
-      api.getRestaurantDishes(selectedMenuRestaurantId.value),
+      api.getRestaurantCategories(targetId),
+      api.getRestaurantDishes(targetId),
     ]);
+    if (reqId !== currentMenuRequestId) return;
     menuCategories.value = cats;
     menuDishes.value = dishes;
     if (masterCategories.value.length === 0) {
       loadMasterCategories();
     }
   } catch (err: any) {
+    if (reqId !== currentMenuRequestId) return;
     showError(err.message || 'Không thể nạp dữ liệu thực đơn của quán');
   } finally {
-    menuLoading.value = false;
+    if (reqId === currentMenuRequestId) {
+      menuLoading.value = false;
+    }
   }
 }
 
@@ -995,272 +359,7 @@ async function loadAccounts() {
   }
 }
 
-function openCreateRestaurantModal() {
-  newRestName.value = '';
-  newRestAddress.value = '';
-  newRestPhone.value = '';
-  newRestDesc.value = '';
-  newRestOpenTime.value = '08:00';
-  newRestCloseTime.value = '22:00';
-  newRestLat.value = 21.0055;
-  newRestLon.value = 105.9325;
-  newRestLicenses.value = '';
-  showCreateRestaurantModal.value = true;
-}
 
-function applyHvnnPreset() {
-  newRestAddress.value = 'Thị trấn Trâu Quỳ, Huyện Gia Lâm, Hà Nội';
-  newRestLat.value = 21.0055;
-  newRestLon.value = 105.9325;
-}
-
-async function handleCreateRestaurant() {
-  if (!newRestName.value.trim() || !newRestAddress.value.trim()) {
-    showError('Vui lòng nhập đầy đủ tên quán và địa chỉ');
-    return;
-  }
-  newRestSaving.value = true;
-  try {
-    const created = await api.createRestaurantAsAdmin({
-      name: newRestName.value.trim(),
-      address: newRestAddress.value.trim(),
-      phone: newRestPhone.value.trim() || undefined,
-      description: newRestDesc.value.trim() || undefined,
-      open_time: newRestOpenTime.value || null,
-      close_time: newRestCloseTime.value || null,
-      latitude: Number(newRestLat.value),
-      longitude: Number(newRestLon.value),
-      service_licenses: newRestLicenses.value.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
-    });
-    restaurants.value.unshift(created);
-    selectedMenuRestaurantId.value = created.id;
-    showNotice(`Đã thêm quán mới "${created.name}" thành công!`);
-    showCreateRestaurantModal.value = false;
-    loadStats();
-  } catch (err: any) {
-    showError(err.message || 'Không thể tạo mới quán ăn');
-  } finally {
-    newRestSaving.value = false;
-  }
-}
-
-function openCreateDishModal() {
-  if (!selectedMenuRestaurantId.value) {
-    showError('Vui lòng chọn một quán ăn trước');
-    return;
-  }
-  newDishName.value = '';
-  newDishPrice.value = 35000;
-  newDishDesc.value = '';
-  newDishCategoryId.value = availableDishCategories.value.length > 0 ? availableDishCategories.value[0].id : null;
-  newDishMealType.value = 'all_day';
-  newDishIngredients.value = '';
-  newDishCalories.value = null;
-  showCreateDishModal.value = true;
-}
-
-async function handleCreateDish() {
-  if (!selectedMenuRestaurantId.value) return;
-  if (!newDishName.value.trim()) {
-    showError('Tên món ăn không được để trống');
-    return;
-  }
-  if (newDishPrice.value < 0) {
-    showError('Đơn giá món ăn không được âm');
-    return;
-  }
-  newDishSaving.value = true;
-  try {
-    const ingList = newDishIngredients.value
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-
-    const catId = (newDishCategoryId.value != null)
-      ? Number(newDishCategoryId.value)
-      : null;
-
-    const mealCode = normalizeMealTypeCode(newDishMealType.value);
-    const created = await api.createDish(selectedMenuRestaurantId.value, {
-      name: newDishName.value.trim(),
-      price: Number(newDishPrice.value),
-      calories: newDishCalories.value != null ? Number(newDishCalories.value) : undefined,
-      description: newDishDesc.value.trim() || undefined,
-      category_id: catId,
-      meal_types: [mealCode],
-      ingredients: ingList,
-      is_available: true,
-    });
-    menuDishes.value.unshift(created);
-    if (selectedMenuRestaurantId.value) {
-      try {
-        const cats = await api.getRestaurantCategories(selectedMenuRestaurantId.value);
-        menuCategories.value = cats;
-      } catch (_) {}
-    }
-    showNotice(`Đã thêm món "${created.name}" vào thực đơn.`);
-    showCreateDishModal.value = false;
-    loadStats();
-  } catch (err: any) {
-    showError(err.message || 'Không thể tạo món ăn mới');
-  } finally {
-    newDishSaving.value = false;
-  }
-}
-
-async function deleteDishItem(dish: Dish) {
-  if (!confirm(`Bạn có chắc chắn muốn xóa món "${dish.name}" khỏi thực đơn?`)) return;
-  try {
-    await api.deleteDish(dish.id);
-    menuDishes.value = menuDishes.value.filter((d) => d.id !== dish.id);
-    showNotice(`Đã xóa món "${dish.name}".`);
-    loadStats();
-  } catch (err: any) {
-    showError(err.message || 'Không thể xóa món ăn');
-  }
-}
-
-function openCreateCategoryModal() {
-  if (!selectedMenuRestaurantId.value) {
-    showError('Vui lòng chọn một quán ăn trước');
-    return;
-  }
-  newCatName.value = '';
-  newCatDesc.value = '';
-  showCreateCategoryModal.value = true;
-}
-
-async function handleCreateCategory() {
-  if (!selectedMenuRestaurantId.value) return;
-  if (!newCatName.value.trim()) {
-    showError('Tên danh mục không được để trống');
-    return;
-  }
-  newCatSaving.value = true;
-  try {
-    const created = await api.createCategory(selectedMenuRestaurantId.value, {
-      name: newCatName.value.trim(),
-      description: newCatDesc.value.trim() || undefined,
-      is_active: true,
-      display_order: menuCategories.value.length,
-    });
-    masterCategories.value.push(created);
-    if (!menuCategories.value.some(c => c.id === created.id)) {
-      menuCategories.value.push(created);
-    }
-    showNotice(`Đã tạo nhóm món "${created.name}" thành công!`);
-    showCreateCategoryModal.value = false;
-    loadStats();
-  } catch (err: any) {
-    showError(err.message || 'Không thể tạo danh mục');
-  } finally {
-    newCatSaving.value = false;
-  }
-}
-
-async function deleteCategoryItem(cat: Category) {
-  if (!confirm(`Xác nhận xóa danh mục "${cat.name}"? Các món trong danh mục sẽ được đưa về nhóm Chung.`)) {
-    return;
-  }
-  try {
-    await api.deleteCategory(cat.id);
-    menuCategories.value = menuCategories.value.filter((c) => c.id !== cat.id);
-    if (selectedCategoryId.value === cat.id) {
-      selectedCategoryId.value = 'all';
-    }
-    loadMenuData();
-    showNotice(`Đã xóa danh mục "${cat.name}".`);
-  } catch (err: any) {
-    showError(err.message || 'Không thể xóa danh mục');
-  }
-}
-
-// --- COMPUTED PROPERTIES ---
-
-// Lọc quán ăn theo từ khóa và trạng thái
-const filteredRestaurants = computed(() => {
-  return restaurants.value.filter((r) => {
-    const q = restaurantSearch.value.trim().toLowerCase();
-    const matchesSearch = !q || r.name.toLowerCase().includes(q) || (r.address && r.address.toLowerCase().includes(q));
-
-    const matchesStatus =
-      restaurantStatusFilter.value === 'all' ||
-      (restaurantStatusFilter.value === 'active' && r.is_active) ||
-      (restaurantStatusFilter.value === 'inactive' && !r.is_active);
-
-    return matchesSearch && matchesStatus;
-  });
-});
-
-// Quán đang được chọn ở tab Thực đơn
-const selectedMenuRestaurant = computed(() => {
-  return restaurants.value.find((r) => r.id === selectedMenuRestaurantId.value) || null;
-});
-
-// Danh sách quán lọc ở cột Master tab Thực đơn
-const filteredMenuRestaurants = computed(() => {
-  const q = menuRestSearch.value.trim().toLowerCase();
-  if (!q) return restaurants.value;
-  return restaurants.value.filter(
-    (r) => r.name.toLowerCase().includes(q) || (r.address && r.address.toLowerCase().includes(q))
-  );
-});
-
-// Lọc món ăn theo Category và Search
-const filteredMenuDishes = computed(() => {
-  return menuDishes.value.filter((d) => {
-    const matchCat =
-      selectedCategoryId.value === 'all' ||
-      d.category_id === selectedCategoryId.value;
-
-    const q = dishSearchQuery.value.trim().toLowerCase();
-    const matchSearch =
-      !q ||
-      d.name.toLowerCase().includes(q) ||
-      (d.description && d.description.toLowerCase().includes(q)) ||
-      (d.ingredients && d.ingredients.some((ing) => ing.toLowerCase().includes(q)));
-
-    return matchCat && matchSearch;
-  });
-});
-
-// Lọc tài khoản người dùng
-const filteredUsers = computed(() => {
-  const q = userSearchQuery.value.trim().toLowerCase();
-  if (!q) return users.value;
-  return users.value.filter(
-    (u) => u.email.toLowerCase().includes(q) || (u.full_name && u.full_name.toLowerCase().includes(q))
-  );
-});
-
-// Chuẩn hoá mã bữa ăn sang code chuẩn (nếu là null/rỗng thì mặc định là 'all_day')
-function normalizeMealTypeCode(mt?: MealType | string | null): MealType {
-  if (!mt) return 'all_day';
-  const s = mt.toLowerCase().trim();
-  if (s === 'breakfast' || s.includes('sáng')) return 'breakfast';
-  if (s === 'lunch' || s.includes('trưa')) return 'lunch';
-  if (s === 'dinner' || s.includes('tối')) return 'dinner';
-  if (s === 'snack' || s.includes('vặt') || s.includes('xế')) return 'snack';
-  return 'all_day';
-}
-
-// Helper chuyển meal type sang nhãn tiếng Việt
-function formatMealType(mt?: MealType | string | null): string {
-  const code = normalizeMealTypeCode(mt);
-  switch (code) {
-    case 'breakfast':
-      return 'Bữa sáng';
-    case 'lunch':
-      return 'Bữa trưa';
-    case 'dinner':
-      return 'Bữa tối';
-    case 'snack':
-      return 'Ăn vặt / Xế';
-    case 'all_day':
-    default:
-      return 'Cả ngày';
-  }
-}
 
 onMounted(() => {
   loadStats();
@@ -1271,1886 +370,108 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-portal">
-    <!-- Top Bar: Minimalist Modern Navbar -->
-    <header class="admin-topbar">
-      <div class="topbar-inner">
-        <!-- Brand -->
-        <div class="brand-cluster">
-          <div class="brand-logo">P</div>
-          <div>
-            <div class="brand-title">PTC1 Platform</div>
-            <div class="brand-subtitle">Cổng Quản Trị Hệ Thống</div>
-          </div>
-        </div>
+  <AppLayout
+    :current-tab="currentTab"
+    :admin="admin"
+    :restaurant-count="stats?.total_restaurants ?? restaurants.length"
+    :user-count="stats?.total_users ?? users.length"
+    :weather-count="weathers.length"
+    :show-theme-toggle="true"
+    @update:current-tab="handleTabChange($event as TabKey)"
+    @logout="emit('logout')"
+  >
+    <!-- ============================================== -->
+    <!-- TAB 1: TỔNG QUAN (DASHBOARD)                   -->
+    <!-- ============================================== -->
+    <DashboardOverviewTab
+      v-if="currentTab === 'dashboard'"
+      :stats="stats"
+      :restaurants="restaurants"
+      :categories="availableDishCategories"
+      :users="users"
+      :loading="statsLoading || restaurantsLoading"
+      @refresh="handleRefreshDashboard"
+      @select-restaurant-menu="selectRestaurantForMenu"
+      @switch-tab="handleTabChange($event as TabKey)"
+    />
 
-        <!-- Navigation Tabs -->
-        <nav class="nav-cluster">
-          <button
-            type="button"
-            class="nav-tab"
-            :class="{ active: currentTab === 'dashboard' }"
-            @click="currentTab = 'dashboard'"
-          >
-            Tổng quan
-          </button>
-          <button
-            type="button"
-            class="nav-tab"
-            :class="{ active: currentTab === 'restaurants' }"
-            @click="currentTab = 'restaurants'"
-          >
-            Cơ sở quán ăn
-            <span class="tab-badge">{{ restaurants.length }}</span>
-          </button>
-          <button
-            type="button"
-            class="nav-tab"
-            :class="{ active: currentTab === 'menus' }"
-            @click="currentTab = 'menus'; loadMenuData()"
-          >
-            Thực đơn món
-          </button>
-          <button
-            type="button"
-            class="nav-tab"
-            :class="{ active: currentTab === 'accounts' }"
-            @click="currentTab = 'accounts'; loadAccounts()"
-          >
-            Người dùng
-            <span class="tab-badge">{{ users.length }}</span>
-          </button>
-          <button
-            type="button"
-            class="nav-tab"
-            :class="{ active: currentTab === 'weather_rules' }"
-            @click="currentTab = 'weather_rules'; loadWeatherRulesData()"
-          >
-            Luật thời tiết & Danh mục
-            <span class="tab-badge">{{ weathers.length }}</span>
-          </button>
-        </nav>
+    <!-- ============================================== -->
+    <!-- TAB 2: QUẢN LÝ QUÁN ĂN (RESTAURANTS)           -->
+    <!-- ============================================== -->
+    <RestaurantsTab
+      v-else-if="currentTab === 'restaurants'"
+      :restaurants="restaurants"
+      :loading="restaurantsLoading"
+      @select-restaurant-menu="selectRestaurantForMenu"
+      @restaurant-created="handleRestaurantCreated"
+      @restaurant-updated="handleRestaurantUpdated"
+      @restaurant-deleted="handleRestaurantDeleted"
+      @refresh="loadRestaurants"
+    />
 
-        <!-- Admin Profile -->
-        <div class="user-cluster">
-          <div class="user-chip">
-            <span class="avatar-circle">A</span>
-            <span class="user-email-text" :title="admin.email">{{ admin.email }}</span>
-          </div>
-          <button type="button" class="btn-logout" title="Đăng xuất" @click="emit('logout')">
-            Thoát
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- Thông báo nổi -->
-    <div v-if="noticeMsg" class="banner-notice">
-      <span>{{ noticeMsg }}</span>
-    </div>
-    <div v-if="errorMsg" class="banner-error">
-      <span>{{ errorMsg }}</span>
-    </div>
-
-    <!-- Main Workspace -->
-    <main class="admin-body">
+    <!-- ============================================== -->
+    <!-- TAB 3: QUẢN LÝ THỰC ĐƠN (MENUS)                -->
+    <!-- ============================================== -->
+    <!-- ============================================== -->
+    <!-- TAB 3: QUẢN LÝ THỰC ĐƠN (MENUS)                -->
+    <!-- ============================================== -->
+    <MenusTab
+      v-else-if="currentTab === 'menus'"
+      :restaurants="restaurants"
+      :selected-restaurant-id="selectedMenuRestaurantId"
+      :categories="menuCategories"
+      :master-categories="masterCategories"
+      :dishes="menuDishes"
+      :loading="menuLoading"
+      @select-restaurant="selectRestaurantForMenu"
+      @dish-created="handleDishCreated"
+      @dish-updated="handleDishUpdated"
+      @dish-deleted="handleDishDeleted"
+      @category-created="handleCategoryCreated"
+      @category-updated="handleCategoryUpdated"
+      @category-deleted="handleCategoryDeleted"
+      @retry="loadMenuData"
+    />
       <!-- ============================================== -->
-      <!-- TAB 1: TỔNG QUAN (DASHBOARD)                   -->
-      <!-- ============================================== -->
-      <section v-if="currentTab === 'dashboard'" class="view-panel">
-        <div class="view-header">
-          <div>
-            <h1 class="view-title">Tổng quan hệ thống</h1>
-            <p class="view-desc">Tóm tắt các chỉ số cốt lõi và các cơ sở ẩm thực cập nhật mới nhất</p>
-          </div>
-          <button
-            type="button"
-            class="btn-refresh"
-            :disabled="statsLoading"
-            @click="loadStats(); loadRestaurants(); loadAccounts()"
-          >
-            {{ statsLoading ? 'Đang nạp...' : '↻ Làm mới' }}
-          </button>
-        </div>
-
-        <!-- 4 KPI Metrics tinh gọn -->
-        <div class="kpi-row">
-          <div class="kpi-box">
-            <span class="kpi-label">Tổng cơ sở quán</span>
-            <div class="kpi-num">{{ stats?.total_restaurants ?? restaurants.length }}</div>
-            <div class="kpi-footnote">
-              <span class="dot-online"></span> {{ stats?.active_restaurants ?? restaurants.filter(r => r.is_active).length }} đang mở cửa
-            </div>
-          </div>
-
-          <div class="kpi-box">
-            <span class="kpi-label">Tổng món ăn</span>
-            <div class="kpi-num">{{ stats?.total_dishes ?? 0 }}</div>
-            <div class="kpi-footnote">
-              {{ stats?.total_categories ?? 0 }} nhóm danh mục món
-            </div>
-          </div>
-
-          <div class="kpi-box">
-            <span class="kpi-label">Người dùng đăng ký</span>
-            <div class="kpi-num">{{ stats?.total_users ?? users.length }}</div>
-            <div class="kpi-footnote">Tài khoản Mobile App</div>
-          </div>
-
-          <div class="kpi-box">
-            <span class="kpi-label">Tỷ lệ hoạt động</span>
-            <div class="kpi-num">
-              {{
-                restaurants.length > 0
-                  ? Math.round((restaurants.filter(r => r.is_active).length / restaurants.length) * 100)
-                  : 100
-              }}%
-            </div>
-            <div class="kpi-footnote">Cơ sở sẵn sàng phục vụ</div>
-          </div>
-        </div>
-
-        <!-- Bảng tóm tắt hoạt động gần đây -->
-        <div class="recent-box">
-          <div class="box-head">
-            <h2 class="box-title">Cơ sở hoạt động gần đây</h2>
-            <button type="button" class="btn-link" @click="currentTab = 'restaurants'">
-              Xem tất cả quán ăn →
-            </button>
-          </div>
-
-          <div v-if="restaurantsLoading" class="compact-loading">
-            <div class="spinner-small"></div> Đang nạp dữ liệu...
-          </div>
-          <div v-else-if="restaurants.length === 0" class="compact-empty">
-            Chưa có quán ăn nào trên hệ thống.
-          </div>
-          <div v-else class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Cơ sở</th>
-                  <th>Địa chỉ</th>
-                  <th>Giờ phục vụ</th>
-                  <th>Trạng thái</th>
-                  <th style="text-align: right;">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="r in restaurants.slice(0, 5)" :key="r.id">
-                  <td>
-                    <div class="rest-title-cell">
-                      <div class="rest-avatar">{{ r.name.charAt(0).toUpperCase() }}</div>
-                      <div>
-                        <strong>{{ r.name }}</strong>
-                        <div v-if="r.phone" class="text-sub">{{ r.phone }}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="text-sub">{{ r.address || '—' }}</td>
-                  <td>
-                    <span v-if="r.open_time && r.close_time" class="time-pill">
-                      {{ r.open_time }} – {{ r.close_time }}
-                    </span>
-                    <span v-else class="text-sub">—</span>
-                  </td>
-                  <td>
-                    <span :class="['status-dot-badge', r.is_active ? 'active' : 'inactive']">
-                      {{ r.is_active ? 'Đang mở' : 'Tạm dừng' }}
-                    </span>
-                  </td>
-                  <td style="text-align: right;">
-                    <button
-                      type="button"
-                      class="btn-sub-action"
-                      @click="selectRestaurantForMenu(r.id)"
-                    >
-                      Thực đơn
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============================================== -->
-      <!-- TAB 2: QUẢN LÝ QUÁN ĂN (RESTAURANTS)           -->
-      <!-- ============================================== -->
-      <section v-else-if="currentTab === 'restaurants'" class="view-panel">
-        <div class="view-header">
-          <div>
-            <h1 class="view-title">Cơ sở quán ăn</h1>
-            <p class="view-desc">Quản lý danh sách, thông tin liên hệ và trạng thái hoạt động của từng quán</p>
-          </div>
-          <button type="button" class="btn-primary-action" @click="openCreateRestaurantModal">
-            + Thêm quán mới
-          </button>
-        </div>
-
-        <!-- Toolbar: Search & Filter -->
-        <div class="toolbar-row">
-          <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input
-              v-model="restaurantSearch"
-              type="text"
-              placeholder="Tìm theo tên quán, địa chỉ..."
-              class="toolbar-input"
-            />
-          </div>
-          <div class="filter-cluster">
-            <label class="filter-label">Trạng thái:</label>
-            <select v-model="restaurantStatusFilter" class="toolbar-select">
-              <option value="all">Tất cả ({{ restaurants.length }})</option>
-              <option value="active">Đang mở ({{ restaurants.filter(r => r.is_active).length }})</option>
-              <option value="inactive">Tạm dừng ({{ restaurants.filter(r => !r.is_active).length }})</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Content Table -->
-        <div v-if="restaurantsLoading" class="panel-loading">
-          <div class="spinner-small"></div> Đang tải danh sách cơ sở...
-        </div>
-        <div v-else-if="filteredRestaurants.length === 0" class="panel-empty">
-          Không tìm thấy quán ăn nào phù hợp với bộ lọc.
-        </div>
-        <div v-else class="table-wrap main-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 50px;">#</th>
-                <th>Cơ sở quán ăn</th>
-                <th>Địa chỉ & Giờ phục vụ</th>
-                <th>Trạng thái</th>
-                <th style="width: 240px; text-align: right;">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in filteredRestaurants" :key="r.id">
-                <td class="text-sub">#{{ r.id }}</td>
-                <td>
-                  <div class="rest-title-cell">
-                    <div class="rest-avatar">{{ r.name.charAt(0).toUpperCase() }}</div>
-                    <div>
-                      <div class="cell-main-title">{{ r.name }}</div>
-                      <div v-if="r.phone" class="text-sub">Hotline: {{ r.phone }}</div>
-                      <div v-if="r.service_licenses && r.service_licenses.length > 0" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
-                        <span v-for="lic in r.service_licenses" :key="lic" class="status-dot-badge active" style="font-size: 11px;">📜 {{ lic }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div>{{ r.address || '—' }}</div>
-                  <div class="text-sub" style="margin-top: 2px;">
-                    <span v-if="r.open_time && r.close_time">🕒 {{ r.open_time }} – {{ r.close_time }}</span>
-                    <span v-else>🕒 Chưa cấu hình giờ</span>
-                  </div>
-                </td>
-                <td>
-                  <span :class="['status-dot-badge', r.is_active ? 'active' : 'inactive']">
-                    {{ r.is_active ? 'Đang hoạt động' : 'Tạm dừng' }}
-                  </span>
-                </td>
-                <td style="text-align: right;">
-                  <div class="actions-group">
-                    <button
-                      type="button"
-                      class="btn-action-ghost"
-                      title="Xem thực đơn của quán"
-                      @click="selectRestaurantForMenu(r.id)"
-                    >
-                      Thực đơn
-                    </button>
-                    <button
-                      type="button"
-                      class="btn-action-ghost"
-                      title="Sửa thông tin"
-                      @click="openEditRestaurant(r)"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      type="button"
-                      class="btn-action-ghost"
-                      :title="r.is_active ? 'Tạm dừng quán' : 'Mở bán lại'"
-                      @click="toggleRestaurantStatus(r)"
-                    >
-                      {{ r.is_active ? 'Tắt' : 'Bật' }}
-                    </button>
-                    <button
-                      type="button"
-                      class="btn-action-danger"
-                      title="Xóa quán vĩnh viễn"
-                      @click="deleteRestaurant(r)"
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ============================================== -->
-      <!-- TAB 3: THỰC ĐƠN & NHÓM MÓN (MASTER-DETAIL)     -->
-      <!-- ============================================== -->
-      <section v-else-if="currentTab === 'menus'" class="view-panel">
-        <div class="view-header">
-          <div>
-            <h1 class="view-title">Thực đơn & Nhóm món</h1>
-            <p class="view-desc">Quản lý thực đơn phân nhóm theo từng cơ sở ẩm thực</p>
-          </div>
-          <div class="header-actions">
-            <button
-              type="button"
-              class="btn-secondary-action"
-              :disabled="!selectedMenuRestaurantId"
-              @click="openCreateCategoryModal"
-            >
-              + Nhóm món
-            </button>
-            <button
-              type="button"
-              class="btn-primary-action"
-              :disabled="!selectedMenuRestaurantId"
-              @click="openCreateDishModal"
-            >
-              + Thêm món ăn
-            </button>
-          </div>
-        </div>
-
-        <!-- Layout Master - Detail 2 cột -->
-        <div class="master-detail-layout">
-          <!-- Cột Master (Trái): Chọn quán -->
-          <aside class="master-pane">
-            <div class="master-search-box">
-              <input
-                v-model="menuRestSearch"
-                type="text"
-                placeholder="Tìm quán ăn..."
-                class="master-input"
-              />
-            </div>
-
-            <div class="master-list">
-              <div
-                v-for="r in filteredMenuRestaurants"
-                :key="r.id"
-                class="master-item"
-                :class="{ active: selectedMenuRestaurantId === r.id }"
-                @click="selectedMenuRestaurantId = r.id; loadMenuData()"
-              >
-                <div class="master-item-avatar">{{ r.name.charAt(0).toUpperCase() }}</div>
-                <div class="master-item-info">
-                  <div class="master-item-name">{{ r.name }}</div>
-                  <div class="master-item-sub">{{ r.address || '—' }}</div>
-                </div>
-              </div>
-              <div v-if="filteredMenuRestaurants.length === 0" class="master-empty">
-                Không tìm thấy quán
-              </div>
-            </div>
-          </aside>
-
-          <!-- Cột Detail (Phải): Thực đơn & Món ăn -->
-          <section class="detail-pane">
-            <div v-if="!selectedMenuRestaurant" class="panel-empty">
-              Vui lòng chọn một quán ăn ở cột bên trái để quản lý thực đơn.
-            </div>
-
-            <div v-else>
-              <!-- Info Bar của quán đang chọn -->
-              <div class="detail-header-card">
-                <div>
-                  <h2 class="detail-rest-name">{{ selectedMenuRestaurant.name }}</h2>
-                  <div class="detail-rest-sub">
-                    <span>📍 {{ selectedMenuRestaurant.address || 'Chưa cập nhật địa chỉ' }}</span>
-                    <span v-if="selectedMenuRestaurant.open_time"> • 🕒 {{ selectedMenuRestaurant.open_time }} – {{ selectedMenuRestaurant.close_time }}</span>
-                  </div>
-                </div>
-                <div class="detail-stats-pill">
-                  {{ menuDishes.length }} món ăn • {{ menuCategories.length }} nhóm
-                </div>
-              </div>
-
-              <!-- Thanh lọc Category Pills -->
-              <div class="category-pills-bar">
-                <button
-                  type="button"
-                  class="cat-pill"
-                  :class="{ active: selectedCategoryId === 'all' }"
-                  @click="selectedCategoryId = 'all'"
-                >
-                  Tất cả ({{ menuDishes.length }})
-                </button>
-                <div
-                  v-for="c in menuCategories"
-                  :key="c.id"
-                  class="cat-pill-wrapper"
-                >
-                  <button
-                    type="button"
-                    class="cat-pill"
-                    :class="{ active: selectedCategoryId === c.id }"
-                    @click="selectedCategoryId = c.id"
-                  >
-                    {{ c.name }}
-                  </button>
-                  <button
-                    type="button"
-                    class="cat-edit-btn"
-                    title="Sửa nhóm này"
-                    @click.stop="openEditCategoryModal(c)"
-                  >
-                    ✎
-                  </button>
-                  <button
-                    type="button"
-                    class="cat-del-btn"
-                    title="Xóa nhóm này"
-                    @click.stop="deleteCategoryItem(c)"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  class="cat-pill add-cat-pill"
-                  @click="openCreateCategoryModal"
-                >
-                  + Thêm nhóm
-                </button>
-              </div>
-
-              <!-- Thanh tìm kiếm món -->
-              <div class="dish-search-bar">
-                <input
-                  v-model="dishSearchQuery"
-                  type="text"
-                  placeholder="Lọc món ăn theo tên hoặc nguyên liệu..."
-                  class="dish-search-input"
-                />
-              </div>
-
-              <!-- Trạng thái Loading hoặc Empty -->
-              <div v-if="menuLoading" class="panel-loading">
-                <div class="spinner-small"></div> Đang nạp thực đơn...
-              </div>
-
-              <div v-else-if="filteredMenuDishes.length === 0" class="panel-empty-box">
-                <div style="font-size: 1.5rem; margin-bottom: 8px;">🍽️</div>
-                <div style="font-weight: 600; margin-bottom: 4px;">Chưa có món ăn nào</div>
-                <p class="text-sub">Thêm món ăn mới để hoàn thiện thực đơn cho quán.</p>
-                <button
-                  type="button"
-                  class="btn-primary-action"
-                  style="margin-top: 12px;"
-                  @click="openCreateDishModal"
-                >
-                  + Thêm món ăn ngay
-                </button>
-              </div>
-
-              <!-- Lưới món ăn (Dish Cards Grid) -->
-              <div v-else class="dish-grid">
-                <div v-for="d in filteredMenuDishes" :key="d.id" class="dish-card">
-                  <div class="dish-card-body">
-                    <div class="dish-card-header">
-                      <div class="dish-card-title">{{ d.name }}</div>
-                      <div class="dish-price">{{ Number(d.price).toLocaleString('vi-VN') }} đ</div>
-                    </div>
-                    <p v-if="d.description" class="dish-card-desc">{{ d.description }}</p>
-
-                    <div class="dish-meta-row">
-                      <span class="meal-tag">{{ formatMealType((d.meal_types && d.meal_types.length > 0) ? d.meal_types[0] : (d.meal_type || null)) }}</span>
-                      <span v-if="d.category_name" class="category-tag">{{ d.category_name }}</span>
-                      <span v-if="d.calories" class="meal-tag" style="background: #fff1f2; color: #e11d48; border-color: #fecdd3;">🔥 {{ d.calories }} kcal</span>
-                      <span v-if="d.spicy_level && d.spicy_level > 0" class="spicy-tag">🌶️ {{ d.spicy_level === 1 ? 'Cay nhẹ' : d.spicy_level === 2 ? 'Cay vừa' : 'Rất cay' }}</span>
-                    </div>
-
-                    <div v-if="d.ingredients && d.ingredients.length > 0" class="dish-ingredients">
-                      <span v-for="ing in d.ingredients" :key="ing" class="ing-tag">{{ ing }}</span>
-                    </div>
-                  </div>
-
-                  <div class="dish-card-footer">
-                    <span :class="['avail-badge', d.is_available ? 'available' : 'out-of-stock']">
-                      {{ d.is_available ? 'Còn món' : 'Hết món' }}
-                    </span>
-                    <div class="dish-actions">
-                      <button
-                        type="button"
-                        class="btn-dish-edit"
-                        title="Chỉnh sửa chi tiết món ăn"
-                        @click="openEditDishModal(d)"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-dish-delete"
-                        title="Xóa món ăn"
-                        @click="deleteDishItem(d)"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <!-- ============================================== -->
-      <!-- TAB 4: THỰC KHÁCH (ACCOUNTS)                   -->
-      <!-- ============================================== -->
-      <section v-else-if="currentTab === 'accounts'" class="view-panel">
-        <div class="view-header">
-          <div>
-            <h1 class="view-title">Tài khoản người dùng</h1>
-            <p class="view-desc">Danh sách người dùng đã đăng ký sử dụng ứng dụng di động PTC1</p>
-          </div>
-          <button
-            type="button"
-            class="btn-refresh"
-            :disabled="accountsLoading"
-            @click="loadAccounts"
-          >
-            {{ accountsLoading ? 'Đang nạp...' : '↻ Làm mới' }}
-          </button>
-        </div>
-
-        <div class="toolbar-row">
-          <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input
-              v-model="userSearchQuery"
-              type="text"
-              placeholder="Tìm theo email hoặc họ tên..."
-              class="toolbar-input"
-            />
-          </div>
-        </div>
-
-        <div v-if="accountsLoading" class="panel-loading">
-          <div class="spinner-small"></div> Đang tải danh sách tài khoản...
-        </div>
-        <div v-else-if="filteredUsers.length === 0" class="panel-empty">
-          Không tìm thấy tài khoản người dùng nào.
-        </div>
-        <div v-else class="table-wrap main-card">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Người dùng</th>
-                <th>Họ và tên</th>
-                <th>Ngày tạo tài khoản</th>
-                <th style="text-align: right;">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="u in filteredUsers"
-                :key="u.id"
-                class="clickable-row"
-                @click="openUserDetail(u)"
-              >
-                <td>
-                  <div class="rest-title-cell">
-                    <div class="user-avatar-circle">{{ (u.full_name || u.email).charAt(0).toUpperCase() }}</div>
-                    <div>
-                      <div class="cell-main-title">{{ u.email }}</div>
-                      </div>
-                  </div>
-                </td>
-                <td>{{ u.full_name || '—' }}</td>
-                <td class="text-sub">{{ new Date(u.created_at).toLocaleString('vi-VN') }}</td>
-                <td style="text-align: right;" @click.stop>
-                  <div class="actions-cell">
-                    <button
-                      type="button"
-                      class="btn-tbl-action"
-                      title="Xem chi tiết thông tin và hồ sơ"
-                      @click="openUserDetail(u)"
-                    >
-                      Xem chi tiết
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+    <!-- TAB 4: QUẢN LÝ NGƯỜI DÙNG (USERS)              -->
+    <!-- ============================================== -->
+    <UsersTab
+      v-else-if="currentTab === 'accounts'"
+      :users="users"
+      :categories="masterCategories"
+      :loading="accountsLoading"
+      @refresh="loadAccounts"
+      @retry="loadAccounts"
+    />
 
       <!-- ============================================== -->
       <!-- TAB 5: LUẬT THỜI TIẾT & DANH MỤC MÓN ĂN        -->
       <!-- ============================================== -->
-      <section v-else-if="currentTab === 'weather_rules'" class="view-panel">
-        <div class="view-header">
-          <div>
-            <h1 class="view-title">Luật thời tiết & Danh mục món ăn</h1>
-            <p class="view-desc">Cấu hình các danh mục ẩm thực tự động ưu tiên gợi ý cho khách hàng theo điều kiện thời tiết</p>
-          </div>
-          <div class="header-actions">
-            <button
-              type="button"
-              class="btn-refresh"
-              :disabled="weatherRulesLoading"
-              @click="loadWeatherRulesData"
-            >
-              {{ weatherRulesLoading ? 'Đang nạp...' : '↻ Làm mới' }}
-            </button>
-            <button
-              type="button"
-              class="btn-secondary-action"
-              @click="openCreateWeatherModal"
-            >
-              + Kiểu thời tiết
-            </button>
-            <button
-              type="button"
-              class="btn-primary-action"
-              @click="openCreateGlobalCatModal"
-            >
-              + Danh mục mới
-            </button>
-          </div>
-        </div>
-
-        <div v-if="weatherRulesLoading && weathers.length === 0" class="panel-loading">
-          <div class="spinner-small"></div> Đang tải dữ liệu thời tiết và danh mục...
-        </div>
-
-        <div v-else class="master-detail-layout">
-          <!-- Cột Master (Trái): Chọn trạng thái thời tiết -->
-          <aside class="master-pane">
-            <div class="master-pane-header">
-              <span class="master-pane-title">Trạng thái thời tiết</span>
-              <span class="tab-badge">{{ weathers.length }}</span>
-            </div>
-            <div class="master-search-box">
-              <input
-                v-model="weatherSearchQuery"
-                type="text"
-                placeholder="Tìm thời tiết..."
-                class="master-input"
-              />
-            </div>
-
-            <div class="master-list">
-              <div
-                v-for="w in filteredWeathers"
-                :key="w.id"
-                class="master-item weather-master-item"
-                :class="{ active: selectedWeather?.id === w.id }"
-                @click="selectWeather(w)"
-              >
-                <div class="weather-item-main">
-                  <div class="master-title">{{ w.name }}</div>
-                  <div class="weather-meta-row">
-                    <span class="weather-code-pill">{{ w.code }}</span>
-                    <span class="weather-season-pill">{{ getSeasonLabel(w.season) }}</span>
-                    <span v-if="w.min_temp != null || w.max_temp != null" class="weather-temp-range">
-                      {{ w.min_temp ?? '—' }}°C - {{ w.max_temp ?? '—' }}°C
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          <!-- Cột Detail (Phải): Các danh mục được gán theo thời tiết đang chọn -->
-          <main class="detail-pane">
-            <div v-if="!selectedWeather" class="panel-empty">
-              Vui lòng chọn một trạng thái thời tiết ở cột bên trái để cấu hình danh mục.
-            </div>
-            <div v-else class="weather-rules-detail-content">
-              <!-- Banner thông tin thời tiết đang chọn -->
-              <div class="weather-selected-card">
-                <div class="weather-selected-info">
-                  <div class="weather-title-with-actions">
-                    <h3 class="weather-selected-title">{{ selectedWeather.name }}</h3>
-                    <div class="weather-actions-group">
-                      <button
-                        type="button"
-                        class="btn-action-pill btn-action-edit"
-                        title="Chỉnh sửa thông tin kiểu thời tiết"
-                        @click="openEditWeatherModal(selectedWeather)"
-                      >
-                        ✎ Sửa thời tiết
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-action-pill btn-action-del"
-                        title="Xóa kiểu thời tiết này"
-                        @click="handleDeleteWeather(selectedWeather)"
-                      >
-                        🗑 Xóa
-                      </button>
-                    </div>
-                  </div>
-                  <p class="weather-selected-desc">
-                    {{ selectedWeather.description || 'Chưa có mô tả chi tiết cho trạng thái này.' }}
-                  </p>
-                  <div class="weather-selected-meta">
-                    <span>Mã thời tiết: <strong>{{ selectedWeather.code }}</strong></span>
-                    <span>Mùa áp dụng: <strong>{{ getSeasonLabel(selectedWeather.season) }}</strong></span>
-                    <span v-if="selectedWeather.min_temp != null || selectedWeather.max_temp != null">
-                      Nhiệt độ: <strong>{{ selectedWeather.min_temp ?? '—' }}°C - {{ selectedWeather.max_temp ?? '—' }}°C</strong>
-                    </span>
-                    <span>Số danh mục đang gợi ý: <strong>{{ weatherCategoryIds.size }}</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Thanh tìm kiếm danh mục & tiêu đề danh mục -->
-              <div class="weather-category-toolbar">
-                <div class="section-title-wrap">
-                  <h4 class="rule-section-title">Danh mục món ăn gợi ý</h4>
-                  <span class="rule-section-desc">Gạt công tắc để tự động gợi ý danh mục này khi thời tiết đạt điều kiện trên</span>
-                </div>
-                <div class="search-box">
-                  <input
-                    v-model="categorySearchQuery"
-                    type="text"
-                    placeholder="Lọc danh mục món ăn..."
-                    class="toolbar-input"
-                  />
-                </div>
-              </div>
-
-              <!-- Danh sách danh mục món ăn dạng lưới thẻ kèm Switch gạt bật/tắt -->
-              <div v-if="filteredGlobalCategories.length === 0" class="panel-empty">
-                Không tìm thấy danh mục món ăn nào.
-              </div>
-              <div v-else class="weather-category-grid">
-                <div
-                  v-for="cat in filteredGlobalCategories"
-                  :key="cat.id"
-                  class="weather-cat-card"
-                  :class="{ 'is-linked': weatherCategoryIds.has(cat.id) }"
-                  @click="handleToggleWeatherCategory(cat)"
-                >
-                  <div class="weather-cat-card-body">
-                    <div class="weather-cat-title-row">
-                      <span class="weather-cat-name">{{ cat.name }}</span>
-                      <div class="weather-cat-inline-actions" @click.stop>
-                        <button
-                          type="button"
-                          class="cat-inline-btn"
-                          title="Chỉnh sửa danh mục"
-                          @click="openEditCategoryModal(cat)"
-                        >
-                          ✎
-                        </button>
-                        <button
-                          type="button"
-                          class="cat-inline-btn cat-inline-del"
-                          title="Xóa danh mục này"
-                          @click="deleteGlobalCategoryItem(cat)"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <span
-                        class="weather-cat-status"
-                        :class="weatherCategoryIds.has(cat.id) ? 'status-linked' : 'status-unlinked'"
-                      >
-                        {{ weatherCategoryIds.has(cat.id) ? 'Đang gợi ý' : 'Không áp dụng' }}
-                      </span>
-                    </div>
-                    <p class="weather-cat-desc">{{ cat.description || 'Danh mục hệ thống' }}</p>
-                  </div>
-
-                  <div class="weather-cat-toggle-zone" @click.stop>
-                    <label class="switch-toggle" :title="weatherCategoryIds.has(cat.id) ? 'Click để bỏ gợi ý danh mục này' : 'Click để bật gợi ý danh mục này'">
-                      <input
-                        type="checkbox"
-                        :checked="weatherCategoryIds.has(cat.id)"
-                        :disabled="weatherLinkingMap[cat.id]"
-                        @change="handleToggleWeatherCategory(cat)"
-                      />
-                      <span class="switch-slider"></span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </main>
-        </div>
-      </section>
-
-    </main>
-
+      <!-- ============================================== -->
+    <!-- TAB 5: QUẢN LÝ LUẬT THỜI TIẾT                  -->
     <!-- ============================================== -->
-    <!-- MODAL: THÊM QUÁN MỚI                          -->
-    <!-- ============================================== -->
-    <div v-if="showCreateRestaurantModal" class="modal-backdrop" @click.self="showCreateRestaurantModal = false">
-      <div class="modal-sheet">
-        <div class="modal-sheet-header">
-          <h3>Thêm quán ăn mới</h3>
-          <button type="button" class="btn-close" @click="showCreateRestaurantModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleCreateRestaurant">
-          <div class="form-item">
-            <label>Tên quán ăn *</label>
-            <input v-model="newRestName" type="text" class="field-input" placeholder="Ví dụ: Cơm tấm Sài Gòn 99" required />
-          </div>
-
-          <div class="form-item">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <label>Địa chỉ cơ sở *</label>
-              <button type="button" class="btn-preset-hint" @click="applyHvnnPreset">
-                Gợi ý: HVNN Gia Lâm
-              </button>
-            </div>
-            <input v-model="newRestAddress" type="text" class="field-input" placeholder="Số nhà, đường, thị trấn..." required />
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Số điện thoại</label>
-              <input v-model="newRestPhone" type="text" class="field-input" placeholder="0987..." />
-            </div>
-            <div class="form-item">
-              <label>Khung giờ mở cửa</label>
-              <div style="display: flex; gap: 6px; align-items: center;">
-                <input v-model="newRestOpenTime" type="time" class="field-input" />
-                <span>–</span>
-                <input v-model="newRestCloseTime" type="time" class="field-input" />
-              </div>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Vĩ độ (Latitude)</label>
-              <input v-model.number="newRestLat" type="number" step="any" class="field-input" required />
-            </div>
-            <div class="form-item">
-              <label>Kinh độ (Longitude)</label>
-              <input v-model.number="newRestLon" type="number" step="any" class="field-input" required />
-            </div>
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả ngắn</label>
-            <textarea v-model="newRestDesc" class="field-textarea" rows="2" placeholder="Đặc sản, ghi chú thêm..."></textarea>
-          </div>
-
-          <div class="form-item">
-            <label>Giấy phép dịch vụ (phân tách bằng dấu phẩy)</label>
-            <input v-model="newRestLicenses" type="text" class="field-input" placeholder="Ví dụ: Giấy chứng nhận ATTP, PCCC, Giấy phép kinh doanh..." />
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button type="button" class="btn-cancel" @click="showCreateRestaurantModal = false">
-              Hủy
-            </button>
-            <button type="submit" class="btn-primary-action" :disabled="newRestSaving">
-              {{ newRestSaving ? 'Đang tạo...' : 'Tạo cơ sở' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ============================================== -->
-    <!-- MODAL: SỬA QUÁN ĂN                            -->
-    <!-- ============================================== -->
-    <div v-if="showEditModal" class="modal-backdrop" @click.self="showEditModal = false">
-      <div class="modal-sheet">
-        <div class="modal-sheet-header">
-          <h3>Sửa thông tin quán (#{{ editingRestaurant?.id }})</h3>
-          <button type="button" class="btn-close" @click="showEditModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="saveRestaurantChanges">
-          <div class="form-item">
-            <label>Tên quán ăn *</label>
-            <input v-model="editName" type="text" class="field-input" required />
-          </div>
-
-          <div class="form-item">
-            <label>Địa chỉ *</label>
-            <input v-model="editAddress" type="text" class="field-input" required />
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Số điện thoại</label>
-              <input v-model="editPhone" type="text" class="field-input" />
-            </div>
-            <div class="form-item">
-              <label>Trạng thái</label>
-              <select v-model="editIsActive" class="field-select">
-                <option :value="true">Đang hoạt động</option>
-                <option :value="false">Tạm dừng</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Giờ mở cửa</label>
-              <input v-model="editOpenTime" type="time" class="field-input" />
-            </div>
-            <div class="form-item">
-              <label>Giờ đóng cửa</label>
-              <input v-model="editCloseTime" type="time" class="field-input" />
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Vĩ độ</label>
-              <input v-model.number="editLat" type="number" step="any" class="field-input" required />
-            </div>
-            <div class="form-item">
-              <label>Kinh độ</label>
-              <input v-model.number="editLon" type="number" step="any" class="field-input" required />
-            </div>
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả quán</label>
-            <textarea v-model="editDesc" class="field-textarea" rows="2"></textarea>
-          </div>
-
-          <div class="form-item">
-            <label>Giấy phép dịch vụ (phân tách bằng dấu phẩy)</label>
-            <input v-model="editLicenses" type="text" class="field-input" placeholder="Ví dụ: Giấy chứng nhận ATTP, PCCC, Giấy phép kinh doanh..." />
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button type="button" class="btn-cancel" @click="showEditModal = false">
-              Hủy
-            </button>
-            <button type="submit" class="btn-primary-action" :disabled="editSaving">
-              {{ editSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ============================================== -->
-    <!-- MODAL: THÊM MÓN ĂN                            -->
-    <!-- ============================================== -->
-    <div v-if="showCreateDishModal" class="modal-backdrop" @click.self="showCreateDishModal = false">
-      <div class="modal-sheet">
-        <div class="modal-sheet-header">
-          <h3>Thêm món ăn mới vào thực đơn</h3>
-          <button type="button" class="btn-close" @click="showCreateDishModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleCreateDish">
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Tên món ăn *</label>
-              <input v-model="newDishName" type="text" class="field-input" placeholder="Ví dụ: Phở bò đặc biệt" required />
-            </div>
-            <div class="form-item">
-              <label>Đơn giá (VNĐ) *</label>
-              <input v-model.number="newDishPrice" type="number" min="0" step="1000" class="field-input" required />
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Bữa ăn phù hợp</label>
-              <select v-model="newDishMealType" class="field-select">
-                <option value="all_day">Cả ngày (all_day)</option>
-                <option value="breakfast">Bữa sáng (breakfast)</option>
-                <option value="lunch">Bữa trưa (lunch)</option>
-                <option value="dinner">Bữa tối (dinner)</option>
-                <option value="snack">Ăn vặt / Xế (snack)</option>
-              </select>
-            </div>
-            <div class="form-item">
-              <label>Nhóm danh mục</label>
-              <select v-model="newDishCategoryId" class="field-select">
-                <option :value="null">-- Nhóm Chung --</option>
-                <option v-for="c in availableDishCategories" :key="c.id" :value="c.id">
-                  {{ c.name }}
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-item">
-            <label>Năng lượng Calo (kcal)</label>
-            <input v-model.number="newDishCalories" type="number" min="0" class="field-input" placeholder="Ví dụ: 550" />
-          </div>
-
-          <div class="form-item">
-            <label>Nguyên liệu (phân tách bằng dấu phẩy)</label>
-            <input v-model="newDishIngredients" type="text" class="field-input" placeholder="Thịt bò, bánh phở, hành tây, rau thơm..." />
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả chi tiết món</label>
-            <textarea v-model="newDishDesc" class="field-textarea" rows="2" placeholder="Hương vị, định lượng..."></textarea>
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button type="button" class="btn-cancel" @click="showCreateDishModal = false">
-              Hủy
-            </button>
-            <button type="submit" class="btn-primary-action" :disabled="newDishSaving">
-              {{ newDishSaving ? 'Đang thêm...' : 'Thêm món' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ============================================== -->
-    <!-- MODAL: THÊM DANH MỤC                          -->
-    <!-- ============================================== -->
-    <div v-if="showCreateCategoryModal" class="modal-backdrop" @click.self="showCreateCategoryModal = false">
-      <div class="modal-sheet" style="max-width: 440px;">
-        <div class="modal-sheet-header">
-          <h3>Thêm nhóm món mới</h3>
-          <button type="button" class="btn-close" @click="showCreateCategoryModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleCreateCategory">
-          <div class="form-item">
-            <label>Tên nhóm danh mục *</label>
-            <input v-model="newCatName" type="text" class="field-input" placeholder="Ví dụ: Đồ Uống, Món Nướng..." required />
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả ngắn</label>
-            <textarea v-model="newCatDesc" class="field-textarea" rows="2" placeholder="Ghi chú thêm về nhóm món..."></textarea>
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button type="button" class="btn-cancel" @click="showCreateCategoryModal = false">
-              Hủy
-            </button>
-            <button type="submit" class="btn-primary-action" :disabled="newCatSaving">
-              {{ newCatSaving ? 'Đang tạo...' : 'Tạo nhóm' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-    <!-- ============================================== -->
-    <!-- MODAL: CHI TIẾT HỒ SƠ NGƯỜI DÙNG              -->
-    <!-- ============================================== -->
-    <div v-if="showUserDetailModal" class="modal-backdrop" @click.self="showUserDetailModal = false">
-      <div class="modal-sheet modal-sheet-user-detail">
-        <div class="modal-sheet-header">
-          <div class="user-detail-header-left">
-            <div class="user-avatar-circle modal-avatar">
-              {{ (selectedUser?.full_name || selectedUser?.email || '?').charAt(0).toUpperCase() }}
-            </div>
-            <div>
-              <h3 style="margin: 0; font-size: 17px; font-weight: 700; color: #0f172a;">
-                {{ isEditingUser ? 'Chỉnh sửa hồ sơ' : (selectedUser?.full_name || 'Khách hàng') }}
-              </h3>
-              <div class="modal-subtitle">{{ selectedUser?.email }}</div>
-            </div>
-          </div>
-          <div class="user-modal-header-actions">
-            <button
-              v-if="!isEditingUser"
-              type="button"
-              class="btn-edit-header"
-              :disabled="userDetailLoading"
-              @click="startEditUser"
-            >
-              Chỉnh sửa
-            </button>
-            <button
-              v-else
-              type="button"
-              class="btn-cancel-header"
-              :disabled="userSaving"
-              @click="cancelEditUser"
-            >
-              Hủy
-            </button>
-            <button
-              v-if="isEditingUser"
-              type="button"
-              class="btn-save-header"
-              :disabled="userSaving"
-              @click="saveUserChanges"
-            >
-              {{ userSaving ? 'Đang lưu...' : 'Lưu' }}
-            </button>
-            <button type="button" class="btn-close" @click="showUserDetailModal = false">✕</button>
-          </div>
-        </div>
-
-        <div class="modal-sheet-body user-detail-body">
-          <div v-if="userDetailLoading" class="panel-loading">
-            <div class="spinner-small"></div> Đang nạp hồ sơ người dùng...
-          </div>
-          <div v-else-if="userDetailError" class="panel-error">
-            {{ userDetailError }}
-          </div>
-
-          <!-- CHẾ ĐỘ 1: XEM CHI TIẾT (READ-ONLY) -->
-          <div v-else-if="!isEditingUser" class="user-detail-content">
-            <!-- 1. THÔNG TIN TÀI KHOẢN -->
-            <div class="detail-section">
-              <h4 class="section-title">Thông tin tài khoản</h4>
-              <div class="grid-info-cards">
-                <div class="info-cell">
-                  <span class="info-label">Email tài khoản</span>
-                  <span class="info-val font-mono">{{ selectedUser?.email }}</span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Họ và tên</span>
-                  <span class="info-val font-bold">{{ selectedUser?.full_name || 'Chưa cung cấp' }}</span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Ngày tham gia hệ thống</span>
-                  <span class="info-val">{{ selectedUser?.created_at ? new Date(selectedUser.created_at).toLocaleString('vi-VN') : '—' }}</span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Trạng thái khảo sát</span>
-                  <span class="info-val">
-                    <span v-if="selectedUserProfile?.is_onboarded" class="badge-tag-success">Đã khảo sát</span>
-                    <span v-else class="badge-tag-warn">Chưa hoàn thành</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. HỒ SƠ THỂ CHẤT & SỨC KHỎE (BMI) -->
-            <div class="detail-section">
-              <h4 class="section-title">Thể chất & Chỉ số BMI</h4>
-              <div class="bmi-dashboard-row">
-                <div class="stat-box">
-                  <span class="stat-label">Chiều cao</span>
-                  <span class="stat-number">
-                    {{ selectedUserProfile?.height_cm ? `${selectedUserProfile.height_cm} cm` : '—' }}
-                  </span>
-                </div>
-                <div class="stat-box">
-                  <span class="stat-label">Cân nặng</span>
-                  <span class="stat-number">
-                    {{ selectedUserProfile?.weight_kg ? `${selectedUserProfile.weight_kg} kg` : '—' }}
-                  </span>
-                </div>
-                <div class="stat-box highlight-bmi">
-                  <span class="stat-label">Chỉ số BMI</span>
-                  <span class="stat-number">
-                    {{ selectedUserProfile?.bmi ? selectedUserProfile.bmi.toFixed(1) : '—' }}
-                  </span>
-                  <span v-if="selectedUserProfile?.bmi_category" class="bmi-badge" :class="getBmiClass(selectedUserProfile.bmi_category)">
-                    {{ getBmiLabel(selectedUserProfile.bmi_category) }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="grid-info-cards mt-3">
-                <div class="info-cell">
-                  <span class="info-label">Mục tiêu dinh dưỡng</span>
-                  <span class="info-val font-bold text-accent">
-                    {{ getGoalLabel(selectedUserProfile?.target_goal) }}
-                  </span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Mức độ vận động</span>
-                  <span class="info-val">
-                    {{ getActivityLabel(selectedUserProfile?.activity_level) }}
-                  </span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Giới tính</span>
-                  <span class="info-val">
-                    {{ getGenderLabel(selectedUserProfile?.gender) }}
-                  </span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Năm sinh</span>
-                  <span class="info-val">
-                    {{ selectedUserProfile?.birth_year || '—' }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 3. SỞ THÍCH ẨM THỰC & KHẨU VỊ -->
-            <div class="detail-section">
-              <h4 class="section-title">Sở thích ẩm thực & Khẩu vị</h4>
-              <div class="grid-info-cards">
-                <div class="info-cell">
-                  <span class="info-label">Khẩu vị ăn cay</span>
-                  <span class="info-val">{{ getSpicyLabel(selectedUserProfile?.spicy_tolerance) }}</span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Ngân sách mỗi bữa</span>
-                  <span class="info-val">{{ getBudgetLabel(selectedUserProfile?.budget_range) }}</span>
-                </div>
-              </div>
-
-              <div class="tags-group mt-3">
-                <div class="tag-row">
-                  <span class="tag-title">Chế độ ăn kiêng / Sở thích:</span>
-                  <div v-if="selectedUserProfile?.dietary_preferences?.length" class="tag-list">
-                    <span v-for="tag in selectedUserProfile.dietary_preferences" :key="tag" class="tag-item diet-tag">
-                      {{ getDietaryLabel(tag) }}
-                    </span>
-                  </div>
-                  <span v-else class="text-muted-desc">Không thiết lập chế độ đặc biệt</span>
-                </div>
-
-                <div class="tag-row mt-2">
-                  <span class="tag-title">Dị ứng thực phẩm:</span>
-                  <div v-if="selectedUserProfile?.allergies?.length" class="tag-list">
-                    <span v-for="alg in selectedUserProfile.allergies" :key="alg" class="tag-item allergy-tag">
-                      {{ getAllergyLabel(alg) }}
-                    </span>
-                  </div>
-                  <span v-else class="text-muted-desc">Không có dị ứng</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 4. MÓN ĂN YÊU THÍCH -->
-            <div class="detail-section">
-              <div class="section-header-flex">
-                <h4 class="section-title">Món ăn yêu thích đã lưu</h4>
-                <span class="tag-count-pill">{{ selectedUserFavourites.length }} món</span>
-              </div>
-              <div v-if="selectedUserFavourites.length === 0" class="empty-fav-card">
-                Thực khách chưa lưu món ăn nào vào danh sách yêu thích.
-              </div>
-              <div v-else class="fav-dishes-grid">
-                <div v-for="fav in selectedUserFavourites" :key="fav.id" class="fav-dish-card">
-                  <div class="fav-dish-title">{{ fav.dish?.name || `Món ăn` }}</div>
-                  <div class="fav-dish-meta">
-                    <span v-if="fav.dish?.price" class="fav-price">{{ fav.dish.price.toLocaleString('vi-VN') }}đ</span>
-                    <span class="fav-date">Lưu: {{ new Date(fav.created_at).toLocaleDateString('vi-VN') }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- CHẾ ĐỘ 2: CHỈNH SỬA (FORM EDIT) -->
-          <form v-else class="user-detail-content" @submit.prevent="saveUserChanges">
-            <!-- 1. SỬA THÔNG TIN CƠ BẢN -->
-            <div class="detail-section">
-              <h4 class="section-title">Thông tin cơ bản</h4>
-              <div class="edit-form-grid">
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Email tài khoản</label>
-                  <input
-                    :value="selectedUser?.email"
-                    type="text"
-                    class="field-input input-disabled"
-                    disabled
-                  />
-                  <span class="edit-hint">Email đăng nhập không thể thay đổi</span>
-                </div>
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Họ và tên</label>
-                  <input
-                    v-model="editFullName"
-                    type="text"
-                    class="field-input"
-                    placeholder="Nhập họ và tên..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. SỬA THỂ CHẤT & SỨC KHỎE -->
-            <div class="detail-section">
-              <h4 class="section-title">Thể chất & Mục tiêu dinh dưỡng</h4>
-              <div class="edit-form-grid-3">
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Chiều cao (cm)</label>
-                  <input
-                    v-model.number="editHeightCm"
-                    type="number"
-                    min="50"
-                    max="260"
-                    class="field-input"
-                    placeholder="Ví dụ: 170"
-                  />
-                </div>
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Cân nặng (kg)</label>
-                  <input
-                    v-model.number="editWeightKg"
-                    type="number"
-                    min="10"
-                    max="500"
-                    step="0.5"
-                    class="field-input"
-                    placeholder="Ví dụ: 65"
-                  />
-                </div>
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Năm sinh</label>
-                  <input
-                    v-model.number="editBirthYear"
-                    type="number"
-                    min="1920"
-                    max="2026"
-                    class="field-input"
-                    placeholder="Ví dụ: 1998"
-                  />
-                </div>
-              </div>
-
-              <div class="edit-form-grid-3 mt-3">
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Giới tính</label>
-                  <select v-model="editGender" class="field-select">
-                    <option value="">Chưa chọn</option>
-                    <option value="male">Nam</option>
-                    <option value="female">Nữ</option>
-                    <option value="other">Khác</option>
-                  </select>
-                </div>
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Mức độ vận động</label>
-                  <select v-model="editActivityLevel" class="field-select">
-                    <option value="">Chưa chọn</option>
-                    <option value="sedentary">Ít vận động</option>
-                    <option value="light">Vận động nhẹ</option>
-                    <option value="moderate">Vận động vừa</option>
-                    <option value="active">Năng động</option>
-                    <option value="very_active">Cường độ cao</option>
-                  </select>
-                </div>
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Mục tiêu dinh dưỡng</label>
-                  <select v-model="editTargetGoal" class="field-select">
-                    <option value="">Chưa chọn</option>
-                    <option value="maintain">Duy trì vóc dáng</option>
-                    <option value="lose_weight">Giảm cân & Đốt mỡ</option>
-                    <option value="gain_muscle">Tăng cơ & Bổ sung đạm</option>
-                    <option value="eat_healthy">Ăn lành mạnh</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- 3. SỬA KHẨU VỊ & NGÂN SÁCH -->
-            <div class="detail-section">
-              <h4 class="section-title">Khẩu vị & Chế độ ăn uống</h4>
-              <div class="edit-form-grid">
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Khẩu vị ăn cay</label>
-                  <select v-model="editSpicyTolerance" class="field-select">
-                    <option value="">Chưa chọn</option>
-                    <option value="none">Không ăn cay</option>
-                    <option value="mild">Cay nhẹ</option>
-                    <option value="medium">Cay vừa</option>
-                    <option value="hot">Rất cay</option>
-                  </select>
-                </div>
-                <div class="edit-form-item">
-                  <label class="edit-field-label">Ngân sách mỗi bữa</label>
-                  <select v-model="editBudgetRange" class="field-select">
-                    <option value="">Chưa chọn</option>
-                    <option value="budget">Tiết kiệm, dưới 50.000đ</option>
-                    <option value="moderate">Vừa phải, 50.000đ - 100.000đ</option>
-                    <option value="premium">Cao cấp, trên 100.000đ</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- CHỌN CHẾ ĐỘ ĂN -->
-              <div class="edit-tag-select-group mt-3">
-                <label class="edit-field-label">Chế độ ăn kiêng / Sở thích:</label>
-                <div class="edit-tag-list">
-                  <button
-                    v-for="diet in AVAILABLE_DIETS"
-                    :key="diet.key"
-                    type="button"
-                    class="tag-toggle-btn"
-                    :class="{ active: editDietaryPreferences.includes(diet.key) }"
-                    @click="toggleDietaryPreference(diet.key)"
-                  >
-                    {{ diet.label }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- CHỌN DỊ ỨNG -->
-              <div class="edit-tag-select-group mt-3">
-                <label class="edit-field-label">Dị ứng thực phẩm:</label>
-                <div class="edit-tag-list">
-                  <button
-                    v-for="alg in AVAILABLE_ALLERGIES"
-                    :key="alg.key"
-                    type="button"
-                    class="tag-toggle-btn tag-toggle-allergy"
-                    :class="{ active: editAllergies.includes(alg.key) }"
-                    @click="toggleAllergy(alg.key)"
-                  >
-                    {{ alg.label }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- NÚT LƯU CHÂN FORM -->
-            <div class="edit-footer-row">
-              <button
-                type="button"
-                class="btn-cancel"
-                :disabled="userSaving"
-                @click="cancelEditUser"
-              >
-                Hủy thay đổi
-              </button>
-              <button
-                type="submit"
-                class="btn-primary-action"
-                :disabled="userSaving"
-              >
-                {{ userSaving ? 'Đang lưu...' : 'Lưu cập nhật' }}
-              </button>
-            </div>
-          </form>
-        </div>
-
-      </div>
-    </div>
-
-
-    <!-- ============================================== -->
-    <!-- MODAL: TẠO DANH MỤC HỆ THỐNG MỚI               -->
-    <!-- ============================================== -->
-    <div v-if="showCreateGlobalCatModal" class="modal-backdrop" @click.self="showCreateGlobalCatModal = false">
-      <div class="modal-sheet" style="max-width: 460px;">
-        <div class="modal-sheet-header">
-          <h3>Thêm danh mục món ăn mới</h3>
-          <button type="button" class="btn-close" @click="showCreateGlobalCatModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleCreateGlobalCategory">
-          <div class="form-item">
-            <label>Tên danh mục món ăn *</label>
-            <input
-              v-model="newGlobalCatName"
-              type="text"
-              class="field-input"
-              placeholder="Ví dụ: Lẩu & Nướng, Đồ uống thanh nhiệt, Món cay..."
-              required
-            />
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả danh mục</label>
-            <textarea
-              v-model="newGlobalCatDesc"
-              class="field-textarea"
-              rows="3"
-              placeholder="Mô tả nhóm món ăn hoặc đối tượng phục vụ..."
-            ></textarea>
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button
-              type="button"
-              class="btn-cancel"
-              @click="showCreateGlobalCatModal = false"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              class="btn-primary-action"
-              :disabled="newGlobalCatSaving"
-            >
-              {{ newGlobalCatSaving ? 'Đang tạo...' : 'Tạo danh mục' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-
-    <!-- ============================================== -->
-    <!-- MODAL: TẠO KIỂU THỜI TIẾT MỚI                  -->
-    <!-- ============================================== -->
-    <div v-if="showCreateWeatherModal" class="modal-backdrop" @click.self="showCreateWeatherModal = false">
-      <div class="modal-sheet" style="max-width: 480px;">
-        <div class="modal-sheet-header">
-          <h3>Thêm kiểu thời tiết mới</h3>
-          <button type="button" class="btn-close" @click="showCreateWeatherModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleCreateWeather">
-          <div class="form-item">
-            <label>Tên kiểu thời tiết *</label>
-            <input
-              v-model="newWeatherName"
-              type="text"
-              class="field-input"
-              placeholder="Ví dụ: Trời nồm ẩm, Gió mùa đông bắc..."
-              required
-            />
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Mã định danh *</label>
-              <input
-                v-model="newWeatherCode"
-                type="text"
-                class="field-input font-mono"
-                placeholder="Ví dụ: humid, monsoon..."
-                required
-              />
-            </div>
-            <div class="form-item">
-              <label>Mùa áp dụng</label>
-              <select v-model="newWeatherSeason" class="field-select">
-                <option value="">Quanh năm</option>
-                <option value="spring">Mùa xuân</option>
-                <option value="summer">Mùa hè</option>
-                <option value="autumn">Mùa thu</option>
-                <option value="winter">Mùa đông</option>
-                <option value="rainy">Mùa mưa</option>
-                <option value="dry">Mùa khô</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Nhiệt độ tối thiểu (°C)</label>
-              <input
-                v-model.number="newWeatherMinTemp"
-                type="number"
-                step="0.5"
-                class="field-input"
-                placeholder="Ví dụ: 15"
-              />
-            </div>
-            <div class="form-item">
-              <label>Nhiệt độ tối đa (°C)</label>
-              <input
-                v-model.number="newWeatherMaxTemp"
-                type="number"
-                step="0.5"
-                class="field-input"
-                placeholder="Ví dụ: 25"
-              />
-            </div>
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả gợi ý ẩm thực</label>
-            <textarea
-              v-model="newWeatherDesc"
-              class="field-textarea"
-              rows="3"
-              placeholder="Mô tả điều kiện thời tiết và loại món ăn phù hợp nên gợi ý..."
-            ></textarea>
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button
-              type="button"
-              class="btn-cancel"
-              @click="showCreateWeatherModal = false"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              class="btn-primary-action"
-              :disabled="newWeatherSaving"
-            >
-              {{ newWeatherSaving ? 'Đang tạo...' : 'Tạo kiểu thời tiết' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ============================================== -->
-    <!-- MODAL: CHỈNH SỬA KIỂU THỜI TIẾT                 -->
-    <!-- ============================================== -->
-    <div v-if="showEditWeatherModal && editingWeather" class="modal-backdrop" @click.self="showEditWeatherModal = false">
-      <div class="modal-sheet" style="max-width: 480px;">
-        <div class="modal-sheet-header">
-          <h3>Chỉnh sửa kiểu thời tiết ({{ editingWeather.code }})</h3>
-          <button type="button" class="btn-close" @click="showEditWeatherModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleSaveEditWeather">
-          <div class="form-item">
-            <label>Tên kiểu thời tiết *</label>
-            <input
-              v-model="editWeatherName"
-              type="text"
-              class="field-input"
-              placeholder="Ví dụ: Trời nồm ẩm, Gió mùa đông bắc..."
-              required
-            />
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Mã định danh</label>
-              <input
-                :value="editingWeather.code"
-                type="text"
-                class="field-input font-mono"
-                disabled
-                style="background-color: #f1f5f9; cursor: not-allowed;"
-              />
-            </div>
-            <div class="form-item">
-              <label>Mùa áp dụng</label>
-              <select v-model="editWeatherSeason" class="field-select">
-                <option value="">Quanh năm</option>
-                <option value="spring">Mùa xuân</option>
-                <option value="summer">Mùa hè</option>
-                <option value="autumn">Mùa thu</option>
-                <option value="winter">Mùa đông</option>
-                <option value="rainy">Mùa mưa</option>
-                <option value="dry">Mùa khô</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Nhiệt độ tối thiểu (°C)</label>
-              <input
-                v-model.number="editWeatherMinTemp"
-                type="number"
-                step="0.5"
-                class="field-input"
-                placeholder="Ví dụ: 15"
-              />
-            </div>
-            <div class="form-item">
-              <label>Nhiệt độ tối đa (°C)</label>
-              <input
-                v-model.number="editWeatherMaxTemp"
-                type="number"
-                step="0.5"
-                class="field-input"
-                placeholder="Ví dụ: 25"
-              />
-            </div>
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả gợi ý ẩm thực</label>
-            <textarea
-              v-model="editWeatherDesc"
-              class="field-textarea"
-              rows="3"
-              placeholder="Mô tả điều kiện thời tiết và loại món ăn phù hợp nên gợi ý..."
-            ></textarea>
-          </div>
-
-          <div class="form-item" style="display: flex; align-items: center; gap: 8px;">
-            <input id="editWeatherActive" v-model="editWeatherIsActive" type="checkbox" />
-            <label for="editWeatherActive" style="margin: 0; cursor: pointer; font-size: 13px;">Đang kích hoạt trạng thái này</label>
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button
-              type="button"
-              class="btn-cancel"
-              @click="showEditWeatherModal = false"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              class="btn-primary-action"
-              :disabled="editWeatherSaving"
-            >
-              {{ editWeatherSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ============================================== -->
-    <!-- MODAL: CHỈNH SỬA DANH MỤC MÓN ĂN                -->
-    <!-- ============================================== -->
-    <div v-if="showEditCategoryModal && editingCategory" class="modal-backdrop" @click.self="showEditCategoryModal = false">
-      <div class="modal-sheet" style="max-width: 460px;">
-        <div class="modal-sheet-header">
-          <h3>Chỉnh sửa danh mục món ăn</h3>
-          <button type="button" class="btn-close" @click="showEditCategoryModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleSaveEditCategory">
-          <div class="form-item">
-            <label>Tên danh mục món ăn *</label>
-            <input
-              v-model="editCatName"
-              type="text"
-              class="field-input"
-              placeholder="Ví dụ: Lẩu & Nướng, Cơm & Mì..."
-              required
-            />
-          </div>
-
-          <div class="form-item">
-            <label>Thứ tự hiển thị</label>
-            <input
-              v-model.number="editCatDisplayOrder"
-              type="number"
-              class="field-input"
-              placeholder="0"
-            />
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả danh mục</label>
-            <textarea
-              v-model="editCatDesc"
-              class="field-textarea"
-              rows="3"
-              placeholder="Mô tả nhóm món ăn hoặc đối tượng phục vụ..."
-            ></textarea>
-          </div>
-
-          <div class="form-item" style="display: flex; align-items: center; gap: 8px;">
-            <input id="editCatActive" v-model="editCatIsActive" type="checkbox" />
-            <label for="editCatActive" style="margin: 0; cursor: pointer; font-size: 13px;">Đang hoạt động</label>
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button
-              type="button"
-              class="btn-cancel"
-              @click="showEditCategoryModal = false"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              class="btn-primary-action"
-              :disabled="editCatSaving"
-            >
-              {{ editCatSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-
-    <!-- ============================================== -->
-    <!-- MODAL: SỬA CHI TIẾT MÓN ĂN                     -->
-    <!-- ============================================== -->
-    <div v-if="showEditDishModal" class="modal-backdrop" @click.self="showEditDishModal = false">
-      <div class="modal-sheet">
-        <div class="modal-sheet-header">
-          <h3>Sửa chi tiết món ăn</h3>
-          <button type="button" class="btn-close" @click="showEditDishModal = false">✕</button>
-        </div>
-
-        <form class="modal-sheet-body" @submit.prevent="handleSaveEditDish">
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Tên món ăn *</label>
-              <input v-model="editDishName" type="text" class="field-input" placeholder="Ví dụ: Phở bò đặc biệt" required />
-            </div>
-            <div class="form-item">
-              <label>Đơn giá (VNĐ) *</label>
-              <input v-model.number="editDishPrice" type="number" min="0" step="1000" class="field-input" required />
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Bữa ăn phù hợp</label>
-              <select v-model="editDishMealType" class="field-select">
-                <option value="all_day">Cả ngày</option>
-                <option value="breakfast">Bữa sáng</option>
-                <option value="lunch">Bữa trưa</option>
-                <option value="dinner">Bữa tối</option>
-                <option value="snack">Ăn vặt / Xế</option>
-              </select>
-            </div>
-            <div class="form-item">
-              <label>Nhóm danh mục</label>
-              <select v-model="editDishCategoryId" class="field-select">
-                <option :value="null">-- Nhóm Chung --</option>
-                <option v-for="c in availableDishCategories" :key="c.id" :value="c.id">
-                  {{ c.name }}
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-grid-2">
-            <div class="form-item">
-              <label>Năng lượng Calo (kcal)</label>
-              <input v-model.number="editDishCalories" type="number" min="0" class="field-input" placeholder="Ví dụ: 550" />
-            </div>
-            <div class="form-item">
-              <label>Độ cay</label>
-              <select v-model.number="editDishSpicyLevel" class="field-select">
-                <option :value="0">Không cay</option>
-                <option :value="1">Cay nhẹ</option>
-                <option :value="2">Cay vừa</option>
-                <option :value="3">Rất cay</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-item">
-            <label>Trạng thái phục vụ</label>
-            <select v-model="editDishIsAvailable" class="field-select">
-              <option :value="true">Còn món</option>
-              <option :value="false">Tạm hết món</option>
-            </select>
-          </div>
-
-          <div class="form-item">
-            <label>Nguyên liệu (phân tách bằng dấu phẩy)</label>
-            <input v-model="editDishIngredients" type="text" class="field-input" placeholder="Thịt bò, bánh phở, hành tây, rau thơm..." />
-          </div>
-
-          <div class="form-item">
-            <label>Mô tả chi tiết món</label>
-            <textarea v-model="editDishDesc" class="field-textarea" rows="2" placeholder="Hương vị, định lượng..."></textarea>
-          </div>
-
-          <div class="modal-sheet-footer">
-            <button type="button" class="btn-cancel" @click="showEditDishModal = false">
-              Hủy
-            </button>
-            <button type="submit" class="btn-primary-action" :disabled="editDishSaving">
-              {{ editDishSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
+    <WeatherRulesTab
+      v-else-if="currentTab === 'weather_rules'"
+      :weathers="weathers"
+      :global-categories="globalCategories"
+      :selected-weather="selectedWeather"
+      :weather-category-ids="weatherCategoryIds"
+      :weather-linking-map="weatherLinkingMap"
+      :loading="weatherRulesLoading"
+      @select-weather="selectWeather"
+      @toggle-category="handleToggleWeatherCategory"
+      @weather-created="handleWeatherCreated"
+      @weather-updated="handleWeatherUpdated"
+      @weather-deleted="handleWeatherDeleted"
+      @category-created="handleGlobalCategoryCreated"
+      @category-updated="handleCategoryUpdated"
+      @category-deleted="handleCategoryDeleted"
+      @refresh="loadWeatherRulesData"
+      @retry="loadWeatherRulesData"
+    />
+
+
+  </AppLayout>
 </template>
 
 <style scoped>
