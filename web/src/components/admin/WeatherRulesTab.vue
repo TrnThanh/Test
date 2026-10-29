@@ -77,18 +77,109 @@ function getSeasonLabel(season?: string | null): string {
   return map[key] || season;
 }
 
-// Master list search state (left pane)
+// Master list search & season filter state (left pane)
 const weatherSearchQuery = ref('');
+const weatherSeasonFilter = ref('all');
 const masterListScrollEl = ref<HTMLElement | null>(null);
+
+const availableSeasons = computed(() => {
+  const counts: Record<string, number> = {
+    all: props.weathers.length,
+  };
+  for (const w of props.weathers) {
+    const s = (w.season || 'all').toLowerCase();
+    counts[s] = (counts[s] || 0) + 1;
+  }
+  return counts;
+});
 
 const filteredWeathers = computed(() => {
   const q = normalizeText(weatherSearchQuery.value);
-  if (!q) return props.weathers;
+  const s = weatherSeasonFilter.value;
   return props.weathers.filter((w) => {
-    const textTarget = normalizeText(`${w.name} ${w.code} ${getSeasonLabel(w.season)} ${w.description || ''}`);
+    if (s !== 'all' && (w.season || '').toLowerCase() !== s.toLowerCase()) {
+      return false;
+    }
+    if (!q) return true;
+    const textTarget = normalizeText(
+      `${w.name} ${w.code} ${getSeasonLabel(w.season)} ${w.description || ''} ${w.min_temp ?? ''} ${w.max_temp ?? ''}`
+    );
     return textTarget.includes(q);
   });
 });
+
+// Master list pagination
+const weatherCurrentPage = ref(1);
+const weatherPageSize = ref(10);
+
+const weatherTotalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredWeathers.value.length / weatherPageSize.value))
+);
+
+const pagedWeathers = computed(() => {
+  const start = (weatherCurrentPage.value - 1) * weatherPageSize.value;
+  return filteredWeathers.value.slice(start, start + weatherPageSize.value);
+});
+
+const weatherFromItem = computed(() =>
+  filteredWeathers.value.length === 0
+    ? 0
+    : (weatherCurrentPage.value - 1) * weatherPageSize.value + 1
+);
+
+const weatherToItem = computed(() =>
+  Math.min(
+    weatherCurrentPage.value * weatherPageSize.value,
+    filteredWeathers.value.length
+  )
+);
+
+function setWeatherPage(p: number) {
+  if (p >= 1 && p <= weatherTotalPages.value) {
+    weatherCurrentPage.value = p;
+    if (masterListScrollEl.value) {
+      masterListScrollEl.value.scrollTop = 0;
+    }
+  }
+}
+
+watch([weatherSearchQuery, weatherSeasonFilter, weatherPageSize], () => {
+  weatherCurrentPage.value = 1;
+});
+
+watch(weatherTotalPages, (max) => {
+  if (weatherCurrentPage.value > max) {
+    weatherCurrentPage.value = max;
+  }
+});
+
+const isSelectedWeatherOnCurrentPage = computed(() => {
+  if (!props.selectedWeather) return false;
+  return pagedWeathers.value.some((w) => w.id === props.selectedWeather?.id);
+});
+
+function jumpToSelectedWeatherPage() {
+  if (!props.selectedWeather) return;
+  if (
+    weatherSeasonFilter.value !== 'all' &&
+    (props.selectedWeather.season || '').toLowerCase() !== weatherSeasonFilter.value.toLowerCase()
+  ) {
+    weatherSeasonFilter.value = 'all';
+  }
+  weatherSearchQuery.value = '';
+  nextTick(() => {
+    const idx = filteredWeathers.value.findIndex((w) => w.id === props.selectedWeather?.id);
+    if (idx !== -1) {
+      weatherCurrentPage.value = Math.floor(idx / weatherPageSize.value) + 1;
+      nextTick(() => {
+        const activeEl = masterListScrollEl.value?.querySelector('.li.on') as HTMLElement | null;
+        if (activeEl) {
+          activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      });
+    }
+  });
+}
 
 // Category search & filter (right pane)
 const categorySearchQuery = ref('');
@@ -196,6 +287,11 @@ async function handleCreateWeatherSubmit() {
     emit('weatherCreated', created);
     showToast(`Đã thêm kiểu thời tiết "${created.name}" thành công!`);
     showCreateWeatherModal.value = false;
+    weatherSeasonFilter.value = 'all';
+    weatherSearchQuery.value = '';
+    nextTick(() => {
+      jumpToSelectedWeatherPage();
+    });
   } catch (err: any) {
     showToast(err?.message || 'Không thể tạo kiểu thời tiết');
   } finally {
@@ -447,20 +543,51 @@ async function handleCreateCatSubmit() {
 
     <!-- Master-Detail 2 Column Split Layout -->
     <div class="split">
-      <!-- Cột Trái (270px): Danh sách các kiểu thời tiết -->
+      <!-- Cột Trái: Danh sách các kiểu thời tiết -->
       <div class="card master-pane">
         <label class="srch master-srch" aria-label="Tìm kiểu thời tiết">
           <Search class="srch-icon" />
           <input
             v-model="weatherSearchQuery"
             type="text"
-            placeholder="Tìm thời tiết..."
+            placeholder="Tìm theo tên, mã, mô tả..."
           />
         </label>
 
+        <!-- Lọc theo mùa -->
+        <div class="master-season-filter">
+          <select
+            v-model="weatherSeasonFilter"
+            class="master-season-select"
+            aria-label="Lọc theo mùa"
+          >
+            <option value="all">Tất cả mùa ({{ props.weathers.length }})</option>
+            <option value="spring">Mùa xuân ({{ availableSeasons['spring'] || 0 }})</option>
+            <option value="summer">Mùa hè ({{ availableSeasons['summer'] || 0 }})</option>
+            <option value="autumn">Mùa thu ({{ availableSeasons['autumn'] || 0 }})</option>
+            <option value="winter">Mùa đông ({{ availableSeasons['winter'] || 0 }})</option>
+            <option v-if="availableSeasons['rainy']" value="rainy">Mùa mưa ({{ availableSeasons['rainy'] }})</option>
+            <option v-if="availableSeasons['dry']" value="dry">Mùa khô ({{ availableSeasons['dry'] }})</option>
+          </select>
+        </div>
+
+        <!-- Chỉ dẫn chuyển trang nếu mục đang chọn ở trang khác -->
+        <div
+          v-if="selectedWeather && !isSelectedWeatherOnCurrentPage"
+          class="master-selected-hint"
+          title="Bấm để chuyển đến trang chứa kiểu thời tiết đang chọn"
+          @click="jumpToSelectedWeatherPage"
+        >
+          <div class="hint-text">
+            <span>Đang chọn:</span>
+            <b>{{ selectedWeather.name }}</b>
+          </div>
+          <span class="hint-jump">Đến trang ›</span>
+        </div>
+
         <div ref="masterListScrollEl" class="master-list-scroll">
           <button
-            v-for="w in filteredWeathers"
+            v-for="w in pagedWeathers"
             :key="w.id"
             type="button"
             class="li"
@@ -486,6 +613,56 @@ async function handleCreateCatSubmit() {
 
           <div v-if="filteredWeathers.length === 0" class="master-empty">
             Không tìm thấy kiểu thời tiết phù hợp
+          </div>
+        </div>
+
+        <!-- Phân trang danh sách thời tiết -->
+        <div v-if="filteredWeathers.length > 0" class="master-pg">
+          <div class="master-pg-top">
+            <span class="master-pg-info">
+              {{ weatherFromItem }}–{{ weatherToItem }} / {{ filteredWeathers.length }}
+            </span>
+            <select
+              v-model.number="weatherPageSize"
+              class="master-pg-size"
+              aria-label="Số bản ghi mỗi trang"
+            >
+              <option :value="10">10 / trang</option>
+              <option :value="20">20 / trang</option>
+              <option :value="50">50 / trang</option>
+            </select>
+          </div>
+
+          <div v-if="weatherTotalPages > 1" class="master-pg-controls">
+            <button
+              type="button"
+              class="master-pg-btn"
+              :disabled="weatherCurrentPage <= 1"
+              aria-label="Trang trước"
+              @click="setWeatherPage(weatherCurrentPage - 1)"
+            >
+              ‹
+            </button>
+
+            <select
+              v-model.number="weatherCurrentPage"
+              class="master-pg-select"
+              aria-label="Chọn trang"
+            >
+              <option v-for="p in weatherTotalPages" :key="p" :value="p">
+                Trang {{ p }} / {{ weatherTotalPages }}
+              </option>
+            </select>
+
+            <button
+              type="button"
+              class="master-pg-btn"
+              :disabled="weatherCurrentPage >= weatherTotalPages"
+              aria-label="Trang sau"
+              @click="setWeatherPage(weatherCurrentPage + 1)"
+            >
+              ›
+            </button>
           </div>
         </div>
       </div>
@@ -1030,7 +1207,7 @@ async function handleCreateCatSubmit() {
 /* Master-detail 2 column split */
 .split {
   display: grid;
-  grid-template-columns: 270px 1fr;
+  grid-template-columns: 285px 1fr;
   gap: 14px;
   align-items: start;
 }
@@ -1055,13 +1232,174 @@ async function handleCreateCatSubmit() {
   flex: none;
 }
 
+/* Season filter dropdown */
+.master-season-filter {
+  width: 100%;
+}
+
+.master-season-select {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 12.5px;
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.master-season-select:focus {
+  border-color: var(--pri);
+}
+
+/* Selected weather hint when on another page */
+.master-selected-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--pri-s);
+  border: 1px dashed color-mix(in srgb, var(--pri) 40%, transparent);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.master-selected-hint:hover {
+  background: color-mix(in srgb, var(--pri-s) 80%, var(--pri) 20%);
+}
+
+.hint-text {
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--ink);
+}
+
+.hint-text span {
+  color: var(--mut);
+  white-space: nowrap;
+}
+
+.hint-text b {
+  color: var(--pri);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.hint-jump {
+  color: var(--pri);
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
 .master-list-scroll {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  max-height: 580px;
+  max-height: 520px;
+  min-height: 200px;
   overflow-y: auto;
   padding-right: 2px;
+}
+
+/* Master pagination */
+.master-pg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+}
+
+.master-pg-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--mut);
+}
+
+.master-pg-info {
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+}
+
+.master-pg-size {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+}
+
+.master-pg-size:focus {
+  border-color: var(--pri);
+}
+
+.master-pg-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.master-pg-btn {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--ink);
+  cursor: pointer;
+  transition: var(--transition);
+  flex: none;
+}
+
+.master-pg-btn:hover:not(:disabled) {
+  border-color: var(--pri);
+  color: var(--pri);
+}
+
+.master-pg-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.master-pg-select {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  outline: none;
+  text-align: center;
+}
+
+.master-pg-select:focus {
+  border-color: var(--pri);
 }
 
 .li {

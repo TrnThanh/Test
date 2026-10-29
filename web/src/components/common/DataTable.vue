@@ -34,6 +34,21 @@ const totalPages = computed(() =>
   Math.max(1, Math.ceil(props.totalItems / props.pageSize))
 );
 
+const visiblePages = computed<(number | string)[]>(() => {
+  const total = totalPages.value;
+  const current = props.currentPage;
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, '...', total];
+  }
+  if (current >= total - 3) {
+    return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total];
+});
+
 const fromItem = computed(() =>
   props.totalItems === 0 ? 0 : (props.currentPage - 1) * props.pageSize + 1
 );
@@ -108,17 +123,19 @@ function setPage(page: number) {
         >
           ‹
         </button>
-        <button
-          v-for="p in totalPages"
-          :key="p"
-          type="button"
-          :class="{ on: p === currentPage }"
-          :aria-label="`Trang ${p}`"
-          :aria-current="p === currentPage ? 'page' : undefined"
-          @click="setPage(p)"
-        >
-          {{ p }}
-        </button>
+        <template v-for="(p, idx) in visiblePages" :key="idx">
+          <span v-if="p === '...'" class="pg-ellipsis">…</span>
+          <button
+            v-else
+            type="button"
+            :class="{ on: p === currentPage }"
+            :aria-label="`Trang ${p}`"
+            :aria-current="p === currentPage ? 'page' : undefined"
+            @click="setPage(p as number)"
+          >
+            {{ p }}
+          </button>
+        </template>
         <button
           type="button"
           :disabled="currentPage >= totalPages"
@@ -197,5 +214,16 @@ function setPage(page: number) {
 .pg-controls {
   display: flex;
   gap: 4px;
+  align-items: center;
+}
+
+.pg-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  color: var(--mut);
+  user-select: none;
+  font-size: 13px;
 }
 </style>
