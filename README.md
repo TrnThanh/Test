@@ -32,7 +32,7 @@ Dự án cung cấp các file batch khởi chạy 1-click chuẩn hoá:
 - **Backend FastAPI**: Click đúp file **`CHAY_SERVER.bat`** (Khởi chạy FastAPI tại [http://localhost:8001](http://localhost:8001) và tự mở Swagger UI).
 - **Web Frontend (Vue 3 + Vite)**: Click đúp file **`CHAY_WEB.bat`** (Khởi chạy Vite tại [http://localhost:5173](http://localhost:5173) và tự mở trình duyệt).
 - **Mobile Client (Flutter Web)**: Click đúp file **`CHAY_MOBILE.bat`** (Khởi chạy Flutter Chrome tại [http://localhost:3000](http://localhost:3000)).
-- **Nạp Database từ File Dự Án (1-Click Restore)**: Click đúp file **`NAP_DATABASE.bat`** (Tự động nạp toàn bộ dữ liệu từ `scripts/database_dump.sql` vào `ptc1_db`).
+- **Tự động Nạp Dữ liệu Khởi động (Auto-Seed)**: Khi khởi chạy Backend (`CHAY_SERVER.bat` hoặc `CHAY_TAT_CA.bat`), hệ thống tự động khởi tạo và nạp toàn diện dữ liệu mẫu (204 quán ăn Gia Lâm, 775 món ăn, 400 mẫu thời tiết theo mùa, tài khoản Admin & User) mà không cần nạp thủ công.
 - **Xuất Database ra File Dự Án (1-Click Dump)**: Click đúp file **`XUAT_DATABASE.bat`** (Trích xuất toàn bộ dữ liệu mới nhất trên máy vào `scripts/database_dump.sql` để commit lên Git).
 
 ### Khởi chạy thủ công qua dòng lệnh:

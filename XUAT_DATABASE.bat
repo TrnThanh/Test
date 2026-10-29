@@ -44,6 +44,6 @@ echo [OK] TRICH XUAT THANH CONG RA TEP: %OUT_FILE%
 echo ==============================================================================
 echo.
 echo Tep %OUT_FILE% da san sang de commit va push len Git.
-echo Nguoi khac khi clone/pull ve chi can chay 'NAP_DATABASE.bat' hoac 'CAI_DAT.bat'.
+echo Nguoi khac khi clone/pull ve chi can chay 'CHAY_SERVER.bat' hoac 'CAI_DAT.bat' (he thong tu dong nạp seed).
 echo.
 pause

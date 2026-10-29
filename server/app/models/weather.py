@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import String, Boolean, DateTime, Float, CheckConstraint, Integer, func, Column
+from sqlalchemy import String, Boolean, DateTime, Float, CheckConstraint, Integer, Text, func, Column
 from sqlmodel import Field, Relationship
 from server.app.db.base import Base
 
@@ -21,12 +21,12 @@ class Weather(Base, table=True):
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    code: str = Field(sa_type=String(30), unique=True, index=True, nullable=False)
-    name: str = Field(sa_type=String(100), nullable=False)
-    description: Optional[str] = Field(default=None, sa_type=String(500), nullable=True)
+    code: str = Field(sa_type=String(50), unique=True, index=True, nullable=False)
+    name: str = Field(sa_type=String(255), nullable=False)
+    description: Optional[str] = Field(default=None, sa_type=Text, nullable=True)
     min_temp: Optional[float] = Field(default=None, sa_type=Float, nullable=True)
     max_temp: Optional[float] = Field(default=None, sa_type=Float, nullable=True)
-    condition: Optional[str] = Field(default=None, sa_type=String(50), nullable=True)
+    condition: Optional[str] = Field(default=None, sa_type=String(100), nullable=True)
     icon: Optional[str] = Field(default=None, sa_type=String(100), nullable=True)
     season: Optional[str] = Field(default=None, sa_type=String(50), nullable=True, index=True)
     sort_order: int = Field(default=0, sa_column=Column(Integer, nullable=False, default=0, server_default="0"))

@@ -36,7 +36,7 @@ def setup_test_db():
     with TestingSessionLocal() as session:
         AdminService.seed_default_admin(session)
         MealTypeService.seed_default_meal_types(session)
-        WeatherService.seed_default_weathers(session)
+        WeatherService.seed_400_weather_patterns(session)
     yield
     Base.metadata.drop_all(bind=test_engine)
     test_engine.dispose()

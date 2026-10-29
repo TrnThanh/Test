@@ -46,7 +46,7 @@ def test_get_current_weather_fallback_default_hvnn(client: TestClient, db_sessio
     assert "Học viện Nông nghiệp Việt Nam" in data["location_name"]
     assert data["is_live"] is False
     assert data["matched_weather"] is not None
-    assert data["matched_weather"]["code"] in ["mild", "hot", "cold", "rainy"]
+    assert "_PATTERN_" in data["matched_weather"]["code"] or data["matched_weather"]["season"] in ["spring", "summer", "autumn", "winter"]
     assert "temperature" in data
     assert "condition" in data
 
@@ -107,7 +107,7 @@ async def test_fetch_current_weather_with_mocked_live_api(db_session: Session):
     assert result.icon_url == "https://openweathermap.org/img/wn/10d@2x.png"
     assert result.location_name == "Trâu Quỳ, Gia Lâm"
     assert result.matched_weather is not None
-    assert result.matched_weather.code == "rainy"
+    assert "_PATTERN_" in result.matched_weather.code and result.matched_weather.season in ["spring", "summer", "autumn", "winter"]
 
 
 def test_current_weather_includes_recommended_categories(client: TestClient, db_session: Session, monkeypatch):
@@ -135,20 +135,23 @@ def test_current_weather_includes_recommended_categories(client: TestClient, db_
     db_session.commit()
     db_session.refresh(cat)
 
-    # 2. Đảm bảo trạng thái weather mild tồn tại
-    WeatherService.seed_default_weathers(db_session)
-    w_mild = WeatherService.get_weather_by_code(db_session, "mild")
-    assert w_mild is not None
+    # 2. Gọi API để lấy thông tin thời tiết fallback và xác định matched_weather id
+    res1 = client.get("/api/v1/weather/current")
+    assert res1.status_code == 200
+    data1 = res1.json()
+    assert data1["matched_weather"] is not None
+    matched_id = data1["matched_weather"]["id"]
 
-    # 3. Gán danh mục này cho thời tiết mild
-    WeatherCategoryService.link_weather_category(db_session, weather_id=w_mild.id, category_id=cat.id)
+    # 3. Gán danh mục món ăn này trực tiếp cho thời tiết đang khớp
+    WeatherCategoryService.link_weather_category(db_session, weather_id=matched_id, category_id=cat.id)
 
-    # 4. Gọi API thời tiết fallback (mặc định là mild tại HVNN)
-    res = client.get("/api/v1/weather/current")
-    assert res.status_code == 200
-    data = res.json()
+    # 4. Gọi lại API thời tiết và kiểm tra danh mục được đề xuất
+    res2 = client.get("/api/v1/weather/current")
+    assert res2.status_code == 200
+    data2 = res2.json()
 
-    assert data["matched_weather"]["code"] == "mild"
-    recommended_cats = data["recommended_categories"]
+    assert data2["matched_weather"] is not None
+    assert "_PATTERN_" in data2["matched_weather"]["code"]
+    recommended_cats = data2["recommended_categories"]
     cat_names = [c["name"] for c in recommended_cats]
     assert "Món Nước & Canh Nóng" in cat_names

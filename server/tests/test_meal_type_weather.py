@@ -43,21 +43,21 @@ def test_create_custom_meal_type(client: TestClient):
 
 
 def test_get_weather_list(client: TestClient):
-    """Kiểm tra API lấy danh sách trạng thái thời tiết có trường mùa (season)."""
+    """Kiểm tra API lấy danh sách trạng thái thời tiết có trường mùa (season) từ 400 mẫu."""
     resp = client.get("/api/v1/weather")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) >= 4
+    assert len(data) >= 400
+    seasons = {w["season"] for w in data if w.get("season")}
+    assert "spring" in seasons
+    assert "summer" in seasons
+    assert "autumn" in seasons
+    assert "winter" in seasons
     codes = [w["code"] for w in data]
-    assert "hot" in codes
-    assert "rainy" in codes
-    assert "cold" in codes
-    assert "mild" in codes
-    weather_by_code = {w["code"]: w for w in data}
-    assert weather_by_code["hot"]["season"] == "summer"
-    assert weather_by_code["cold"]["season"] == "winter"
-    assert weather_by_code["mild"]["season"] == "autumn"
-    assert weather_by_code["rainy"]["season"] == "rainy"
+    assert any("SPRING_PATTERN" in c for c in codes)
+    assert any("SUMMER_PATTERN" in c for c in codes)
+    assert any("AUTUMN_PATTERN" in c for c in codes)
+    assert any("WINTER_PATTERN" in c for c in codes)
 
 
 def test_create_custom_weather(client: TestClient):

@@ -38,6 +38,7 @@ def apply_schema_patches(conn) -> None:
     conn.execute(text("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();"))
 
     # --- TASK-053: Bổ sung trường service_licenses (Restaurant), season (Weather), và calories (Dish) ---
+    conn.execute(text("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS phone VARCHAR(50) DEFAULT NULL;"))
     conn.execute(text("ALTER TABLE IF EXISTS restaurants ADD COLUMN IF NOT EXISTS service_licenses TEXT[] NOT NULL DEFAULT '{}';"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_restaurants_service_licenses_gin ON restaurants USING gin (service_licenses);"))
     conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS season VARCHAR(50) DEFAULT NULL;"))
@@ -112,7 +113,32 @@ def apply_schema_patches(conn) -> None:
         END $$;
     """))
 
+    conn.execute(text("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='users') THEN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='phone') THEN
+                    ALTER TABLE users ADD COLUMN phone VARCHAR(50);
+                END IF;
+            END IF;
+        END $$;
+    """))
+
     conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_categories_name_lower ON categories (lower(name));"))
+
+    conn.execute(text("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='weather') THEN
+                ALTER TABLE weather ALTER COLUMN code TYPE VARCHAR(50);
+                ALTER TABLE weather ALTER COLUMN name TYPE VARCHAR(255);
+                ALTER TABLE weather ALTER COLUMN description TYPE TEXT;
+                ALTER TABLE weather ALTER COLUMN condition TYPE VARCHAR(100);
+                -- Tự động dọn sạch các bản ghi weather cũ (hot, rainy, cold, mild hoặc không thuộc 400 mẫu) khi khởi chạy trên bất kỳ máy nào
+                DELETE FROM weather WHERE code IN ('hot', 'rainy', 'cold', 'mild') OR code NOT LIKE '%_PATTERN_%';
+            END IF;
+        END $$;
+    """))
 
 
 def init_database() -> None:
@@ -127,7 +153,7 @@ def init_database() -> None:
         AdminService.seed_default_admin(db)
         UserService.seed_default_user(db)
         MealTypeService.seed_default_meal_types(db)
-        WeatherService.seed_default_weathers(db)
+        WeatherService.seed_400_weather_patterns(db)
         if getattr(settings, "AUTO_SEED_INITIAL_DATA", True):
             from server.app.services.initial_seed_service import InitialSeedService
             InitialSeedService.seed_initial_data_if_needed(db)

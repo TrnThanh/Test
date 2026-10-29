@@ -5,12 +5,12 @@ from server.app.schemas.category import CategoryResponse
 
 
 class WeatherBase(BaseModel):
-    code: str = Field(..., max_length=30, description="Mã trạng thái thời tiết (hot, cold, rainy, mild...)")
-    name: str = Field(..., max_length=100, description="Tên thời tiết (Nắng nóng, Mưa rào, Trời lạnh...)")
-    description: Optional[str] = Field(None, max_length=500, description="Mô tả thời tiết")
+    code: str = Field(..., max_length=50, description="Mã trạng thái thời tiết (hot, cold, rainy, mild, SPRING_PATTERN_001...)")
+    name: str = Field(..., max_length=255, description="Tên thời tiết (Nắng nóng, Mưa rào, Trời lạnh...)")
+    description: Optional[str] = Field(None, max_length=5000, description="Mô tả thời tiết")
     min_temp: Optional[float] = Field(None, description="Nhiệt độ tối thiểu (°C)")
     max_temp: Optional[float] = Field(None, description="Nhiệt độ tối đa (°C)")
-    condition: Optional[str] = Field(None, max_length=50, description="Điều kiện khí hậu")
+    condition: Optional[str] = Field(None, max_length=100, description="Điều kiện khí hậu")
     icon: Optional[str] = Field(None, max_length=100, description="Tên icon hoặc URL")
     season: Optional[str] = Field(None, max_length=50, description="Mùa trong năm (spring, summer, autumn, winter, dry, rainy...)")
     sort_order: int = Field(0, description="Thứ tự hiển thị")
@@ -22,11 +22,11 @@ class WeatherCreate(WeatherBase):
 
 
 class WeatherUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+    name: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
     min_temp: Optional[float] = None
     max_temp: Optional[float] = None
-    condition: Optional[str] = Field(None, max_length=50)
+    condition: Optional[str] = Field(None, max_length=100)
     icon: Optional[str] = Field(None, max_length=100)
     season: Optional[str] = Field(None, max_length=50)
     sort_order: Optional[int] = None

@@ -1,7 +1,10 @@
+import json
 import logging
+from pathlib import Path
 from typing import List, Optional
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -69,32 +72,94 @@ DEFAULT_WEATHERS = [
 class WeatherService:
     @staticmethod
     def seed_default_weathers(db: Session) -> List[Weather]:
-        """Tự động seed các trạng thái thời tiết mẫu nếu chưa tồn tại."""
-        results = []
-        for item in DEFAULT_WEATHERS:
-            stmt = select(Weather).where(Weather.code == item["code"])
-            existing = db.scalar(stmt)
-            if not existing:
-                w = Weather(
-                    code=item["code"],
-                    name=item["name"],
-                    description=item["description"],
-                    min_temp=item["min_temp"],
-                    max_temp=item["max_temp"],
-                    condition=item["condition"],
-                    icon=item["icon"],
-                    season=item.get("season"),
-                    sort_order=item["sort_order"],
-                    is_active=True,
-                )
-                db.add(w)
-                results.append(w)
-            else:
-                if existing.season is None and item.get("season"):
-                    existing.season = item["season"]
-                results.append(existing)
+        """(Deprecated) Đã thay thế hoàn toàn bằng 400 mẫu thời tiết theo mùa trong seed_400_weather_patterns."""
+        # Tự động dọn sạch các mã thời tiết cũ nếu có
+        db.execute(text("DELETE FROM weather WHERE code IN ('hot', 'rainy', 'cold', 'mild');"))
         db.commit()
-        return results
+        return []
+
+    @staticmethod
+    def get_weather_json_path() -> Path:
+        """Lấy đường dẫn tệp JSON chứa 400 mẫu thời tiết theo mùa."""
+        return Path(__file__).resolve().parents[3] / "scripts" / "weather_400_mau_so_2000_2025.json"
+
+    @staticmethod
+    def seed_400_weather_patterns(db: Session, force: bool = False) -> int:
+        """Tự động dọn dẹp các mẫu cũ và nạp/ghi đè 400 mẫu thời tiết theo 4 mùa giai đoạn 2000-2025."""
+        from server.app.models.seed_meta import SeedMeta
+
+        # 1. Luôn tự động dọn sạch các bản ghi thời tiết cũ (hot, rainy, cold, mild hoặc không thuộc 400 mẫu)
+        # để đảm bảo trên bất kỳ máy nào khi khởi chạy cũng chỉ có đúng 400 mẫu mới
+        db.execute(text("DELETE FROM weather WHERE code IN ('hot', 'rainy', 'cold', 'mild') OR code NOT LIKE '%_PATTERN_%';"))
+
+        pattern_count = db.scalar(select(func.count(Weather.id)).where(Weather.code.like("%_PATTERN_%"))) or 0
+        seed_key = "weather_400_patterns_v1"
+        if not force and pattern_count == 400:
+            db.commit()
+            return 0
+
+        json_file = WeatherService.get_weather_json_path()
+        if not json_file.exists():
+            logger.warning("[WeatherSeed] Không tìm thấy tệp JSON tại: %s", json_file)
+            return 0
+
+        try:
+            with open(json_file, "r", encoding="utf-8") as f:
+                patterns: List[dict] = json.load(f)
+        except Exception as e:
+            logger.error("[WeatherSeed] Lỗi khi đọc tệp %s: %s", json_file, e)
+            return 0
+
+        # Nạp theo lô 100 bản ghi bằng Bulk Upsert PostgreSQL ON CONFLICT (code) DO UPDATE
+        upserted_count = 0
+        batch_size = 100
+        for i in range(0, len(patterns), batch_size):
+            batch = patterns[i : i + batch_size]
+            clean_batch = []
+            for item in batch:
+                clean_batch.append({
+                    "code": item["code"],
+                    "name": item["name"],
+                    "description": item.get("description"),
+                    "min_temp": item.get("min_temp"),
+                    "max_temp": item.get("max_temp"),
+                    "condition": item.get("condition"),
+                    "icon": item.get("icon"),
+                    "season": item.get("season"),
+                    "sort_order": item.get("sort_order", 0),
+                    "is_active": item.get("is_active", True),
+                })
+
+            stmt = pg_insert(Weather).values(clean_batch)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[Weather.code],
+                set_={
+                    "name": stmt.excluded.name,
+                    "description": stmt.excluded.description,
+                    "min_temp": stmt.excluded.min_temp,
+                    "max_temp": stmt.excluded.max_temp,
+                    "condition": stmt.excluded.condition,
+                    "icon": stmt.excluded.icon,
+                    "season": stmt.excluded.season,
+                    "sort_order": stmt.excluded.sort_order,
+                    "is_active": stmt.excluded.is_active,
+                },
+            )
+            db.execute(stmt)
+            upserted_count += len(clean_batch)
+
+        # Cập nhật marker SeedMeta
+        db.merge(SeedMeta(key=seed_key, version=1))
+
+        # Đồng bộ sequence auto-increment ID cho bảng weather
+        try:
+            db.execute(text("SELECT setval(pg_get_serial_sequence('weather', 'id'), COALESCE((SELECT MAX(id) FROM weather), 1), true);"))
+        except Exception as seq_err:
+            logger.debug("[WeatherSeed] Không cần cập nhật sequence hoặc DB không hỗ trợ: %s", seq_err)
+
+        db.commit()
+        logger.info("[WeatherSeed] Đã tự động nạp và ghi đè thành công %s mẫu thời tiết vào database.", upserted_count)
+        return upserted_count
 
     @staticmethod
     def get_all_weathers(db: Session, active_only: bool = True) -> List[Weather]:
@@ -295,23 +360,57 @@ class WeatherService:
 
         icon_url = f"https://openweathermap.org/img/wn/{icon_code}@2x.png" if icon_code else None
 
-        # Khớp mã trạng thái trong hệ thống
-        code = WeatherService.map_condition_to_code(
-            temp=temp,
-            condition_main=condition,
-            description=desc,
-            weather_id=w_id,
-        )
+        # Xác định nhóm mùa và tìm mẫu thời tiết trong 400 mẫu phù hợp nhất
+        from datetime import datetime
+        current_month = datetime.now().month
+        if current_month in [2, 3, 4]:
+            current_season = "spring"
+        elif current_month in [5, 6, 7]:
+            current_season = "summer"
+        elif current_month in [8, 9, 10]:
+            current_season = "autumn"
+        else:
+            current_season = "winter"
 
-        matched_weather = WeatherService.get_weather_by_code(db, code)
+        if temp >= 30.0:
+            target_season = "summer"
+        elif temp <= 18.0:
+            target_season = "winter"
+        else:
+            target_season = current_season
+
+        stmt_pattern = (
+            select(Weather)
+            .where(Weather.season == target_season)
+            .order_by(func.abs((Weather.min_temp + Weather.max_temp) / 2.0 - temp))
+            .limit(1)
+        )
+        matched_weather = db.scalars(stmt_pattern).first()
         if not matched_weather:
-            WeatherService.seed_default_weathers(db)
-            matched_weather = WeatherService.get_weather_by_code(db, code)
+            matched_weather = db.scalars(
+                select(Weather).order_by(func.abs((Weather.min_temp + Weather.max_temp) / 2.0 - temp)).limit(1)
+            ).first()
+
+        if not matched_weather:
+            WeatherService.seed_400_weather_patterns(db)
+            matched_weather = db.scalars(stmt_pattern).first() or db.scalars(select(Weather).order_by(Weather.id).limit(1)).first()
 
         recommended_categories: List[CategoryResponse] = []
         if matched_weather:
             try:
                 cats = WeatherCategoryService.get_categories_by_weather(db, matched_weather.id)
+                if not cats:
+                    from server.app.models.category import Category
+                    season_cats = {
+                        "winter": ["Lẩu & Nướng", "Phở & Bún", "Cơm & Xôi"],
+                        "summer": ["Cà phê & Trà sữa", "Đồ ăn vặt", "Món chay"],
+                        "autumn": ["Cà phê & Trà sữa", "Phở & Bún", "Bánh mì"],
+                        "spring": ["Bánh mì", "Phở & Bún", "Cơm & Xôi", "Món chay"],
+                    }
+                    kw = season_cats.get(matched_weather.season, ["Phở & Bún", "Cơm & Xôi"])
+                    cats = db.scalars(select(Category).where(Category.name.in_(kw))).all()
+                    if not cats:
+                        cats = db.scalars(select(Category).limit(5)).all()
                 recommended_categories = [CategoryResponse.model_validate(c) for c in cats]
             except Exception as e:
                 logger.debug("Chưa có danh mục cho weather_id %s: %s", matched_weather.id, e)
