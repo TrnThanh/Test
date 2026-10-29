@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   UtensilsCrossed,
   Edit,
+  Trash2,
 } from 'lucide-vue-next';
 
 const props = withDefaults(
@@ -419,6 +420,7 @@ const userSaving = ref(false);
 const showCancelEditConfirm = ref(false);
 
 const editFullName = ref('');
+const editPhone = ref('');
 const editHeightCm = ref<number | null>(null);
 const editWeightKg = ref<number | null>(null);
 const editBirthYear = ref<number | null>(null);
@@ -456,6 +458,7 @@ function startEditUser() {
   if (!selectedUser.value) return;
   editFullName.value = selectedUser.value.full_name || '';
   const p = activeProfile.value;
+  editPhone.value = selectedUser.value.phone || p?.phone || '';
   editHeightCm.value = p?.height_cm ?? null;
   editWeightKg.value = p?.weight_kg ?? null;
   editBirthYear.value = p?.birth_year ?? null;
@@ -469,6 +472,7 @@ function startEditUser() {
 
   initialEditSnapshot = JSON.stringify({
     fullName: editFullName.value,
+    phone: editPhone.value,
     height: editHeightCm.value,
     weight: editWeightKg.value,
     year: editBirthYear.value,
@@ -487,6 +491,7 @@ function startEditUser() {
 function isFormDirty(): boolean {
   const currentSnapshot = JSON.stringify({
     fullName: editFullName.value,
+    phone: editPhone.value,
     height: editHeightCm.value,
     weight: editWeightKg.value,
     year: editBirthYear.value,
@@ -553,6 +558,7 @@ async function saveUserChanges() {
   try {
     const payload: any = {
       full_name: editFullName.value.trim() || undefined,
+      phone: editPhone.value.trim() || undefined,
       height_cm: editHeightCm.value != null && !isNaN(Number(editHeightCm.value)) && Number(editHeightCm.value) > 0
         ? Number(editHeightCm.value)
         : undefined,
@@ -576,9 +582,11 @@ async function saveUserChanges() {
 
     // Update in-place in selected user and users list
     selectedUser.value.full_name = payload.full_name || null;
+    selectedUser.value.phone = payload.phone || null;
     const uInList = props.users.find((u) => u.id === selectedUser.value!.id);
     if (uInList) {
       uInList.full_name = payload.full_name || null;
+      uInList.phone = payload.phone || null;
     }
 
     isEditingUser.value = false;
@@ -612,6 +620,42 @@ const isModalProfileLoading = computed(() => {
   if (!selectedUser.value) return false;
   return !!profileLoadingMap.value[selectedUser.value.id];
 });
+
+// ====================================================
+// DELETE USER
+// ====================================================
+const showDeleteUserConfirm = ref(false);
+const deletingUser = ref<AdminUser | null>(null);
+const deleteUserLoading = ref(false);
+
+function confirmDeleteUser(u: AdminUser | null) {
+  if (!u) return;
+  deletingUser.value = u;
+  showDeleteUserConfirm.value = true;
+}
+
+async function handleDeleteUserSubmit() {
+  if (!deletingUser.value) return;
+  deleteUserLoading.value = true;
+  const target = deletingUser.value;
+  try {
+    await api.deleteUserAsAdmin(target.id);
+    showToast(`Đã xóa tài khoản "${target.email}" thành công!`);
+    showDeleteUserConfirm.value = false;
+    if (selectedUser.value?.id === target.id) {
+      showDetailModal.value = false;
+    }
+    const idx = props.users.findIndex((u) => u.id === target.id);
+    if (idx !== -1) {
+      props.users.splice(idx, 1);
+    }
+    emit('refresh');
+  } catch (err: any) {
+    showToast(err?.message || 'Không thể xóa tài khoản người dùng');
+  } finally {
+    deleteUserLoading.value = false;
+  }
+}
 
 function getInitialLetter(name?: string | null, email?: string): string {
   if (name && name.trim()) return name.trim().charAt(0).toUpperCase();
@@ -722,6 +766,7 @@ function getInitialLetter(name?: string | null, email?: string): string {
               <div class="user-meta">
                 <span class="user-name">{{ u.full_name || 'Chưa đặt họ tên' }}</span>
                 <span class="user-email">{{ u.email }}</span>
+                <span v-if="u.phone" class="user-phone">{{ u.phone }}</span>
               </div>
             </div>
           </td>
@@ -763,17 +808,28 @@ function getInitialLetter(name?: string | null, email?: string): string {
             </span>
           </td>
 
-          <!-- Cột 4: Thao tác (Nút Xem chi tiết) -->
+          <!-- Cột 4: Thao tác (Nút Xem chi tiết & Xóa) -->
           <td style="text-align: right;">
-            <button
-              type="button"
-              class="btn-detail"
-              aria-label="Xem chi tiết hồ sơ người dùng"
-              @click="openUserDetail(u)"
-            >
-              <Eye class="detail-icon" />
-              <span>Xem chi tiết</span>
-            </button>
+            <div class="user-actions-row">
+              <button
+                type="button"
+                class="btn-detail"
+                aria-label="Xem chi tiết hồ sơ người dùng"
+                @click="openUserDetail(u)"
+              >
+                <Eye class="detail-icon" />
+                <span>Xem chi tiết</span>
+              </button>
+              <button
+                type="button"
+                class="btn-delete-user"
+                title="Xóa người dùng"
+                aria-label="Xóa người dùng"
+                @click="confirmDeleteUser(u)"
+              >
+                <Trash2 class="trash-icon" />
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -810,6 +866,10 @@ function getInitialLetter(name?: string | null, email?: string): string {
             <div class="field-item">
               <span class="field-lbl">Họ và tên</span>
               <b class="field-val">{{ selectedUser.full_name || '—' }}</b>
+            </div>
+            <div class="field-item">
+              <span class="field-lbl">Số điện thoại</span>
+              <b class="field-val">{{ selectedUser.phone || activeProfile?.phone || '—' }}</b>
             </div>
             <div class="field-item">
               <span class="field-lbl">Ngày tạo tài khoản</span>
@@ -1028,6 +1088,15 @@ function getInitialLetter(name?: string | null, email?: string): string {
                 placeholder="Nhập họ và tên..."
               />
             </div>
+            <div class="field-item">
+              <label class="field-lbl">Số điện thoại</label>
+              <input
+                v-model="editPhone"
+                type="tel"
+                class="form-input"
+                placeholder="Ví dụ: 0912345678"
+              />
+            </div>
           </div>
         </section>
 
@@ -1177,6 +1246,16 @@ function getInitialLetter(name?: string | null, email?: string): string {
         <template v-if="!isEditingUser">
           <button
             type="button"
+            class="btn btn-danger"
+            style="margin-right: auto;"
+            title="Xóa vĩnh viễn tài khoản người dùng này"
+            @click="confirmDeleteUser(selectedUser)"
+          >
+            <Trash2 class="btn-icon" />
+            <span>Xóa tài khoản</span>
+          </button>
+          <button
+            type="button"
             class="btn btn-secondary"
             @click="showDetailModal = false"
           >
@@ -1225,10 +1304,54 @@ function getInitialLetter(name?: string | null, email?: string): string {
       :danger="true"
       @confirm="confirmCancelEdit"
     />
+
+    <!-- ConfirmDialog: Xác nhận xóa người dùng -->
+    <ConfirmDialog
+      v-model="showDeleteUserConfirm"
+      title="Xác nhận xóa tài khoản người dùng"
+      :message="`Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản '${deletingUser?.email}' (${deletingUser?.full_name || 'Chưa đặt tên'})? Toàn bộ hồ sơ sức khỏe, danh mục yêu thích và tùy chọn của người dùng này sẽ bị xóa khỏi hệ thống.`"
+      confirm-text="Xóa vĩnh viễn"
+      cancel-text="Hủy"
+      :danger="true"
+      :loading="deleteUserLoading"
+      @confirm="handleDeleteUserSubmit"
+    />
   </div>
 </template>
 
 <style scoped>
+.user-actions-row {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.btn-delete-user {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--mut);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-delete-user:hover {
+  border-color: var(--bad, #ef4444);
+  color: var(--bad, #ef4444);
+  background: var(--bad-s, #fee2e2);
+}
+
+.trash-icon {
+  width: 15px;
+  height: 15px;
+}
+
 .users-tab {
   display: flex;
   flex-direction: column;
@@ -1387,6 +1510,12 @@ function getInitialLetter(name?: string | null, email?: string): string {
 
 .user-email {
   font-size: 12px;
+  color: var(--mut);
+  line-height: 1.3;
+}
+
+.user-phone {
+  font-size: 11.5px;
   color: var(--mut);
   line-height: 1.3;
 }

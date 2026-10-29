@@ -107,6 +107,7 @@ CREATE TABLE public.admins (
     email character varying(255) NOT NULL,
     hashed_password character varying(255) NOT NULL,
     full_name character varying(255),
+    phone character varying(50),
     is_active boolean NOT NULL,
     created_at timestamp with time zone NOT NULL
 );
@@ -370,6 +371,7 @@ CREATE TABLE public.users (
     email character varying(255) NOT NULL,
     hashed_password character varying(255) NOT NULL,
     full_name character varying(255),
+    phone character varying(50),
     is_active boolean NOT NULL,
     created_at timestamp with time zone NOT NULL,
     height_cm double precision,

@@ -10,6 +10,7 @@ import Chip from '../common/Chip.vue';
 import RowActionMenu from '../common/RowActionMenu.vue';
 import BaseModal from '../common/BaseModal.vue';
 import ConfirmDialog from '../common/ConfirmDialog.vue';
+import SwitchToggle from '../common/SwitchToggle.vue';
 import {
   Plus,
   Search,
@@ -132,8 +133,10 @@ const newOpenTime = ref('08:00');
 const newCloseTime = ref('22:00');
 const newLat = ref(21.0055);
 const newLon = ref(105.9325);
+const newIsSponsor = ref(false);
 const newLicenses = ref('');
 const createSaving = ref(false);
+const isGeocodingCreate = ref(false);
 
 function openCreateModal() {
   newName.value = '';
@@ -144,6 +147,7 @@ function openCreateModal() {
   newCloseTime.value = '22:00';
   newLat.value = 21.0055;
   newLon.value = 105.9325;
+  newIsSponsor.value = false;
   newLicenses.value = '';
   showCreateModal.value = true;
 }
@@ -152,6 +156,28 @@ function applyHvnnPreset() {
   newAddress.value = 'Thị trấn Trâu Quỳ, Huyện Gia Lâm, Hà Nội';
   newLat.value = 21.0055;
   newLon.value = 105.9325;
+}
+
+async function handleGeocodeCreate() {
+  if (!newAddress.value.trim()) {
+    showToast('Vui lòng nhập địa chỉ trước khi tìm tọa độ');
+    return;
+  }
+  isGeocodingCreate.value = true;
+  try {
+    const places = await api.searchMap(newAddress.value.trim(), 1);
+    if (places && places.length > 0) {
+      newLat.value = Number(places[0].latitude.toFixed(6));
+      newLon.value = Number(places[0].longitude.toFixed(6));
+      showToast(`Đã tìm thấy tọa độ: (${newLat.value}, ${newLon.value})`);
+    } else {
+      showToast('Không tìm thấy tọa độ cho địa chỉ này, vui lòng nhập thủ công');
+    }
+  } catch (err: any) {
+    showToast(err.message || 'Lỗi khi tra cứu tọa độ từ bản đồ');
+  } finally {
+    isGeocodingCreate.value = false;
+  }
 }
 
 async function handleCreateSubmit() {
@@ -170,6 +196,7 @@ async function handleCreateSubmit() {
       close_time: newCloseTime.value || null,
       latitude: Number(newLat.value),
       longitude: Number(newLon.value),
+      is_sponsor: newIsSponsor.value,
       service_licenses: newLicenses.value
         .split(',')
         .map((s) => s.trim())
@@ -197,8 +224,10 @@ const editCloseTime = ref('');
 const editLat = ref(21.0055);
 const editLon = ref(105.9325);
 const editIsActive = ref(true);
+const editIsSponsor = ref(false);
 const editLicenses = ref('');
 const editSaving = ref(false);
+const isGeocodingEdit = ref(false);
 
 function openEditModal(r: Restaurant) {
   editingRestaurant.value = r;
@@ -211,8 +240,38 @@ function openEditModal(r: Restaurant) {
   editLat.value = r.latitude;
   editLon.value = r.longitude;
   editIsActive.value = r.is_active;
+  editIsSponsor.value = !!r.is_sponsor;
   editLicenses.value = (r.service_licenses || []).map((l: any) => typeof l === 'string' ? l : (l.name || String(l))).join(', ');
   showEditModal.value = true;
+}
+
+async function handleGeocodeEdit() {
+  if (!editAddress.value.trim()) {
+    showToast('Vui lòng nhập địa chỉ trước khi tìm tọa độ');
+    return;
+  }
+  isGeocodingEdit.value = true;
+  try {
+    const places = await api.searchMap(editAddress.value.trim(), 1);
+    if (places && places.length > 0) {
+      editLat.value = Number(places[0].latitude.toFixed(6));
+      editLon.value = Number(places[0].longitude.toFixed(6));
+      showToast(`Đã tìm thấy tọa độ: (${editLat.value}, ${editLon.value})`);
+    } else {
+      showToast('Không tìm thấy tọa độ cho địa chỉ này, vui lòng nhập thủ công');
+    }
+  } catch (err: any) {
+    showToast(err.message || 'Lỗi khi tra cứu tọa độ từ bản đồ');
+  } finally {
+    isGeocodingEdit.value = false;
+  }
+}
+
+function goToMenuFromEdit() {
+  if (!editingRestaurant.value) return;
+  const id = editingRestaurant.value.id;
+  showEditModal.value = false;
+  emit('selectRestaurantMenu', id);
 }
 
 async function handleEditSubmit() {
@@ -233,6 +292,7 @@ async function handleEditSubmit() {
       latitude: Number(editLat.value),
       longitude: Number(editLon.value),
       is_active: editIsActive.value,
+      is_sponsor: editIsSponsor.value,
       service_licenses: editLicenses.value
         .split(',')
         .map((s) => s.trim())
@@ -361,7 +421,10 @@ async function handleDeleteSubmit() {
             <div class="ent">
               <div class="sq">{{ r.name.charAt(0).toUpperCase() }}</div>
               <div class="rest-details">
-                <b class="rest-name">{{ r.name }}</b>
+                <div class="rest-name-row">
+                  <b class="rest-name">{{ r.name }}</b>
+                  <Chip v-if="r.is_sponsor" variant="warn">⭐ Tài trợ</Chip>
+                </div>
                 <small v-if="r.phone" class="rest-phone">
                   <Phone class="inline-icon" />
                   {{ r.phone }}
@@ -461,13 +524,23 @@ async function handleDeleteSubmit() {
         <div class="form-group">
           <div class="label-with-hint">
             <label class="form-label">Địa chỉ cơ sở *</label>
-            <button
-              type="button"
-              class="btn-hint"
-              @click="applyHvnnPreset"
-            >
-              Gợi ý: HVNN Gia Lâm
-            </button>
+            <div class="hint-actions">
+              <button
+                type="button"
+                class="btn-hint"
+                @click="applyHvnnPreset"
+              >
+                Gợi ý: HVNN
+              </button>
+              <button
+                type="button"
+                class="btn-hint"
+                :disabled="isGeocodingCreate"
+                @click="handleGeocodeCreate"
+              >
+                {{ isGeocodingCreate ? 'Đang tìm...' : '📍 Tìm tọa độ' }}
+              </button>
+            </div>
           </div>
           <input
             v-model="newAddress"
@@ -489,12 +562,32 @@ async function handleDeleteSubmit() {
             />
           </div>
           <div class="form-group">
-            <label class="form-label">Khung giờ mở cửa</label>
-            <div class="time-range-row">
-              <input v-model="newOpenTime" type="time" class="form-input" />
-              <span>–</span>
-              <input v-model="newCloseTime" type="time" class="form-input" />
+            <label class="form-label">Nhà tài trợ</label>
+            <div
+              class="toggle-box"
+              :class="{ active: newIsSponsor }"
+              @click="newIsSponsor = !newIsSponsor"
+            >
+              <SwitchToggle
+                :model-value="newIsSponsor"
+                aria-label="Bật tắt nhà tài trợ"
+                @click.stop
+                @change="newIsSponsor = $event"
+              />
+              <span class="toggle-box-text">
+                <span v-if="newIsSponsor" class="sponsor-on">⭐ Đang bật</span>
+                <span v-else class="sponsor-off">Tắt</span>
+              </span>
             </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Khung giờ mở cửa</label>
+          <div class="time-range-row">
+            <input v-model="newOpenTime" type="time" class="form-input" />
+            <span>–</span>
+            <input v-model="newCloseTime" type="time" class="form-input" />
           </div>
         </div>
 
@@ -582,7 +675,17 @@ async function handleDeleteSubmit() {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Địa chỉ cơ sở *</label>
+          <div class="label-with-hint">
+            <label class="form-label">Địa chỉ cơ sở *</label>
+            <button
+              type="button"
+              class="btn-hint"
+              :disabled="isGeocodingEdit"
+              @click="handleGeocodeEdit"
+            >
+              {{ isGeocodingEdit ? 'Đang tìm...' : '📍 Tìm tọa độ từ địa chỉ' }}
+            </button>
+          </div>
           <input
             v-model="editAddress"
             type="text"
@@ -598,6 +701,7 @@ async function handleDeleteSubmit() {
               v-model="editPhone"
               type="tel"
               class="form-input"
+              placeholder="0987..."
             />
           </div>
           <div class="form-group">
@@ -606,6 +710,37 @@ async function handleDeleteSubmit() {
               <option :value="true">Đang hoạt động</option>
               <option :value="false">Tạm dừng phục vụ</option>
             </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nhà tài trợ</label>
+            <div
+              class="toggle-box"
+              :class="{ active: editIsSponsor }"
+              @click="editIsSponsor = !editIsSponsor"
+            >
+              <SwitchToggle
+                :model-value="editIsSponsor"
+                aria-label="Bật tắt nhà tài trợ"
+                @click.stop
+                @change="editIsSponsor = $event"
+              />
+              <span class="toggle-box-text">
+                <span v-if="editIsSponsor" class="sponsor-on">⭐ Đang bật</span>
+                <span v-else class="sponsor-off">Tắt</span>
+              </span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Giấy phép dịch vụ</label>
+            <input
+              v-model="editLicenses"
+              type="text"
+              class="form-input"
+              placeholder="Ví dụ: ATTP, HACCP, ISO 22000..."
+            />
           </div>
         </div>
 
@@ -651,19 +786,20 @@ async function handleDeleteSubmit() {
             rows="2"
           ></textarea>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">Giấy phép dịch vụ (phân tách bằng dấu phẩy)</label>
-          <input
-            v-model="editLicenses"
-            type="text"
-            class="form-input"
-            placeholder="Ví dụ: ATTP, HACCP, ISO 22000..."
-          />
-        </div>
       </form>
 
       <template #footer>
+        <button
+          v-if="editingRestaurant"
+          type="button"
+          class="btn btn-secondary"
+          style="margin-right: auto;"
+          title="Mở quản lý món ăn và danh mục của quán này"
+          @click="goToMenuFromEdit"
+        >
+          <UtensilsCrossed class="btn-icon" />
+          <span>Thực đơn</span>
+        </button>
         <button
           type="button"
           class="btn btn-secondary"
@@ -720,6 +856,13 @@ async function handleDeleteSubmit() {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.rest-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .rest-name {
@@ -779,6 +922,12 @@ async function handleDeleteSubmit() {
   margin-bottom: 6px;
 }
 
+.hint-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .label-with-hint .form-label {
   margin-bottom: 0;
 }
@@ -807,6 +956,45 @@ async function handleDeleteSubmit() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.toggle-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 8px);
+  background-color: var(--card, #ffffff);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.toggle-box:hover {
+  border-color: var(--pri);
+}
+
+.toggle-box.active {
+  background: var(--warn-s, #fffbeb);
+  border-color: var(--warn, #f59e0b);
+}
+
+.toggle-box-text {
+  font-size: 13.5px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sponsor-on {
+  color: var(--warn, #d97706);
+  font-weight: 600;
+}
+
+.sponsor-off {
+  color: var(--mut, #64748b);
 }
 
 @media (max-width: 600px) {

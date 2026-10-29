@@ -4,8 +4,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AdminLogin(BaseModel):
-    email: str = Field(..., description="Email quản trị viên", examples=["admin@example.com"])
-    password: str = Field(..., description="Mật khẩu", examples=["admin123"])
+    email: str = Field(..., description="Email đăng nhập quản trị viên", examples=["admin@example.com"])
+    password: str = Field(..., description="Mật khẩu", examples=["AdminPass123"])
 
 
 class AdminResponse(BaseModel):
@@ -31,6 +31,7 @@ class AdminUserItem(BaseModel):
     id: int
     email: str
     full_name: Optional[str] = None
+    phone: Optional[str] = None
     is_active: bool
     created_at: datetime
 

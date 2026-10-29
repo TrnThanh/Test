@@ -4,6 +4,7 @@ export interface User {
   id: number;
   email: string;
   full_name?: string | null;
+  phone?: string | null;
   is_active: boolean;
   created_at?: string;
 }
@@ -137,6 +138,7 @@ export interface AdminUser {
   id: number;
   email: string;
   full_name?: string | null;
+  phone?: string | null;
   created_at: string;
 }
 
@@ -144,6 +146,7 @@ export interface UserProfile {
   id: number;
   user_id: number;
   full_name?: string | null;
+  phone?: string | null;
   height_cm?: number | null;
   weight_kg?: number | null;
   gender?: 'male' | 'female' | 'other' | null;

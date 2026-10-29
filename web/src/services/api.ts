@@ -92,6 +92,11 @@ export const api = {
 
   getAdminUsers: () =>
     request<AdminUser[]>('/admin/users'),
+
+  deleteUserAsAdmin: (userId: number) =>
+    request<{ message: string; user_id: number }>(`/admin/users/${userId}`, {
+      method: 'DELETE',
+    }),
   getUserProfile: (userId: number) =>
     request<UserProfile>(`/users/${userId}/profile`),
 

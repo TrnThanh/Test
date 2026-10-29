@@ -11,6 +11,7 @@ BudgetRange = Literal["budget", "moderate", "premium"]
 
 class UserProfileBase(BaseModel):
     full_name: Optional[str] = Field(None, description="Họ và tên")
+    phone: Optional[str] = Field(None, max_length=50, description="Số điện thoại liên hệ")
     height_cm: Optional[float] = Field(None, ge=50.0, le=260.0, description="Chiều cao tính bằng cm")
     weight_kg: Optional[float] = Field(None, ge=10.0, le=500.0, description="Cân nặng tính bằng kg")
     gender: Optional[Gender] = Field(None, description="Giới tính (male, female, other)")
@@ -41,6 +42,7 @@ class UserProfileBase(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = Field(None, description="Họ và tên")
+    phone: Optional[str] = Field(None, max_length=50, description="Số điện thoại liên hệ")
     height_cm: Optional[float] = Field(None, ge=50.0, le=260.0, description="Chiều cao (cm)")
     weight_kg: Optional[float] = Field(None, ge=10.0, le=500.0, description="Cân nặng (kg)")
     gender: Optional[Gender] = Field(None, description="Giới tính")

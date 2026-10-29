@@ -130,3 +130,32 @@ def test_login_admin_wrong_password(client: TestClient) -> None:
     )
     assert response.status_code == 401
     assert response.json()["detail"] == "Incorrect email or password"
+
+def test_register_user_confirm_password_match(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/user/register",
+        json={
+            "email": "confirm_match@example.com",
+            "password": "validpassword123",
+            "confirm_password": "validpassword123",
+            "full_name": "Match User",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == "confirm_match@example.com"
+    assert "session_id" in data
+
+
+def test_register_user_confirm_password_mismatch(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/user/register",
+        json={
+            "email": "confirm_mismatch@example.com",
+            "password": "validpassword123",
+            "confirm_password": "differentpassword456",
+            "full_name": "Mismatch User",
+        },
+    )
+    assert response.status_code == 422
+    assert "Mật khẩu xác nhận không trùng khớp" in str(response.json())

@@ -30,7 +30,28 @@ def register_user(
             detail="Email already registered for user",
         )
     # 2. Tạo tài khoản người dùng mới
-    return UserService.create_user(db=db, user_in=user_in)
+    user = UserService.create_user(db=db, user_in=user_in)
+    session_id = uuid.uuid4().hex
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "phone": user.phone,
+        "is_active": user.is_active,
+        "created_at": user.created_at.isoformat(),
+    }
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        session_id=session_id,
+        role="user",
+        message="User registered successfully",
+        data=user_dict,
+    )
 
 
 # Đăng nhập tài khoản người dùng thông thường
@@ -59,6 +80,7 @@ def login_user(
         "id": user.id,
         "email": user.email,
         "full_name": user.full_name,
+        "phone": user.phone,
         "is_active": user.is_active,
         "created_at": user.created_at.isoformat(),
     }

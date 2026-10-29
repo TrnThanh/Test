@@ -36,6 +36,9 @@ class User(AccountMixin, Base, table=True):
         ),
     )
 
+    # Thông tin liên hệ
+    phone: Optional[str] = Field(default=None, sa_type=String(50), nullable=True)
+
     # Chỉ số sức khỏe & thể chất
     height_cm: Optional[float] = Field(default=None, sa_type=Float, nullable=True)
     weight_kg: Optional[float] = Field(default=None, sa_type=Float, nullable=True)

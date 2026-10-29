@@ -83,6 +83,17 @@ class AdminService:
         # Truy vấn danh sách người dùng sắp xếp theo ID giảm dần
         return list(db.scalars(select(User).order_by(User.id.desc())).all())
 
+    # Xoá vĩnh viễn tài khoản người dùng khỏi hệ thống theo quyền quản trị viên
+    @staticmethod
+    def delete_user_as_admin(db: Session, user_id: int) -> bool:
+        """Xoá người dùng theo quyền Admin (cascade xoá options và favourites)."""
+        user = db.get(User, user_id)
+        if not user:
+            return False
+        db.delete(user)
+        db.commit()
+        return True
+
     # Bật hoặc tắt trạng thái kích hoạt của quán ăn theo quyền quản trị viên
     @staticmethod
     def update_restaurant_status(db: Session, restaurant_id: int, is_active: bool) -> Optional[Restaurant]:

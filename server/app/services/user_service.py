@@ -26,6 +26,7 @@ class UserService:
             email=user_in.email.strip().lower(),
             hashed_password=hash_password(user_in.password),
             full_name=user_in.full_name,
+            phone=user_in.phone.strip() if user_in.phone else None,
         )
         # 2. Thêm vào session và commit lưu vào database
         db.add(db_user)
@@ -59,6 +60,7 @@ class UserService:
                 email=default_email,
                 hashed_password=hash_password("123456"),
                 full_name="Nguyễn Văn Thực Khách",
+                phone="0912345678",
                 is_active=True,
             )
             db.add(user)

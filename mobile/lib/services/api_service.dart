@@ -155,7 +155,7 @@ class ApiService {
     _throwError(res);
   }
 
-  Future<RoleLoginResponse> registerUser(String email, String password, [String? fullName]) async {
+  Future<RoleLoginResponse> registerUser(String email, String password, [String? fullName, String? phone, String? confirmPassword]) async {
     final res = await _requestWithFallback((base) {
       final uri = Uri.parse('$base/auth/user/register');
       return _client.post(
@@ -165,6 +165,8 @@ class ApiService {
           'email': email,
           'password': password,
           if (fullName != null && fullName.isNotEmpty) 'full_name': fullName,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
+          if (confirmPassword != null && confirmPassword.isNotEmpty) 'confirm_password': confirmPassword,
         }),
       );
     });

@@ -83,3 +83,21 @@ def test_admin_restaurant_management(client: TestClient) -> None:
     # 5. Verify deleted
     get_resp = client.get(f"/api/v1/restaurants/{rest_id}")
     assert get_resp.status_code == 404
+
+def test_admin_delete_user(client: TestClient) -> None:
+    # 1. Tạo user mới để test xoá
+    reg_resp = client.post(
+        "/api/v1/auth/user/register",
+        json={"email": "user_to_delete@example.com", "password": "pass123delete", "full_name": "Delete Me"},
+    )
+    assert reg_resp.status_code == 201
+    user_id = reg_resp.json()["id"]
+
+    # 2. Xoá user qua admin API
+    del_resp = client.delete(f"/api/v1/admin/users/{user_id}")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["user_id"] == user_id
+
+    # 3. Xoá lại lần nữa -> 404
+    del_resp_again = client.delete(f"/api/v1/admin/users/{user_id}")
+    assert del_resp_again.status_code == 404

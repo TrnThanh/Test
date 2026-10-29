@@ -28,6 +28,8 @@ class _AuthFormModalState extends State<AuthFormModal> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
 
   bool _loading = false;
   String? _error;
@@ -36,16 +38,6 @@ class _AuthFormModalState extends State<AuthFormModal> {
   void initState() {
     super.initState();
     _isRegister = widget.initialRegister;
-  }
-
-  void _fillSampleAccount() {
-    setState(() {
-      _emailCtrl.text = 'user@example.com';
-      _passwordCtrl.text = '123456';
-      if (_isRegister) {
-        _nameCtrl.text = 'Nguyễn Văn Thực Khách';
-      }
-    });
   }
 
   Future<void> _submit() async {
@@ -66,8 +58,24 @@ class _AuthFormModalState extends State<AuthFormModal> {
       if (!_isRegister) {
         res = await widget.api.loginUser(email, pwd);
       } else {
+        final confirmPwd = _confirmPasswordCtrl.text;
+        if (confirmPwd.isEmpty) {
+          setState(() {
+            _loading = false;
+            _error = 'Vui lòng xác nhận lại mật khẩu';
+          });
+          return;
+        }
+        if (confirmPwd != pwd) {
+          setState(() {
+            _loading = false;
+            _error = 'Mật khẩu xác nhận không trùng khớp';
+          });
+          return;
+        }
         final name = _nameCtrl.text.trim();
-        res = await widget.api.registerUser(email, pwd, name);
+        final phone = _phoneCtrl.text.trim();
+        res = await widget.api.registerUser(email, pwd, name, phone, confirmPwd);
       }
       if (mounted) {
         Navigator.pop(context);
@@ -90,7 +98,8 @@ class _AuthFormModalState extends State<AuthFormModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
+      child: Padding(
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -160,34 +169,6 @@ class _AuthFormModalState extends State<AuthFormModal> {
 
           const SizedBox(height: 14),
 
-          // Nút điền nhanh tài khoản mẫu
-          InkWell(
-            onTap: _fillSampleAccount,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: kSuperLightGreen,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: kPrimaryGreen.withAlpha(80)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.flash_on_rounded, size: 16, color: kPrimaryGreen),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Bấm để điền nhanh tài khoản mẫu (user@example.com / 123456)',
-                      style: TextStyle(fontSize: 11, color: kPrimaryGreen, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
           TextField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
@@ -204,8 +185,20 @@ class _AuthFormModalState extends State<AuthFormModal> {
           if (_isRegister) ...[
             const SizedBox(height: 12),
             TextField(
+              controller: _confirmPasswordCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Xác nhận lại mật khẩu *'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: 'Họ và tên'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Số điện thoại', hintText: '0987...'),
             ),
           ],
 
@@ -227,6 +220,7 @@ class _AuthFormModalState extends State<AuthFormModal> {
           ),
         ],
       ),
+    ),
     );
   }
 }

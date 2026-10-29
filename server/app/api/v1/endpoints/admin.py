@@ -77,6 +77,26 @@ def get_all_users(db: Session = Depends(get_db)) -> List[AdminUserItem]:
     return AdminService.get_all_users(db=db)
 
 
+# Xóa tài khoản người dùng khỏi hệ thống theo quyền Quản trị viên
+@router.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Xóa Người dùng theo quyền Admin",
+)
+def delete_user_as_admin(
+    user_id: int = Path(..., description="ID người dùng"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Quản trị viên xóa tài khoản người dùng khỏi hệ thống (cascade xóa tùy chọn và món yêu thích)."""
+    success = AdminService.delete_user_as_admin(db=db, user_id=user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy người dùng với ID {user_id}.",
+        )
+    return {"message": "Đã xóa người dùng thành công.", "user_id": user_id}
+
+
 # Bật hoặc tắt trạng thái hoạt động của cơ sở ẩm thực theo quyền Quản trị viên
 @router.patch(
     "/restaurants/{restaurant_id}/status",
