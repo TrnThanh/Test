@@ -376,7 +376,6 @@ onMounted(() => {
     :restaurant-count="stats?.total_restaurants ?? restaurants.length"
     :user-count="stats?.total_users ?? users.length"
     :weather-count="weathers.length"
-    :show-theme-toggle="true"
     @update:current-tab="handleTabChange($event as TabKey)"
     @logout="emit('logout')"
   >

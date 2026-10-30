@@ -1409,10 +1409,6 @@ async function handleDeleteCatSubmit() {
   font-weight: 600;
 }
 
-:root[data-theme="dark"] .cat-tab-btn.on {
-  color: #06201c;
-}
-
 .dish-srch {
   max-width: 280px;
 }

@@ -1443,10 +1443,6 @@ async function handleCreateCatSubmit() {
   border-color: color-mix(in srgb, var(--pri) 30%, transparent);
 }
 
-:root[data-theme="dark"] .li.on .weather-icon-sq {
-  background: #0f1c1a;
-}
-
 .w-sq-icon {
   width: 16px;
   height: 16px;

@@ -47,26 +47,7 @@
   color-scheme: light;
 }
 
-/* Dark mode active only via [data-theme="dark"] */
 
-:root[data-theme="dark"] {
-  --bg: #0e1514;
-  --card: #162120;
-  --ink: #e8f0ee;
-  --mut: #9fb0ac;
-  --line: #263534;
-  --pri: #4cc2b0;
-  --pri-s: #163a35;
-  --ok: #5fd394;
-  --ok-s: #153a28;
-  --off: #9fb0ac;
-  --off-s: #223130;
-  --bad: #ff8f84;
-  --bad-s: #3d1c19;
-  --warn: #f2b552;
-  --warn-s: #3a2c10;
-  color-scheme: dark;
-}
 
 * {
   box-sizing: border-box;
@@ -139,10 +120,7 @@ button {
   opacity: 0.92;
 }
 
-:root[data-theme="dark"] .btn.p,
-:root[data-theme="dark"] .btn-primary {
-  color: #06201c;
-}
+
 
 .btn-secondary {
   background-color: var(--bg);
@@ -353,9 +331,7 @@ tbody tr:hover {
   font-weight: 600;
 }
 
-:root[data-theme="dark"] .pg button.on {
-  color: #06201c;
-}
+
 
 .pg button:disabled {
   opacity: 0.4;

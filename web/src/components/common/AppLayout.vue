@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+
 import type { RoleLoginResponse } from '../../types';
 import {
   Home,
@@ -8,8 +8,6 @@ import {
   Users,
   CloudSun,
   LogOut,
-  Moon,
-  Sun,
 } from 'lucide-vue-next';
 import ToastNotification from './ToastNotification.vue';
 
@@ -20,21 +18,19 @@ export interface NavItem {
   count?: number | string;
 }
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     currentTab: string;
     admin?: RoleLoginResponse | null;
     restaurantCount?: number;
     userCount?: number;
     weatherCount?: number;
-    showThemeToggle?: boolean;
   }>(),
   {
     admin: null,
     restaurantCount: undefined,
     userCount: undefined,
     weatherCount: undefined,
-    showThemeToggle: false, // Disabled until after Page 5 as instructed
   }
 );
 
@@ -43,22 +39,6 @@ const emit = defineEmits<{
   (e: 'logout'): void;
 }>();
 
-const isDark = ref(false);
-
-function toggleTheme() {
-  const d = document.documentElement;
-  const currentDark = d.dataset.theme
-    ? d.dataset.theme === 'dark'
-    : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const nextDark = !currentDark;
-  d.dataset.theme = nextDark ? 'dark' : 'light';
-  isDark.value = nextDark;
-}
-
-onMounted(() => {
-  const d = document.documentElement;
-  isDark.value = d.dataset.theme === 'dark' || (!d.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-});
 </script>
 
 <template>
@@ -141,18 +121,6 @@ onMounted(() => {
         </div>
 
         <button
-          v-if="showThemeToggle"
-          type="button"
-          class="tb"
-          aria-label="Đổi giao diện sáng/tối"
-          title="Đổi giao diện sáng/tối"
-          @click="toggleTheme"
-        >
-          <Moon v-if="!isDark" class="tb-icon" />
-          <Sun v-else class="tb-icon" />
-        </button>
-
-        <button
           type="button"
           class="tb"
           aria-label="Đăng xuất"
@@ -214,10 +182,6 @@ aside {
   font-weight: 700;
   font-size: 16px;
   flex: none;
-}
-
-:root[data-theme="dark"] .logo {
-  color: #06201c;
 }
 
 .brand-text b {

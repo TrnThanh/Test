@@ -1446,10 +1446,6 @@ function getInitialLetter(name?: string | null, email?: string): string {
   font-weight: 600;
 }
 
-:root[data-theme="dark"] .filter-chip-btn.on {
-  color: #06201c;
-}
-
 .filter-chip-btn.ok.on {
   background: var(--ok);
   border-color: var(--ok);
@@ -1816,10 +1812,6 @@ function getInitialLetter(name?: string | null, email?: string): string {
   border-color: var(--pri);
   color: #ffffff;
   font-weight: 600;
-}
-
-:root[data-theme="dark"] .tag-toggle-btn.active {
-  color: #06201c;
 }
 
 .tag-toggle-btn.tag-allergy-btn.active {
