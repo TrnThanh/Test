@@ -376,6 +376,24 @@ void main() {
     expect(find.byType(CustomPaint), findsWidgets);
   });
 
+  testWidgets('Kiểm thử thẻ thời tiết cố định khu vực Gia Lâm - Hà Nội và không mở popup chọn khu vực', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpAndSettle();
+
+    // Xác nhận thẻ thời tiết hiển thị thông tin nhiệt độ
+    final tempFinder = find.textContaining('°C');
+    expect(tempFinder, findsOneWidget);
+
+    // Chạm vào thẻ thời tiết
+    await tester.tap(tempFinder);
+    await tester.pumpAndSettle();
+
+    // Đảm bảo không hiển thị modal Chọn khu vực
+    expect(find.text('Chọn khu vực'), findsNothing);
+  });
+
   testWidgets('Kiểm thử Bản đồ MapScreen hiển thị đầy đủ và các điều khiển trực quan', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
     await tester.pumpWidget(

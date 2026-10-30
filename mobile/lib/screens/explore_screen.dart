@@ -41,7 +41,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String? _error;
   String _searchQuery = '';
   String? _currentCategory;
-  String _selectedCity = 'Hà Nội';
+  String _selectedCity = 'Gia Lâm - Hà Nội';
 
   CurrentWeather? _currentWeather;
   double? _userLat;
@@ -118,11 +118,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
     }
 
-    if (raw == null || raw.trim().isEmpty) return 'Hà Nội';
+    if (raw == null || raw.trim().isEmpty) return 'Gia Lâm - Hà Nội';
     final lower = raw.toLowerCase().trim();
 
     // 2. Tra cứu theo từ khoá thành phố / quận huyện
-    if (lower.contains('hà nội') ||
+    if (lower.contains('gia lâm') || lower.contains('gia lam')) {
+      return 'Gia Lâm - Hà Nội';
+    } else if (lower.contains('hà nội') ||
         lower.contains('ha noi') ||
         lower.contains('xom pho') ||
         lower.contains('xóm phố') ||
@@ -343,17 +345,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
             }
           }).catchError((_) {});
         } else {
-          // Khi không có GPS, dùng ngay toạ độ của thành phố đang được chọn
-          final cityCoords = {
-            'Hà Nội': {'lat': 21.0285, 'lon': 105.8542},
-            'TP. Hồ Chí Minh': {'lat': 10.7769, 'lon': 106.7009},
-            'Đà Nẵng': {'lat': 16.0544, 'lon': 108.2022},
-            'Hải Phòng': {'lat': 20.8449, 'lon': 106.6881},
-            'Cần Thơ': {'lat': 10.0452, 'lon': 105.7469},
-          };
-          final def = cityCoords[detectedCity] ?? cityCoords['Hà Nội']!;
-          lat = def['lat'];
-          lon = def['lon'];
+          // Mặc định toạ độ thời tiết tại khu vực Gia Lâm - Hà Nội (HVNN: 21.0046, 105.9387)
+          lat = 21.0046;
+          lon = 105.9387;
+          detectedCity = 'Gia Lâm - Hà Nội';
         }
       }
     } catch (_) {}
@@ -879,66 +874,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return '$base.000đ - $max.000đ';
   }
 
-  void _showLocationPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final cities = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'];
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Chọn khu vực',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                ...cities.map((city) {
-                  final isSelected = city == _selectedCity;
-                  return ListTile(
-                    leading: Icon(
-                      Icons.location_on,
-                      color: isSelected ? kPrimaryGreen : Colors.grey,
-                    ),
-                    title: Text(
-                      city,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? kPrimaryGreen : Colors.black87,
-                      ),
-                    ),
-                    trailing: isSelected ? const Icon(Icons.check, color: kPrimaryGreen) : null,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      final coords = {
-                        'Hà Nội': {'lat': 21.0285, 'lon': 105.8542},
-                        'TP. Hồ Chí Minh': {'lat': 10.7769, 'lon': 106.7009},
-                        'Đà Nẵng': {'lat': 16.0544, 'lon': 108.2022},
-                        'Hải Phòng': {'lat': 20.8449, 'lon': 106.6881},
-                        'Cần Thơ': {'lat': 10.0452, 'lon': 105.7469},
-                      };
-                      final cPos = coords[city];
-                      _loadWeatherAndLocation(
-                        forcedLat: cPos?['lat'],
-                        forcedLon: cPos?['lon'],
-                        forcedCity: city,
-                      );
-                    },
-                  );
-                }),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final filteredRestaurants = _filteredList;
@@ -1042,10 +977,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               Builder(
                                 builder: (context) {
                                   final weatherVisual = _getWeatherVisualConfig(_currentWeather);
-                                  return InkWell(
-                                    onTap: _showLocationPicker,
-                                    borderRadius: BorderRadius.circular(24),
-                                    child: Container(
+                                  return Container(
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           begin: Alignment.topLeft,
@@ -1149,36 +1081,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                                     ],
                                                   ),
                                                 ),
-                                                const SizedBox(width: 6),
-                                                Container(
-                                                  width: 28,
-                                                  height: 28,
-                                                  decoration: BoxDecoration(
-                                                    color: weatherVisual.isNight
-                                                        ? const Color(0xFFEEF2F6)
-                                                        : const Color(0xFFEBF3EC),
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                      color: weatherVisual.isNight
-                                                          ? const Color(0xFFE2E8F0)
-                                                          : const Color(0xFFD6E8D9),
-                                                      width: 0.8,
-                                                    ),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.chevron_right_rounded,
-                                                    color: weatherVisual.isNight
-                                                        ? const Color(0xFF1E293B)
-                                                        : const Color(0xFF1B3B2B),
-                                                    size: 18,
-                                                  ),
-                                                ),
                                               ],
                                             ),
                                           ),
                                         ],
                                       ),
-                                    ),
                                   );
                                 },
                               ),
