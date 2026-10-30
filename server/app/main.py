@@ -55,8 +55,8 @@ def format_validation_error_message(err: dict) -> str:
         return raw_msg[len("Value error, "):].strip()
 
     if err_type == "missing":
-        if field_label:
-            return f"Vui lòng điền trường '{field_label}' (không được để trống)."
+        if field_key:
+            return f"Thiếu trường {field_key}"
         return "Thiếu thông tin bắt buộc trong yêu cầu."
 
     if err_type == "string_too_short":
@@ -144,17 +144,34 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
     async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         """Xử lý ngoại lệ dữ liệu không hợp lệ (422) và trả về thông báo tiếng Việt trực quan, rõ ràng."""
         errors = exc.errors()
-        messages = []
-        for err in errors:
-            msg = format_validation_error_message(err)
-            if msg and msg not in messages:
-                messages.append(msg)
+        missing_fields: list[str] = []
+        other_messages: list[str] = []
 
-        detail_msg = " ".join(messages) if messages else "Dữ liệu yêu cầu không hợp lệ. Vui lòng kiểm tra lại."
+        for err in errors:
+            err_type = str(err.get("type", ""))
+            loc = err.get("loc", ())
+            field_key = str(loc[-1]) if loc else ""
+
+            if err_type == "missing":
+                if field_key and field_key not in missing_fields:
+                    missing_fields.append(field_key)
+            else:
+                msg = format_validation_error_message(err)
+                if msg and msg not in other_messages:
+                    other_messages.append(msg)
+
+        message_parts = []
+        if missing_fields:
+            missing_text = ", ".join(f"thiếu trường {k}" for k in missing_fields)
+            missing_text = missing_text[0].upper() + missing_text[1:] if missing_text else ""
+            message_parts.append(missing_text)
+        if other_messages:
+            message_parts.extend(other_messages)
+
+        detail_msg = ". ".join(message_parts) if message_parts else "Dữ liệu yêu cầu không hợp lệ. Vui lòng kiểm tra lại."
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={
-                "detail": detail_msg,
                 "message": detail_msg,
             },
         )
@@ -177,15 +194,10 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
                 "title": "HTTPValidationError",
                 "type": "object",
                 "properties": {
-                    "detail": {
-                        "title": "Chi tiết lỗi",
-                        "type": "string",
-                        "example": "Vui lòng điền trường 'Mật khẩu' (không được để trống).",
-                    },
                     "message": {
                         "title": "Thông điệp lỗi",
                         "type": "string",
-                        "example": "Dữ liệu yêu cầu không hợp lệ. Vui lòng kiểm tra lại.",
+                        "example": "Thiếu trường email, thiếu trường password",
                     },
                 },
             }
