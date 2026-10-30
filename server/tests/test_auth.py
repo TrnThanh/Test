@@ -207,3 +207,14 @@ def test_swagger_openapi_validation_schema(client: TestClient) -> None:
     assert "message" not in http_val_err["properties"]
     assert http_val_err["properties"]["detail"]["example"] == "Thiếu trường email, thiếu trường password"
 
+
+
+# Kiểm tra giao diện Swagger UI /docs đã cấu hình ản hoàn toàn khối Schemas ở chân trang
+def test_swagger_ui_hide_schemas(client: TestClient) -> None:
+    """Kiểm tra trang /docs chứa cấu hình defaultModelsExpandDepth: -1 để ản khối Schemas."""
+    # 1. Gửi request GET tới endpoint tài liệu Swagger UI /docs
+    response = client.get("/docs")
+    # 2. Xác thực phản hồi HTTP 200 và chứa tham số ản Schemas
+    assert response.status_code == 200
+    assert "defaultModelsExpandDepth" in response.text
+    assert '"defaultModelsExpandDepth": -1' in response.text

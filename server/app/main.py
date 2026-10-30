@@ -125,6 +125,8 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
         """,
         openapi_tags=openapi_tags,
         lifespan=lifespan,
+        # Ẩn mục Schemas (models) ở chân trang Swagger UI /docs theo cấu hình chuẩn Swagger
+        swagger_ui_parameters={"defaultModelsExpandDepth": -1},
     )
 
     # Cấu hình CORS để Web Frontend (Vue 3 / Vite) và Mobile App (Flutter) giao tiếp thông suốt
