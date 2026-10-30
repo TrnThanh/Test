@@ -162,7 +162,7 @@ def test_register_user_confirm_password_mismatch(client: TestClient) -> None:
 
 
 def test_register_user_friendly_validation_errors(client: TestClient) -> None:
-    """Kiểm tra ngoại lệ validation 422 trả về thông điệp tiếng Việt trực quan, rõ ràng (chỉ dùng trường message)."""
+    """Kiểm tra ngoại lệ validation 422 trả về thông điệp tiếng Việt trực quan, rõ ràng (chỉ dùng trường detail)."""
     # 1. Thiếu email và mật khẩu
     response_missing = client.post(
         "/api/v1/auth/user/register",
@@ -170,9 +170,9 @@ def test_register_user_friendly_validation_errors(client: TestClient) -> None:
     )
     assert response_missing.status_code == 422
     data_missing = response_missing.json()
-    assert "message" in data_missing
-    assert "detail" not in data_missing
-    assert "Thiếu trường email, thiếu trường password" in data_missing["message"]
+    assert "detail" in data_missing
+    assert "message" not in data_missing
+    assert "Thiếu trường email, thiếu trường password" in data_missing["detail"]
 
     # 2. Thiếu chỉ 1 trường (mật khẩu)
     response_single = client.post(
@@ -180,7 +180,7 @@ def test_register_user_friendly_validation_errors(client: TestClient) -> None:
         json={"full_name": "Nguyen Van A", "email": "test_single@example.com"},
     )
     assert response_single.status_code == 422
-    assert "Thiếu trường password" in response_single.json()["message"]
+    assert "Thiếu trường password" in response_single.json()["detail"]
 
     # 3. Mật khẩu quá ngắn (< 6 ký tự)
     response_short = client.post(
@@ -193,8 +193,8 @@ def test_register_user_friendly_validation_errors(client: TestClient) -> None:
     )
     assert response_short.status_code == 422
     data_short = response_short.json()
-    assert "Mật khẩu" in data_short["message"]
-    assert "6 ký tự" in data_short["message"]
+    assert "Mật khẩu" in data_short["detail"]
+    assert "6 ký tự" in data_short["detail"]
 
 
 def test_swagger_openapi_validation_schema(client: TestClient) -> None:
@@ -204,6 +204,6 @@ def test_swagger_openapi_validation_schema(client: TestClient) -> None:
     schema = response.json()
     assert "components" in schema and "schemas" in schema["components"]
     http_val_err = schema["components"]["schemas"]["HTTPValidationError"]
-    assert "detail" not in http_val_err["properties"]
-    assert http_val_err["properties"]["message"]["example"] == "Thiếu trường email, thiếu trường password"
+    assert "message" not in http_val_err["properties"]
+    assert http_val_err["properties"]["detail"]["example"] == "Thiếu trường email, thiếu trường password"
 

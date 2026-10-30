@@ -26,7 +26,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     let errorDetail = `Lỗi mạng: ${response.status} ${response.statusText}`;
     try {
       const errJson = await response.json();
-      const msg = errJson.message ?? errJson.detail;
+      const msg = errJson.detail ?? errJson.message;
       if (msg) {
         errorDetail = typeof msg === 'string' ? msg : JSON.stringify(msg);
       }

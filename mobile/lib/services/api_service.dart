@@ -431,7 +431,7 @@ class ApiService {
     try {
       final err = jsonDecode(utf8.decode(res.bodyBytes));
       if (err is Map) {
-        final msg = err['message'] ?? err['detail'];
+        final msg = err['detail'] ?? err['message'];
         if (msg != null && msg.toString().isNotEmpty) {
           throw Exception(msg.toString());
         }

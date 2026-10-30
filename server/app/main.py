@@ -172,7 +172,7 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={
-                "message": detail_msg,
+                "detail": detail_msg,
             },
         )
 
@@ -194,8 +194,8 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
                 "title": "HTTPValidationError",
                 "type": "object",
                 "properties": {
-                    "message": {
-                        "title": "Thông điệp lỗi",
+                    "detail": {
+                        "title": "Chi tiết lỗi",
                         "type": "string",
                         "example": "Thiếu trường email, thiếu trường password",
                     },

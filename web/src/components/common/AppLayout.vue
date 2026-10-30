@@ -4,7 +4,6 @@ import type { RoleLoginResponse } from '../../types';
 import {
   Home,
   Store,
-  UtensilsCrossed,
   Users,
   CloudSun,
   LogOut,
@@ -73,16 +72,6 @@ const emit = defineEmits<{
           <Store class="nav-icon" />
           <span>Cơ sở quán ăn</span>
           <em v-if="restaurantCount != null">{{ restaurantCount }}</em>
-        </button>
-
-        <button
-          type="button"
-          class="nav-btn"
-          :class="{ on: currentTab === 'menus' }"
-          @click="emit('update:currentTab', 'menus')"
-        >
-          <UtensilsCrossed class="nav-icon" />
-          <span>Thực đơn</span>
         </button>
 
         <button

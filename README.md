@@ -1,92 +1,14 @@
-# PTC1 - Backend Spatial Platform (FastAPI + PostGIS)
-
-Hệ thống Backend FastAPI tích hợp xác thực đa vai trò (User, Seller, Admin), dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không gian PostGIS cho quán ăn (Restaurant).
-
----
-
-## 🚀 Cài Đặt Tự Động (Dành cho máy mới / người khác)
-
-Dự án cung cấp script tự động 1-click cài đặt đầy đủ từ A-Z môi trường chạy trên Windows:
-- **Python 3.9.25**
-- **PostgreSQL 14.x** (Cổng 5432, mật khẩu mặc định `2005`)
-- **PostGIS 3.6.1 Spatial Extension**
-- **Flutter 3.44.9 (Dart 3.12.2 Mobile SDK)**
-- Khởi tạo Database `ptc1_db` và `ptc1_test_db` kèm PostGIS extension
-- Tự động nạp dữ liệu đầy đủ (204 quán ăn, 775 món ăn, danh mục, thời tiết) từ `scripts/database_dump.sql`
-- Khởi tạo file `.env`, môi trường ảo `.venv` và cài đặt `server/requirements.txt`
-- Chạy toàn bộ 36 tests backend + Flutter widget tests tự động kiểm thử
-
-### Cách chạy cài đặt 1-click:
-- **Cách 1 (Nhanh nhất - Chỉ cần Click Đúp):** Click đúp vào file **`CAI_DAT.bat`**.
-- **Cách 2 (Qua PowerShell):** Mở PowerShell với quyền Administrator tại thư mục dự án và chạy:
-   ```powershell
+### Cách chạy cài đặt:
+- **Qua PowerShell:** Mở PowerShell với quyền Administrator tại thư mục dự án và chạy:
+   `powershell
    Set-ExecutionPolicy Bypass -Scope Process
    .\setup.ps1
-   ```
+   `
 ---
 
-## 🏃 Khởi Chạy Ứng Dụng (1-Click Launchers)
+## 🏃 Khởi Chạy Ứng Dụng (1-Click Launcher)
 
-Dự án cung cấp các file batch khởi chạy 1-click chuẩn hoá:
-- **Khởi chạy Toàn Bộ Hệ Thống (1-Click)**: Click đúp file **`CHAY_TAT_CA.bat`** (Tự động khởi động đồng thời Backend FastAPI, Web Admin và Flutter Mobile).
-- **Backend FastAPI**: Click đúp file **`CHAY_SERVER.bat`** (Khởi chạy FastAPI tại [http://localhost:8001](http://localhost:8001) và tự mở Swagger UI).
-- **Web Frontend (Vue 3 + Vite)**: Click đúp file **`CHAY_WEB.bat`** (Khởi chạy Vite tại [http://localhost:5173](http://localhost:5173) và tự mở trình duyệt).
-- **Mobile Client (Flutter Web)**: Click đúp file **`CHAY_MOBILE.bat`** (Khởi chạy Flutter Chrome tại [http://localhost:3000](http://localhost:3000)).
-- **Tự động Nạp Dữ liệu Khởi động (Auto-Seed)**: Khi khởi chạy Backend (`CHAY_SERVER.bat` hoặc `CHAY_TAT_CA.bat`), hệ thống tự động khởi tạo và nạp toàn diện dữ liệu mẫu (204 quán ăn Gia Lâm, 775 món ăn, 400 mẫu thời tiết theo mùa, tài khoản Admin & User) mà không cần nạp thủ công.
-- **Xuất Database ra File Dự Án (1-Click Dump)**: Click đúp file **`XUAT_DATABASE.bat`** (Trích xuất toàn bộ dữ liệu mới nhất trên máy vào `scripts/database_dump.sql` để commit lên Git).
+Dự án cung cấp duy nhất file batch khởi chạy 1-click chuẩn hoá:
+- **Khởi chạy Toàn Bộ Hệ Thống (1-Click)**: Click đúp file **CHAY_TAT_CA.bat** (Tự động khởi động đồng thời Backend FastAPI cổng 8001, Web Admin cổng 5173 và Flutter Mobile cổng 3000 trong các cửa sổ riêng biệt).
+- **Tự động Nạp Dữ liệu Khởi động (Auto-Seed)**: Khi khởi chạy Backend qua CHAY_TAT_CA.bat, hệ thống tự động khởi tạo và nạp toàn diện dữ liệu mẫu (204 quán ăn Gia Lâm, 775 món ăn, 400 mẫu thời tiết theo mùa, tài khoản Admin & User) mà không cần nạp thủ công.
 
-### Khởi chạy thủ công qua dòng lệnh:
-```powershell
-# 1. Chạy Backend
-.\.venv\Scripts\uvicorn server.app.main:app --reload --port 8001
-
-# 2. Chạy Web Frontend
-cd web && npm run dev
-
-# 3. Chạy Flutter Mobile
-cd mobile && flutter run -d chrome --web-port=3000
-```
-
-- **Swagger UI Interactive Docs:** [http://localhost:8001/docs](http://localhost:8001/docs)
-- **ReDoc:** [http://localhost:8001/redoc](http://localhost:8001/redoc)
-
----
-
-## 📚 Tài Liệu Dự Án (Documentation)
-
-- 📋 [**Danh sách Tính năng Đa nền tảng (Feature List)**](docs/features.md): Bảng tính năng chi tiết của Mobile App (Thực khách) và Web Admin Console (Quản trị).
-- 📐 [**Sơ đồ Lớp Hệ thống Chuẩn UML (Class Diagram)**](docs/class-diagram.md): Mô tả cấu trúc hướng đối tượng các Models, Services và Schemas/DTOs kèm bản vẽ vector SVG sắc nét.
-- 🗄️ [**Thiết kế Cơ sở Dữ liệu & ERD (Database Design)**](docs/database.md): Sơ đồ thực thể liên kết ERD vector SVG và Data Dictionary.
-- 🎯 [**Đặc tả Use Case Chuẩn UML (Use Cases)**](docs/use-cases.md): Toàn bộ tác nhân và sơ đồ use case chuẩn quốc tế.
-- 🔄 [**Sơ đồ Tuần tự (Sequence Diagrams)**](docs/sequence-diagrams.md): Luồng xử lý kỹ thuật chi tiết của hệ thống.
-
----
-
-## 🧪 Chạy Kiểm Thử (Tests)
-
-```powershell
-.\.venv\Scripts\pytest server/tests -v
-```
-*(Toàn bộ 82 test cases kiểm thử Auth, Map OpenStreetMap, Quán ăn, PostGIS Spatial queries và OpenAPI docs)*
-
----
-
-## 🗺️ Các Tính Năng & API Chính
-
-1. **Authentication (`/api/v1/auth`):**
-   - Đăng ký / Đăng nhập Người dùng thông thường (User).
-   - Đăng ký / Đăng nhập Người bán (Seller) với thông tin cửa hàng, số điện thoại, địa chỉ.
-   - Đăng nhập Quản trị viên (Admin) mặc định.
-
-2. **OpenStreetMap Geocoding (`/api/v1/map`):**
-   - `GET /api/v1/map/search?q=...`: Tìm kiếm địa điểm, trả về toạ độ lat/lon và bounding box.
-   - `GET /api/v1/map/reverse?lat=...&lon=...`: Đổi toạ độ sang địa chỉ thực tế.
-
-3. **Quản lý Quán Ăn (`/api/v1/restaurants`):**
-   - 1 Seller sở hữu nhiều Quán ăn (1-N).
-   - Thêm, sửa, xoá quán ăn (kiểm tra quyền sở hữu của Seller).
-   - Danh sách công khai quán ăn, chi tiết từng quán.
-
-4. **Dịch Vụ Không Gian PostGIS (`/api/v1/restaurants`):**
-   - `GET /api/v1/restaurants/nearby?lat=...&lon=...&radius_km=5`: Tìm quán ăn lân cận trong bán kính bằng `ST_DWithin`, tính khoảng cách chính xác bằng `ST_Distance` và sắp xếp từ gần đến xa theo mét / km.
-   - `GET /api/v1/restaurants/{id}/distance?lat=...&lon=...`: Tính khoảng cách trực tiếp từ toạ độ người dùng đến một quán ăn cụ thể.
