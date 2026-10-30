@@ -499,4 +499,27 @@ void main() {
     expect(pos!['lat'], 21.0046);
     expect(pos['lon'], 105.9387);
   });
+
+  testWidgets('Kiểm thử ExploreScreen tải danh sách quán ăn trực tiếp không phụ thuộc GPS nearby', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ExploreScreen(
+            api: fakeApi,
+            currentUser: null,
+            onRequireLogin: () {},
+            onNavigateToMap: (lat, lon, [restaurant]) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Khám phá quán ngon'), findsOneWidget);
+    expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(find.text('Bún Chả Đắc Kim'), findsOneWidget);
+  });
 }

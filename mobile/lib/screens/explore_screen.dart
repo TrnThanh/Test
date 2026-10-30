@@ -345,10 +345,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             }
           }).catchError((_) {});
         } else {
-          // Mặc định toạ độ thời tiết tại khu vực Gia Lâm - Hà Nội (HVNN: 21.0046, 105.9387)
-          lat = 21.0046;
-          lon = 105.9387;
-          detectedCity = 'Gia Lâm - Hà Nội';
+          // Khong co GPS thuc te -> Khong gan toa do gia, giu mac dinh nhan thanh pho
+          detectedCity = 'Hà Nội';
         }
       }
     } catch (_) {}
@@ -382,32 +380,32 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _loadData({double? userLat, double? userLon}) async {
-    final lat = userLat ?? _userLat ?? 21.0285;
-    final lon = userLon ?? _userLon ?? 105.8542;
+    final lat = userLat ?? _userLat;
+    final lon = userLon ?? _userLon;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
+      // Tai truc tiep danh sach tat ca quan an dang hoat dong (khong phu thuoc ban kinh / GPS nearby)
       List<Restaurant> allList = [];
       try {
-        allList = await widget.api.getNearbyRestaurants(lat: lat, lon: lon, radiusKm: 100.0);
-        if (allList.isEmpty) {
-          allList = await widget.api.getRestaurants();
-        }
-      } catch (_) {
         allList = await widget.api.getRestaurants();
+      } catch (_) {
+        allList = [];
       }
 
       ContextualRecommendation? carRec;
-      try {
-        carRec = await widget.api.getContextualRecommendations(
-          lat: lat,
-          lon: lon,
-          userId: widget.currentUser?.id,
-          temp: _currentWeather?.temperature,
-        );
-      } catch (_) {}
+      if (lat != null && lon != null) {
+        try {
+          carRec = await widget.api.getContextualRecommendations(
+            lat: lat,
+            lon: lon,
+            userId: widget.currentUser?.id,
+            temp: _currentWeather?.temperature,
+          );
+        } catch (_) {}
+      }
 
       if (carRec != null) {
         final recMap = <int, RestaurantRecommendation>{};
@@ -852,9 +850,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
       return '${(r.distanceMeters! / 1000).toStringAsFixed(1)}km';
     }
-    final originLat = _userLat ?? 21.0046;
-    final originLon = _userLon ?? 105.9387;
-    if (r.latitude != 0 && r.longitude != 0) {
+    final originLat = _userLat;
+    final originLon = _userLon;
+    if (originLat != null && originLon != null && r.latitude != 0 && r.longitude != 0) {
       final distMeters = const Distance().as(
         LengthUnit.Meter,
         LatLng(originLat, originLon),
@@ -1391,13 +1389,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               ],
                               const SizedBox(height: 24),
 
-                              // 7. SECTION: Quán ngon quanh đây
+                              // 7. SECTION: Khám phá quán ngon
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Expanded(
                                     child: Text(
-                                      'Quán ngon quanh đây',
+                                      'Khám phá quán ngon',
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w900,
