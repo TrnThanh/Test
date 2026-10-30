@@ -139,6 +139,11 @@ class FakeApiService extends ApiService {
         restaurantId: restaurantId,
         name: 'Phở Tái Lăn',
         price: 65000,
+        calories: 520,
+        spicyLevel: 1,
+        allergens: ['Thịt bò'],
+        dietaryTags: ['Ăn sáng'],
+        description: 'Phở xào lăn đậm đà nước dùng truyền thống',
         categoryId: 1,
         categoryName: 'Phở Gia Truyền',
         mealType: 'breakfast',
@@ -521,5 +526,66 @@ void main() {
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
     await tester.pumpAndSettle();
     expect(find.text('Bún Chả Đắc Kim'), findsOneWidget);
+  });
+
+  testWidgets('Kiểm thử giao diện Thực đơn Bento Card mới, tìm kiếm và Modal chi tiết món DishDetailSheet', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpAndSettle();
+
+    // Mở thực đơn của quán
+    final menuBtn = find.text('Khám phá ngay').first;
+    await tester.ensureVisible(menuBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(menuBtn);
+    await tester.pumpAndSettle();
+
+    // 1. Kiểm tra Header và các thành phần tìm kiếm, danh mục
+    expect(find.text('Thực đơn: Phở Thìn Lò Đúc'), findsOneWidget);
+    expect(find.text('Tìm món ăn trong thực đơn...'), findsOneWidget);
+    expect(find.text('Tất cả (1)'), findsOneWidget);
+    expect(find.text('Phở Gia Truyền (1)'), findsOneWidget);
+
+    // 2. Kiểm tra Bento Card món ăn hiển thị Calo và độ cay
+    expect(find.text('Phở Tái Lăn'), findsOneWidget);
+    expect(find.text('65.000 ₫'), findsOneWidget);
+    expect(find.text('520 kcal'), findsOneWidget);
+
+    // 3. Kiểm tra tính năng tìm kiếm món ăn
+    await tester.enterText(find.byType(TextField).last, 'Không có món này');
+    await tester.pumpAndSettle();
+    expect(find.text('Không tìm thấy món ăn nào khớp với "Không có món này"'), findsOneWidget);
+
+    // Xóa tìm kiếm để phục hồi món ăn
+    await tester.tap(find.text('Xóa tìm kiếm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Phở Tái Lăn'), findsOneWidget);
+
+    // 4. Bấm vào món ăn để mở Modal Chi tiết món (DishDetailSheet)
+    final dishCard = find.byKey(const ValueKey('dish-card-101'));
+    await tester.ensureVisible(dishCard);
+    await tester.pumpAndSettle();
+    await tester.tap(dishCard);
+    await tester.pumpAndSettle();
+
+    // Kiểm tra modal chi tiết món đã mở ra
+    expect(find.text('Lưu vào món ăn yêu thích'), findsOneWidget);
+    expect(find.text('Phở Tái Lăn'), findsNWidgets(2));
+
+    // Cuộn xuống để xem chi tiết mô tả, dị ứng và nguyên liệu
+    await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mô tả món ăn'), findsOneWidget);
+    expect(find.text('Phở xào lăn đậm đà nước dùng truyền thống'), findsNWidgets(2));
+    expect(find.text('Cảnh báo dị ứng thực phẩm'), findsOneWidget);
+    expect(find.text('Nguyên liệu chính'), findsOneWidget);
+
+    // Cuộn lên lại và đóng modal chi tiết món
+    await tester.drag(find.byType(ListView).last, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    final closeDetailBtn = find.byIcon(Icons.close_rounded).last;
+    await tester.tap(closeDetailBtn);
+    await tester.pumpAndSettle();
   });
 }
