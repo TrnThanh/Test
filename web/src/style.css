@@ -1,12 +1,12 @@
 /* PTC1 Admin Design Tokens & Global Styles */
 :root {
-  --bg: #f4f6f5;
-  --card: #fff;
-  --ink: #14201e;
-  --mut: #5b6b68;
-  --line: #e2e8e6;
-  --pri: #0f6b5f;
-  --pri-s: #e1f1ee;
+  --bg: #ffffff;
+  --card: #ffffff;
+  --ink: #0f172a;
+  --mut: #64748b;
+  --line: #e2e8f0;
+  --pri: #10b981;
+  --pri-s: #ecfdf5;
   --ok: #0f7a4a;
   --ok-s: #e0f3e8;
   --off: #6b7775;
@@ -15,11 +15,11 @@
   --bad-s: #fdeceb;
   --warn: #9a5b00;
   --warn-s: #fdf1dc;
-  --sh: 0 1px 2px rgba(20, 32, 30, 0.06);
+  --sh: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
 
   /* Compatibility aliases */
   --c-primary: var(--pri);
-  --c-primary-hover: #0c554b;
+  --c-primary-hover: #059669;
   --c-primary-light: var(--pri-s);
   --c-accent: var(--ink);
   --c-bg: var(--bg);
@@ -47,26 +47,7 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0e1514;
-    --card: #162120;
-    --ink: #e8f0ee;
-    --mut: #9fb0ac;
-    --line: #263534;
-    --pri: #4cc2b0;
-    --pri-s: #163a35;
-    --ok: #5fd394;
-    --ok-s: #153a28;
-    --off: #9fb0ac;
-    --off-s: #223130;
-    --bad: #ff8f84;
-    --bad-s: #3d1c19;
-    --warn: #f2b552;
-    --warn-s: #3a2c10;
-    color-scheme: dark;
-  }
-}
+/* Dark mode active only via [data-theme="dark"] */
 
 :root[data-theme="dark"] {
   --bg: #0e1514;
@@ -254,7 +235,7 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0 10px;
-  background: var(--bg);
+  background: #f8fafc;
   flex: 1;
   min-width: 200px;
   max-width: 380px;
@@ -276,7 +257,7 @@ button {
 /* Segmented button control */
 .seg {
   display: flex;
-  background: var(--bg);
+  background: #f1f5f9;
   border-radius: 8px;
   padding: 3px;
   gap: 2px;
@@ -317,7 +298,7 @@ th {
   color: var(--mut);
   font-size: 12.5px;
   padding: 10px 14px;
-  background: var(--bg);
+  background: #f8fafc;
   border-bottom: 1px solid var(--line);
 }
 

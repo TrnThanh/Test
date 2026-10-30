@@ -159,3 +159,32 @@ def test_register_user_confirm_password_mismatch(client: TestClient) -> None:
     )
     assert response.status_code == 422
     assert "Mật khẩu xác nhận không trùng khớp" in str(response.json())
+
+
+def test_register_user_friendly_validation_errors(client: TestClient) -> None:
+    """Kiểm tra ngoại lệ validation 422 trả về thông điệp tiếng Việt trực quan, rõ ràng."""
+    # 1. Thiếu email và mật khẩu
+    response_missing = client.post(
+        "/api/v1/auth/user/register",
+        json={"full_name": "Nguyen Van A"},
+    )
+    assert response_missing.status_code == 422
+    data_missing = response_missing.json()
+    assert "detail" in data_missing
+    assert "message" in data_missing
+    assert "Email" in data_missing["detail"]
+    assert "Mật khẩu" in data_missing["detail"]
+
+    # 2. Mật khẩu quá ngắn (< 6 ký tự)
+    response_short = client.post(
+        "/api/v1/auth/user/register",
+        json={
+            "email": "short_pw@example.com",
+            "password": "123",
+            "full_name": "Short Password",
+        },
+    )
+    assert response_short.status_code == 422
+    data_short = response_short.json()
+    assert "Mật khẩu" in data_short["detail"]
+    assert "6 ký tự" in data_short["detail"]

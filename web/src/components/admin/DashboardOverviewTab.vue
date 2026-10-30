@@ -341,7 +341,7 @@ function formatCreatedAt(dateStr?: string | null): string {
 }
 
 .bar-track {
-  background: var(--bg);
+  background: var(--off-s, #f1f5f9);
   border-radius: 4px;
   height: 8px;
   overflow: hidden;

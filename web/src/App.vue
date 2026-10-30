@@ -76,7 +76,7 @@ onMounted(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #fafafa;
+  background-color: #ffffff;
 }
 
 .main-body {
