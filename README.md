@@ -1,5 +1,6 @@
 ### Cách chạy cài đặt:
-- **Qua PowerShell:** Mở PowerShell với quyền Administrator tại thư mục dự án và chạy:
+- **Qua file batch 1-click:** Click đúp file **CAI_DAT.bat** (Tự động kích hoạt PowerShell Bypass để chạy setup.ps1).
+- **Qua PowerShell thủ công:** Mở PowerShell với quyền Administrator tại thư mục dự án và chạy:
    `powershell
    Set-ExecutionPolicy Bypass -Scope Process
    .\setup.ps1

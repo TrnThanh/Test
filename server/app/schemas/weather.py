@@ -10,6 +10,8 @@ class WeatherBase(BaseModel):
     description: Optional[str] = Field(None, max_length=5000, description="Mô tả thời tiết")
     min_temp: Optional[float] = Field(None, description="Nhiệt độ tối thiểu (°C)")
     max_temp: Optional[float] = Field(None, description="Nhiệt độ tối đa (°C)")
+    min_humidity: Optional[int] = Field(None, ge=0, le=100, description="Độ ẩm tối thiểu (%)")
+    max_humidity: Optional[int] = Field(None, ge=0, le=100, description="Độ ẩm tối đa (%)")
     condition: Optional[str] = Field(None, max_length=100, description="Điều kiện khí hậu")
     icon: Optional[str] = Field(None, max_length=100, description="Tên icon hoặc URL")
     season: Optional[str] = Field(None, max_length=50, description="Mùa trong năm (spring, summer, autumn, winter, dry, rainy...)")
@@ -26,6 +28,8 @@ class WeatherUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=5000)
     min_temp: Optional[float] = None
     max_temp: Optional[float] = None
+    min_humidity: Optional[int] = Field(None, ge=0, le=100)
+    max_humidity: Optional[int] = Field(None, ge=0, le=100)
     condition: Optional[str] = Field(None, max_length=100)
     icon: Optional[str] = Field(None, max_length=100)
     season: Optional[str] = Field(None, max_length=50)

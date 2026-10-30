@@ -140,7 +140,12 @@ classDiagram
         +str name
         +str icon
         +str description
-        +int display_order
+        +float min_temp
+        +float max_temp
+        +int min_humidity
+        +int max_humidity
+        +str season
+        +int sort_order
         +bool is_active
         +datetime created_at
     }

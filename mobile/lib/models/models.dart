@@ -214,6 +214,8 @@ class Weather {
   final String? description;
   final double? minTemp;
   final double? maxTemp;
+  final int? minHumidity;
+  final int? maxHumidity;
   final String? condition;
   final String? icon;
   final String? season;
@@ -225,6 +227,8 @@ class Weather {
     this.description,
     this.minTemp,
     this.maxTemp,
+    this.minHumidity,
+    this.maxHumidity,
     this.condition,
     this.icon,
     this.season,
@@ -238,6 +242,8 @@ class Weather {
       description: json['description'] as String?,
       minTemp: (json['min_temp'] as num?)?.toDouble(),
       maxTemp: (json['max_temp'] as num?)?.toDouble(),
+      minHumidity: json['min_humidity'] as int?,
+      maxHumidity: json['max_humidity'] as int?,
       condition: json['condition'] as String?,
       icon: json['icon'] as String?,
       season: json['season'] as String?,

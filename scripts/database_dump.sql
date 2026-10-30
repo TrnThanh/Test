@@ -422,6 +422,8 @@ CREATE TABLE public.weather (
     description character varying(500),
     min_temp double precision,
     max_temp double precision,
+    min_humidity integer,
+    max_humidity integer,
     condition character varying(50),
     icon character varying(100),
     sort_order integer DEFAULT 0 NOT NULL,

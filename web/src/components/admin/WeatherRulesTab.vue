@@ -240,6 +240,8 @@ const newWeatherCode = ref('');
 const newWeatherSeason = ref('summer');
 const newWeatherMinTemp = ref<number | null>(null);
 const newWeatherMaxTemp = ref<number | null>(null);
+const newWeatherMinHumidity = ref<number | null>(null);
+const newWeatherMaxHumidity = ref<number | null>(null);
 const newWeatherDesc = ref('');
 const newWeatherSaving = ref(false);
 
@@ -249,6 +251,8 @@ function openCreateWeatherModal() {
   newWeatherSeason.value = 'summer';
   newWeatherMinTemp.value = null;
   newWeatherMaxTemp.value = null;
+  newWeatherMinHumidity.value = null;
+  newWeatherMaxHumidity.value = null;
   newWeatherDesc.value = '';
   showCreateWeatherModal.value = true;
 }
@@ -268,6 +272,23 @@ async function handleCreateWeatherSubmit() {
     return;
   }
 
+  if (
+    newWeatherMinHumidity.value != null &&
+    newWeatherMaxHumidity.value != null &&
+    Number(newWeatherMinHumidity.value) > Number(newWeatherMaxHumidity.value)
+  ) {
+    showToast('Độ ẩm tối thiểu không được lớn hơn độ ẩm tối đa');
+    return;
+  }
+
+  if (
+    (newWeatherMinHumidity.value != null && (Number(newWeatherMinHumidity.value) < 0 || Number(newWeatherMinHumidity.value) > 100)) ||
+    (newWeatherMaxHumidity.value != null && (Number(newWeatherMaxHumidity.value) < 0 || Number(newWeatherMaxHumidity.value) > 100))
+  ) {
+    showToast('Độ ẩm phải nằm trong khoảng từ 0% đến 100%');
+    return;
+  }
+
   newWeatherSaving.value = true;
   try {
     const payload: Partial<Weather> = {
@@ -276,6 +297,8 @@ async function handleCreateWeatherSubmit() {
       season: newWeatherSeason.value || null,
       min_temp: newWeatherMinTemp.value != null ? Number(newWeatherMinTemp.value) : null,
       max_temp: newWeatherMaxTemp.value != null ? Number(newWeatherMaxTemp.value) : null,
+      min_humidity: newWeatherMinHumidity.value != null ? Number(newWeatherMinHumidity.value) : null,
+      max_humidity: newWeatherMaxHumidity.value != null ? Number(newWeatherMaxHumidity.value) : null,
       description: newWeatherDesc.value.trim() || null,
       is_active: true,
       condition: 'clear',
@@ -308,6 +331,8 @@ const editWeatherName = ref('');
 const editWeatherSeason = ref('summer');
 const editWeatherMinTemp = ref<number | null>(null);
 const editWeatherMaxTemp = ref<number | null>(null);
+const editWeatherMinHumidity = ref<number | null>(null);
+const editWeatherMaxHumidity = ref<number | null>(null);
 const editWeatherDesc = ref('');
 const editWeatherIsActive = ref(true);
 const editWeatherSaving = ref(false);
@@ -318,6 +343,8 @@ function openEditWeatherModal(w: Weather) {
   editWeatherSeason.value = w.season || 'summer';
   editWeatherMinTemp.value = w.min_temp ?? null;
   editWeatherMaxTemp.value = w.max_temp ?? null;
+  editWeatherMinHumidity.value = w.min_humidity ?? null;
+  editWeatherMaxHumidity.value = w.max_humidity ?? null;
   editWeatherDesc.value = w.description || '';
   editWeatherIsActive.value = w.is_active ?? true;
   showEditWeatherModal.value = true;
@@ -339,6 +366,23 @@ async function handleEditWeatherSubmit() {
     return;
   }
 
+  if (
+    editWeatherMinHumidity.value != null &&
+    editWeatherMaxHumidity.value != null &&
+    Number(editWeatherMinHumidity.value) > Number(editWeatherMaxHumidity.value)
+  ) {
+    showToast('Độ ẩm tối thiểu không được lớn hơn độ ẩm tối đa');
+    return;
+  }
+
+  if (
+    (editWeatherMinHumidity.value != null && (Number(editWeatherMinHumidity.value) < 0 || Number(editWeatherMinHumidity.value) > 100)) ||
+    (editWeatherMaxHumidity.value != null && (Number(editWeatherMaxHumidity.value) < 0 || Number(editWeatherMaxHumidity.value) > 100))
+  ) {
+    showToast('Độ ẩm phải nằm trong khoảng từ 0% đến 100%');
+    return;
+  }
+
   editWeatherSaving.value = true;
   try {
     const payload: Partial<Weather> = {
@@ -346,6 +390,8 @@ async function handleEditWeatherSubmit() {
       season: editWeatherSeason.value || null,
       min_temp: editWeatherMinTemp.value != null ? Number(editWeatherMinTemp.value) : null,
       max_temp: editWeatherMaxTemp.value != null ? Number(editWeatherMaxTemp.value) : null,
+      min_humidity: editWeatherMinHumidity.value != null ? Number(editWeatherMinHumidity.value) : null,
+      max_humidity: editWeatherMaxHumidity.value != null ? Number(editWeatherMaxHumidity.value) : null,
       description: editWeatherDesc.value.trim() || null,
       is_active: editWeatherIsActive.value,
     };
@@ -607,6 +653,15 @@ async function handleCreateCatSubmit() {
                 <span v-if="w.min_temp != null && w.max_temp != null">
                   · {{ w.min_temp }}–{{ w.max_temp }}°C
                 </span>
+                <span v-if="w.min_humidity != null && w.max_humidity != null">
+                  · {{ w.min_humidity }}–{{ w.max_humidity }}%
+                </span>
+                <span v-else-if="w.min_humidity != null">
+                  · ≥{{ w.min_humidity }}%
+                </span>
+                <span v-else-if="w.max_humidity != null">
+                  · ≤{{ w.max_humidity }}%
+                </span>
               </small>
             </div>
           </button>
@@ -730,6 +785,15 @@ async function handleCreateCatSubmit() {
               <span v-if="selectedWeather.min_temp != null && selectedWeather.max_temp != null" class="meta-item">
                 <Thermometer class="inline-icon" />
                 Nhiệt độ: <b>{{ selectedWeather.min_temp }}°C – {{ selectedWeather.max_temp }}°C</b>
+              </span>
+              <span v-if="selectedWeather.min_humidity != null && selectedWeather.max_humidity != null" class="meta-item">
+                Độ ẩm: <b>{{ selectedWeather.min_humidity }}% – {{ selectedWeather.max_humidity }}%</b>
+              </span>
+              <span v-else-if="selectedWeather.min_humidity != null" class="meta-item">
+                Độ ẩm: <b>≥{{ selectedWeather.min_humidity }}%</b>
+              </span>
+              <span v-else-if="selectedWeather.max_humidity != null" class="meta-item">
+                Độ ẩm: <b>≤{{ selectedWeather.max_humidity }}%</b>
               </span>
               <span class="meta-item">
                 <Layers class="inline-icon" />
@@ -899,6 +963,32 @@ async function handleCreateCatSubmit() {
               placeholder="VD: 38"
             />
           </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Độ ẩm tối thiểu (%)</label>
+            <input
+              v-model.number="newWeatherMinHumidity"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              class="form-input"
+              placeholder="VD: 60"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Độ ẩm tối đa (%)</label>
+            <input
+              v-model.number="newWeatherMaxHumidity"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              class="form-input"
+              placeholder="VD: 85"
+            />
+          </div>
+        </div>
         </div>
 
         <div class="form-group">
@@ -993,6 +1083,32 @@ async function handleCreateCatSubmit() {
               class="form-input"
             />
           </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Độ ẩm tối thiểu (%)</label>
+            <input
+              v-model.number="editWeatherMinHumidity"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              class="form-input"
+              placeholder="VD: 60"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Độ ẩm tối đa (%)</label>
+            <input
+              v-model.number="editWeatherMaxHumidity"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              class="form-input"
+              placeholder="VD: 85"
+            />
+          </div>
+        </div>
         </div>
 
         <div class="form-group">

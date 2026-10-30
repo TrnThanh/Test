@@ -11,9 +11,9 @@ cd /d "%~dp0"
 :: 1. KHOI DONG BACKEND FASTAPI (Port 8001)
 echo [*] Buoc 1: Dang khoi dong Backend FastAPI tai http://localhost:8001 ...
 if exist "%~dp0.venv\Scripts\python.exe" (
-    start "PTC1 Backend FastAPI (Port 8001)" cmd /k "chcp 65001 >nul & cd /d ""%~dp0"" & title [PTC1] Backend FastAPI (Port 8001) & echo [*] Dang chay Backend tai http://localhost:8001 ... & "".venv\Scripts\python.exe"" -m uvicorn server.app.main:app --reload --host 0.0.0.0 --port 8001"
+    start "PTC1 Backend FastAPI (Port 8001)" cmd /k "chcp 65001 >nul & cd /d "%~dp0" & title [PTC1] Backend FastAPI (Port 8001) & echo [*] Dang chay Backend tai http://localhost:8001 ... & "%~dp0.venv\Scripts\python.exe" -m uvicorn server.app.main:app --reload --host 0.0.0.0 --port 8001"
 ) else (
-    start "PTC1 Backend FastAPI (Port 8001)" cmd /k "chcp 65001 >nul & cd /d ""%~dp0"" & title [PTC1] Backend FastAPI (Port 8001) & echo [*] Dang chay Backend tai http://localhost:8001 ... & python -m uvicorn server.app.main:app --reload --host 0.0.0.0 --port 8001"
+    start "PTC1 Backend FastAPI (Port 8001)" cmd /k "chcp 65001 >nul & cd /d "%~dp0" & title [PTC1] Backend FastAPI (Port 8001) & echo [*] Dang chay Backend tai http://localhost:8001 ... & python -m uvicorn server.app.main:app --reload --host 0.0.0.0 --port 8001"
 )
 
 :: Mo Swagger docs tren trinh duyet
@@ -24,14 +24,18 @@ timeout /t 3 /nobreak >nul
 
 :: 2. KHOI DONG WEB FRONTEND VUE 3 (Port 5173)
 echo [*] Buoc 2: Dang khoi dong Web Client (Vue 3 + Vite) tai http://localhost:5173 ...
-start "PTC1 Web Client (Port 5173)" cmd /k "chcp 65001 >nul & cd /d ""%~dp0web"" & title [PTC1] Web Client (Port 5173) & if not exist node_modules (echo [*] Dang cai dat thu vien node_modules... & npm install) & echo [*] Dang chay Vite Dev Server tai http://localhost:5173 ... & npm run dev"
+if not exist "%~dp0web\node_modules" (
+    echo [*] Thu vien node_modules chua ton tai, dang tien hanh npm install...
+    cd /d "%~dp0web" && call npm install && cd /d "%~dp0"
+)
+start "PTC1 Web Client (Port 5173)" cmd /k "chcp 65001 >nul & cd /d "%~dp0web" & title [PTC1] Web Client (Port 5173) & echo [*] Dang chay Vite Dev Server tai http://localhost:5173 ... & npm run dev"
 
 :: Mo Web tren trinh duyet
 start "" "http://localhost:5173"
 
 :: 3. KHOI DONG FLUTTER MOBILE (Port 3000)
 echo [*] Buoc 3: Dang khoi dong Flutter Mobile App tai http://localhost:3000 ...
-start "PTC1 Mobile App (Port 3000)" cmd /k "chcp 65001 >nul & cd /d ""%~dp0mobile"" & title [PTC1] Mobile Client (Port 3000) & echo [*] Dang khoi chay Flutter tren Google Chrome tai http://localhost:3000 ... & flutter run -d chrome --web-port=3000"
+start "PTC1 Mobile App (Port 3000)" cmd /k "chcp 65001 >nul & cd /d "%~dp0mobile" & title [PTC1] Mobile Client (Port 3000) & echo [*] Dang khoi chay Flutter tren Google Chrome tai http://localhost:3000 ... & flutter run -d chrome --web-port=3000"
 
 echo.
 echo ==============================================================================

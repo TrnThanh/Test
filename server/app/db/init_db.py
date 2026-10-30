@@ -43,6 +43,27 @@ def apply_schema_patches(conn) -> None:
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_restaurants_service_licenses_gin ON restaurants USING gin (service_licenses);"))
     conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS season VARCHAR(50) DEFAULT NULL;"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_weather_season ON weather (season);"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS min_humidity INTEGER DEFAULT NULL;"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS max_humidity INTEGER DEFAULT NULL;"))
+    conn.execute(text("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='weather' AND column_name='humidity') THEN
+                UPDATE weather SET min_humidity = humidity, max_humidity = humidity WHERE humidity IS NOT NULL AND min_humidity IS NULL;
+                ALTER TABLE weather DROP CONSTRAINT IF EXISTS ck_weather_humidity_range;
+                ALTER TABLE weather DROP COLUMN IF EXISTS humidity CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_weather_humidity_range') THEN
+                ALTER TABLE weather ADD CONSTRAINT ck_weather_humidity_range CHECK (min_humidity IS NULL OR max_humidity IS NULL OR min_humidity <= max_humidity);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_weather_humidity_valid') THEN
+                ALTER TABLE weather ADD CONSTRAINT ck_weather_humidity_valid CHECK (
+                    (min_humidity IS NULL OR (min_humidity >= 0 AND min_humidity <= 100)) AND
+                    (max_humidity IS NULL OR (max_humidity >= 0 AND max_humidity <= 100))
+                );
+            END IF;
+        END $$;
+    """))
     conn.execute(text("ALTER TABLE IF EXISTS dishes ADD COLUMN IF NOT EXISTS calories INTEGER DEFAULT NULL;"))
     conn.execute(text("""
         DO $$

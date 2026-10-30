@@ -16,7 +16,7 @@ def convert_weather_sql_to_json():
     json_path = Path(__file__).resolve().parent / "weather_400_mau_so_2000_2025.json"
 
     pattern = re.compile(
-        r"VALUES\s*\(\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([-\d.]+),\s*([-\d.]+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*(\d+),\s*(TRUE|FALSE),\s*'([^']*)'\s*\)\s*;",
+        r"VALUES\s*\(\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*(\d+),\s*(TRUE|FALSE),\s*'([^']*)'\s*\)\s*;",
         re.IGNORECASE
     )
 
@@ -33,12 +33,14 @@ def convert_weather_sql_to_json():
                     "description": m.group(4),
                     "min_temp": float(m.group(5)),
                     "max_temp": float(m.group(6)),
-                    "condition": m.group(7),
-                    "icon": m.group(8),
-                    "season": m.group(9),
-                    "sort_order": int(m.group(10)),
-                    "is_active": (m.group(11).upper() == "TRUE"),
-                    "created_at": m.group(12)
+                    "min_humidity": int(round(float(m.group(7)))),
+                    "max_humidity": int(round(float(m.group(8)))),
+                    "condition": m.group(9),
+                    "icon": m.group(10),
+                    "season": m.group(11),
+                    "sort_order": int(m.group(12)),
+                    "is_active": (m.group(13).upper() == "TRUE"),
+                    "created_at": m.group(14)
                 })
 
     print(f"[*] Đã trích xuất thành công {len(records)} bản ghi thời tiết từ SQL.")
@@ -48,8 +50,8 @@ def convert_weather_sql_to_json():
         json.dump(records, f, ensure_ascii=False, indent=2)
 
     print(f"[*] Đã lưu thành công file JSON tại: {json_path}")
-    print(f"[*] Mẫu đầu tiên (#1): {records[0]['code']} - {records[0]['name']}")
-    print(f"[*] Mẫu cuối cùng (#400): {records[-1]['code']} - {records[-1]['name']}")
+    print(f"[*] Mẫu đầu tiên (#1): {records[0]['code']} - {records[0]['name']} (Độ ẩm: {records[0]['min_humidity']}% - {records[0]['max_humidity']}%)")
+    print(f"[*] Mẫu cuối cùng (#400): {records[-1]['code']} - {records[-1]['name']} (Độ ẩm: {records[-1]['min_humidity']}% - {records[-1]['max_humidity']}%)")
 
 if __name__ == "__main__":
     convert_weather_sql_to_json()

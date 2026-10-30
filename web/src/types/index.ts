@@ -77,6 +77,8 @@ export interface Weather {
   description?: string | null;
   min_temp?: number | null;
   max_temp?: number | null;
+  min_humidity?: number | null;
+  max_humidity?: number | null;
   condition?: string | null;
   icon?: string | null;
   season?: string | null;

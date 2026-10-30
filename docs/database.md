@@ -103,6 +103,8 @@ erDiagram
         string description "Mô tả thời tiết (Nullable)"
         float min_temp "Nhiệt độ tối thiểu (Nullable)"
         float max_temp "Nhiệt độ tối đa (Nullable)"
+        int min_humidity "Độ ẩm tối thiểu (%) (Nullable)"
+        int max_humidity "Độ ẩm tối đa (%) (Nullable)"
         string condition "Điều kiện khí hậu (Nullable)"
         string icon "Tên icon thời tiết (Nullable)"
         string season "Mùa trong năm (spring, summer, autumn, winter...) (Nullable, Index)"
@@ -313,6 +315,8 @@ Bảng độc lập lưu trữ các điều kiện thời tiết chuẩn bị ch
 | `description` | `VARCHAR(500)` | `NULLABLE`, Default: `NULL` | Mô tả thời tiết và gợi ý ẩm thực |
 | `min_temp` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL` | Nhiệt độ tối thiểu (°C) |
 | `max_temp` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL` | Nhiệt độ tối đa (°C) |
+| `min_humidity` | `INTEGER` | `NULLABLE`, Default: `NULL` | Độ ẩm tối thiểu (%) (0-100) |
+| `max_humidity` | `INTEGER` | `NULLABLE`, Default: `NULL` | Độ ẩm tối đa (%) (0-100) |
 | `condition` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL` | Điều kiện khí hậu (sunny, rainy, cloudy, cold...) |
 | `icon` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tên icon hoặc URL hình ảnh đại diện |
 | `season` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL`, `INDEX` | Mùa trong năm (spring, summer, autumn, winter, dry, rainy) |
@@ -500,12 +504,19 @@ CREATE TABLE IF NOT EXISTS weather (
     description VARCHAR(500) DEFAULT NULL,
     min_temp DOUBLE PRECISION DEFAULT NULL,
     max_temp DOUBLE PRECISION DEFAULT NULL,
+    min_humidity INTEGER DEFAULT NULL,
+    max_humidity INTEGER DEFAULT NULL,
     condition VARCHAR(50) DEFAULT NULL,
     icon VARCHAR(100) DEFAULT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT ck_weather_temp_range CHECK (min_temp IS NULL OR max_temp IS NULL OR min_temp <= max_temp)
+    CONSTRAINT ck_weather_temp_range CHECK (min_temp IS NULL OR max_temp IS NULL OR min_temp <= max_temp),
+    CONSTRAINT ck_weather_humidity_range CHECK (min_humidity IS NULL OR max_humidity IS NULL OR min_humidity <= max_humidity),
+    CONSTRAINT ck_weather_humidity_valid CHECK (
+        (min_humidity IS NULL OR (min_humidity >= 0 AND min_humidity <= 100)) AND
+        (max_humidity IS NULL OR (max_humidity >= 0 AND max_humidity <= 100))
+    )
 );
 CREATE INDEX IF NOT EXISTS ix_weather_code ON weather (code);
 

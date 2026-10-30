@@ -123,6 +123,8 @@ class WeatherService:
                     "description": item.get("description"),
                     "min_temp": item.get("min_temp"),
                     "max_temp": item.get("max_temp"),
+                    "min_humidity": item.get("min_humidity"),
+                    "max_humidity": item.get("max_humidity"),
                     "condition": item.get("condition"),
                     "icon": item.get("icon"),
                     "season": item.get("season"),
@@ -138,6 +140,8 @@ class WeatherService:
                     "description": stmt.excluded.description,
                     "min_temp": stmt.excluded.min_temp,
                     "max_temp": stmt.excluded.max_temp,
+                    "min_humidity": stmt.excluded.min_humidity,
+                    "max_humidity": stmt.excluded.max_humidity,
                     "condition": stmt.excluded.condition,
                     "icon": stmt.excluded.icon,
                     "season": stmt.excluded.season,
@@ -199,12 +203,25 @@ class WeatherService:
                 detail=f"Mã trạng thái thời tiết '{code_clean}' đã tồn tại.",
             )
 
+        if data.min_temp is not None and data.max_temp is not None and data.min_temp > data.max_temp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nhiệt độ tối thiểu không được lớn hơn nhiệt độ tối đa.",
+            )
+        if data.min_humidity is not None and data.max_humidity is not None and data.min_humidity > data.max_humidity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Độ ẩm tối thiểu không được lớn hơn độ ẩm tối đa.",
+            )
+
         w = Weather(
             code=code_clean,
             name=data.name.strip(),
             description=data.description.strip() if data.description else None,
             min_temp=data.min_temp,
             max_temp=data.max_temp,
+            min_humidity=data.min_humidity,
+            max_humidity=data.max_humidity,
             condition=data.condition.strip() if data.condition else None,
             icon=data.icon.strip() if data.icon else None,
             season=data.season.strip() if data.season else None,
@@ -237,6 +254,12 @@ class WeatherService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Nhiệt độ tối thiểu không được lớn hơn nhiệt độ tối đa.",
+            )
+
+        if w.min_humidity is not None and w.max_humidity is not None and w.min_humidity > w.max_humidity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Độ ẩm tối thiểu không được lớn hơn độ ẩm tối đa.",
             )
 
         db.add(w)

@@ -18,6 +18,14 @@ class Weather(Base, table=True):
             "min_temp IS NULL OR max_temp IS NULL OR min_temp <= max_temp",
             name="ck_weather_temp_range",
         ),
+        CheckConstraint(
+            "min_humidity IS NULL OR max_humidity IS NULL OR min_humidity <= max_humidity",
+            name="ck_weather_humidity_range",
+        ),
+        CheckConstraint(
+            "(min_humidity IS NULL OR (min_humidity >= 0 AND min_humidity <= 100)) AND (max_humidity IS NULL OR (max_humidity >= 0 AND max_humidity <= 100))",
+            name="ck_weather_humidity_valid",
+        ),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -26,6 +34,8 @@ class Weather(Base, table=True):
     description: Optional[str] = Field(default=None, sa_type=Text, nullable=True)
     min_temp: Optional[float] = Field(default=None, sa_type=Float, nullable=True)
     max_temp: Optional[float] = Field(default=None, sa_type=Float, nullable=True)
+    min_humidity: Optional[int] = Field(default=None, sa_column=Column(Integer, nullable=True))
+    max_humidity: Optional[int] = Field(default=None, sa_column=Column(Integer, nullable=True))
     condition: Optional[str] = Field(default=None, sa_type=String(100), nullable=True)
     icon: Optional[str] = Field(default=None, sa_type=String(100), nullable=True)
     season: Optional[str] = Field(default=None, sa_type=String(50), nullable=True, index=True)
