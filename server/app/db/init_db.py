@@ -174,7 +174,7 @@ def init_database() -> None:
         AdminService.seed_default_admin(db)
         UserService.seed_default_user(db)
         MealTypeService.seed_default_meal_types(db)
-        WeatherService.seed_400_weather_patterns(db)
+        WeatherService.seed_4000_weather_patterns(db)
         if getattr(settings, "AUTO_SEED_INITIAL_DATA", True):
             from server.app.services.initial_seed_service import InitialSeedService
             InitialSeedService.seed_initial_data_if_needed(db)

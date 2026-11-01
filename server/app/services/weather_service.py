@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 import httpx
-from sqlalchemy import select, text, func
+from sqlalchemy import select, text, func, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -80,27 +80,30 @@ class WeatherService:
 
     @staticmethod
     def get_weather_json_path() -> Path:
-        """Lấy đường dẫn tệp JSON chứa 400 mẫu thời tiết theo mùa."""
+        """Lấy đường dẫn tệp JSON chứa 4000 mẫu thời tiết theo mùa."""
+        json_4000 = Path(__file__).resolve().parents[3] / "scripts" / "weather_4000_mau_so_2000_2025.json"
+        if json_4000.exists():
+            return json_4000
         return Path(__file__).resolve().parents[3] / "scripts" / "weather_400_mau_so_2000_2025.json"
 
     @staticmethod
-    def seed_400_weather_patterns(db: Session, force: bool = False) -> int:
-        """Tự động dọn dẹp các mẫu cũ và nạp/ghi đè 400 mẫu thời tiết theo 4 mùa giai đoạn 2000-2025."""
+    def seed_4000_weather_patterns(db: Session, force: bool = False) -> int:
+        """Tự động dọn dẹp các mẫu cũ và nạp/ghi đè 4000 mẫu thời tiết theo 4 mùa giai đoạn 2000-2025."""
         from server.app.models.seed_meta import SeedMeta
-
-        # 1. Luôn tự động dọn sạch các bản ghi thời tiết cũ (hot, rainy, cold, mild hoặc không thuộc 400 mẫu)
-        # để đảm bảo trên bất kỳ máy nào khi khởi chạy cũng chỉ có đúng 400 mẫu mới
-        db.execute(text("DELETE FROM weather WHERE code IN ('hot', 'rainy', 'cold', 'mild') OR code NOT LIKE '%_PATTERN_%';"))
-
-        pattern_count = db.scalar(select(func.count(Weather.id)).where(Weather.code.like("%_PATTERN_%"))) or 0
-        seed_key = "weather_400_patterns_v1"
-        if not force and pattern_count == 400:
-            db.commit()
-            return 0
+        from server.app.models.weather_category import WeatherCategory
 
         json_file = WeatherService.get_weather_json_path()
         if not json_file.exists():
             logger.warning("[WeatherSeed] Không tìm thấy tệp JSON tại: %s", json_file)
+            return 0
+
+        # 1. Luôn tự động dọn sạch các bản ghi thời tiết cũ (hot, rainy, cold, mild)
+        db.execute(text("DELETE FROM weather WHERE code IN ('hot', 'rainy', 'cold', 'mild');"))
+
+        seed_key = "weather_4000_patterns_v1"
+        pattern_count = db.scalar(select(func.count(Weather.id)).where(Weather.code.like("%_PATTERN_%"))) or 0
+        if not force and pattern_count == 4000:
+            db.commit()
             return 0
 
         try:
@@ -110,9 +113,19 @@ class WeatherService:
             logger.error("[WeatherSeed] Lỗi khi đọc tệp %s: %s", json_file, e)
             return 0
 
-        # Nạp theo lô 100 bản ghi bằng Bulk Upsert PostgreSQL ON CONFLICT (code) DO UPDATE
+        # Dọn sạch các mẫu cũ không nằm trong danh sách mã mới và không có liên kết trong weather_categories
+        new_codes = {item["code"] for item in patterns if "code" in item}
+        linked_weather_ids = select(WeatherCategory.weather_id)
+        db.execute(
+            delete(Weather).where(
+                Weather.code.notin_(new_codes),
+                Weather.id.notin_(linked_weather_ids),
+            )
+        )
+
+        # Nạp theo lô 500 bản ghi bằng Bulk Upsert PostgreSQL ON CONFLICT (code) DO UPDATE
         upserted_count = 0
-        batch_size = 100
+        batch_size = 500
         for i in range(0, len(patterns), batch_size):
             batch = patterns[i : i + batch_size]
             clean_batch = []
@@ -164,6 +177,11 @@ class WeatherService:
         db.commit()
         logger.info("[WeatherSeed] Đã tự động nạp và ghi đè thành công %s mẫu thời tiết vào database.", upserted_count)
         return upserted_count
+
+    @staticmethod
+    def seed_400_weather_patterns(db: Session, force: bool = False) -> int:
+        """(Deprecated) Chuyển tiếp tới seed_4000_weather_patterns để tương thích ngược."""
+        return WeatherService.seed_4000_weather_patterns(db, force=force)
 
     @staticmethod
     def get_all_weathers(db: Session, active_only: bool = True) -> List[Weather]:
