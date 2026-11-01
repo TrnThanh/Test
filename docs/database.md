@@ -69,6 +69,7 @@ erDiagram
         time close_time "Giờ đóng cửa HH:MM (Nullable)"
         string service_licenses "Mảng giấy phép dịch vụ ARRAY(Text) GIN index"
         boolean is_sponsor "Nhà tài trợ (Default: false, Index)"
+        float rating "Điểm đánh giá chất lượng 0.0-5.0 (Nullable)"
         boolean is_active "Trạng thái hoạt động (Default: true)"
         timestamp created_at "Thời điểm tạo quán (UTC)"
         geography location "PostGIS POINT(SRID 4326) - Cột tính toán tự động"
@@ -225,6 +226,7 @@ Model ORM: `server/app/models/restaurant.py`.
 | `service_licenses` | `TEXT[]` | `NOT NULL`, Default: `'{}'`, `GIN INDEX` | Danh sách giấy phép dịch vụ (ATTP, PCCC, GPKD...) |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái mở/đóng cửa |
 | `is_sponsor` | `BOOLEAN` | `NOT NULL`, Default: `FALSE`, `INDEX` | Đánh dấu quán là nhà tài trợ (ưu tiên hiển thị) |
+| `rating` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL`, `CHECK (rating IS NULL OR (rating >= 0.0 AND rating <= 5.0))` | Điểm đánh giá chất lượng quán ăn (0.0 - 5.0, NULL nếu chưa có) |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Ngày tạo quán |
 | `location` | `GEOGRAPHY(POINT, 4326)` | `GENERATED ALWAYS AS (...) STORED`, `SPATIAL INDEX` | Tọa độ PostGIS phục vụ tìm quán lân cận |
 
@@ -456,13 +458,15 @@ CREATE TABLE IF NOT EXISTS restaurants (
     description VARCHAR(1000) DEFAULT NULL,
     open_time TIME DEFAULT NULL,
     close_time TIME DEFAULT NULL,
+    rating DOUBLE PRECISION DEFAULT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     location GEOGRAPHY(POINT, 4326) GENERATED ALWAYS AS (
         ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
     ) STORED,
     CONSTRAINT ck_restaurant_latitude CHECK (latitude >= -90.0 AND latitude <= 90.0),
-    CONSTRAINT ck_restaurant_longitude CHECK (longitude >= -180.0 AND longitude <= 180.0)
+    CONSTRAINT ck_restaurant_longitude CHECK (longitude >= -180.0 AND longitude <= 180.0),
+    CONSTRAINT ck_restaurant_rating CHECK (rating IS NULL OR (rating >= 0.0 AND rating <= 5.0))
 );
 
 CREATE INDEX IF NOT EXISTS ix_restaurants_lat_lon ON restaurants (latitude, longitude);

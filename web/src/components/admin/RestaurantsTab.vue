@@ -134,6 +134,7 @@ const newCloseTime = ref('22:00');
 const newLat = ref(21.0055);
 const newLon = ref(105.9325);
 const newIsSponsor = ref(false);
+const newRating = ref<number | undefined>(undefined);
 const newLicenses = ref('');
 const createSaving = ref(false);
 const isGeocodingCreate = ref(false);
@@ -148,6 +149,7 @@ function openCreateModal() {
   newLat.value = 21.0055;
   newLon.value = 105.9325;
   newIsSponsor.value = false;
+  newRating.value = undefined;
   newLicenses.value = '';
   showCreateModal.value = true;
 }
@@ -197,6 +199,7 @@ async function handleCreateSubmit() {
       latitude: Number(newLat.value),
       longitude: Number(newLon.value),
       is_sponsor: newIsSponsor.value,
+      rating: newRating.value !== undefined && newRating.value !== null && !isNaN(Number(newRating.value)) ? Number(newRating.value) : undefined,
       service_licenses: newLicenses.value
         .split(',')
         .map((s) => s.trim())
@@ -225,6 +228,7 @@ const editLat = ref(21.0055);
 const editLon = ref(105.9325);
 const editIsActive = ref(true);
 const editIsSponsor = ref(false);
+const editRating = ref<number | undefined>(undefined);
 const editLicenses = ref('');
 const editSaving = ref(false);
 const isGeocodingEdit = ref(false);
@@ -241,6 +245,7 @@ function openEditModal(r: Restaurant) {
   editLon.value = r.longitude;
   editIsActive.value = r.is_active;
   editIsSponsor.value = !!r.is_sponsor;
+  editRating.value = r.rating !== null && r.rating !== undefined ? r.rating : undefined;
   editLicenses.value = (r.service_licenses || []).map((l: any) => typeof l === 'string' ? l : (l.name || String(l))).join(', ');
   showEditModal.value = true;
 }
@@ -293,6 +298,7 @@ async function handleEditSubmit() {
       longitude: Number(editLon.value),
       is_active: editIsActive.value,
       is_sponsor: editIsSponsor.value,
+      rating: editRating.value !== undefined && editRating.value !== null && !isNaN(Number(editRating.value)) ? Number(editRating.value) : undefined,
       service_licenses: editLicenses.value
         .split(',')
         .map((s) => s.trim())
@@ -423,6 +429,7 @@ async function handleDeleteSubmit() {
               <div class="rest-details">
                 <div class="rest-name-row">
                   <b class="rest-name">{{ r.name }}</b>
+                  <Chip v-if="r.rating !== undefined && r.rating !== null" variant="default">⭐ {{ Number(r.rating).toFixed(1) }}</Chip>
                   <Chip v-if="r.is_sponsor" variant="warn">⭐ Tài trợ</Chip>
                 </div>
                 <small v-if="r.phone" class="rest-phone">
@@ -559,6 +566,18 @@ async function handleDeleteSubmit() {
               type="tel"
               class="form-input"
               placeholder="0987..."
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Điểm đánh giá (0.0 - 5.0)</label>
+            <input
+              v-model.number="newRating"
+              type="number"
+              step="0.1"
+              min="0"
+              max="5"
+              class="form-input"
+              placeholder="VD: 4.5 (tùy chọn)"
             />
           </div>
           <div class="form-group">
@@ -714,6 +733,18 @@ async function handleDeleteSubmit() {
         </div>
 
         <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Điểm đánh giá (0.0 - 5.0)</label>
+            <input
+              v-model.number="editRating"
+              type="number"
+              step="0.1"
+              min="0"
+              max="5"
+              class="form-input"
+              placeholder="VD: 4.5 (để trống nếu chưa có)"
+            />
+          </div>
           <div class="form-group">
             <label class="form-label">Nhà tài trợ</label>
             <div

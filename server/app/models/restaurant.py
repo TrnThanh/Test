@@ -17,6 +17,7 @@ class Restaurant(Base, table=True):
     __table_args__ = (
         CheckConstraint("latitude >= -90.0 AND latitude <= 90.0", name="ck_restaurant_latitude"),
         CheckConstraint("longitude >= -180.0 AND longitude <= 180.0", name="ck_restaurant_longitude"),
+        CheckConstraint("rating IS NULL OR (rating >= 0.0 AND rating <= 5.0)", name="ck_restaurant_rating"),
         Index("ix_restaurants_lat_lon", "latitude", "longitude"),
         Index("ix_restaurants_is_sponsor", "is_sponsor"),
         Index("ix_restaurants_service_licenses_gin", "service_licenses", postgresql_using="gin"),
@@ -36,6 +37,10 @@ class Restaurant(Base, table=True):
         sa_column=Column(ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
     )
     is_sponsor: bool = Field(default=False, sa_column=Column(Boolean, default=False, server_default="false", nullable=False))
+    rating: Optional[float] = Field(
+        default=None,
+        sa_column=Column(Float, nullable=True),
+    )
     is_active: bool = Field(default=True, sa_column=Column(Boolean, default=True, nullable=False))
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

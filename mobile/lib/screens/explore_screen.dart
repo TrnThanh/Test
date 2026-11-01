@@ -827,6 +827,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   double _getRatingScore(Restaurant r) {
+    if (r.rating != null && r.rating! > 0) {
+      return r.rating!;
+    }
     return 4.6 + ((r.id * 17) % 4) / 10.0;
   }
 

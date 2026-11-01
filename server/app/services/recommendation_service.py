@@ -248,7 +248,7 @@ class RecommendationService:
         sql_query = text("""
         WITH nearby_restaurants AS (
             SELECT r.id, r.name, r.address, r.phone, r.latitude, r.longitude,
-                   r.open_time, r.close_time, r.is_sponsor, r.service_licenses,
+                   r.open_time, r.close_time, r.is_sponsor, r.service_licenses, r.rating,
                    ST_Distance(r.location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) / 1000.0 AS distance_km
             FROM restaurants r
             WHERE r.is_active = TRUE
@@ -284,7 +284,7 @@ class RecommendationService:
             LIMIT 80
         )
         SELECT nr.id, nr.name, nr.address, nr.phone, nr.latitude, nr.longitude,
-               nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.distance_km,
+               nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.rating, nr.distance_km,
                d.id as dish_id, d.name as dish_name, d.price as dish_price,
                d.calories as dish_calories, d.spicy_level as dish_spicy_level,
                d.allergens as dish_allergens, d.dietary_tags as dish_dietary_tags,
@@ -326,7 +326,7 @@ class RecommendationService:
             sql_fallback = text("""
             WITH nearby_restaurants AS (
                 SELECT r.id, r.name, r.address, r.phone, r.latitude, r.longitude,
-                       r.open_time, r.close_time, r.is_sponsor, r.service_licenses,
+                       r.open_time, r.close_time, r.is_sponsor, r.service_licenses, r.rating,
                        ST_Distance(r.location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) / 1000.0 AS distance_km
                 FROM restaurants r
                 WHERE r.is_active = TRUE
@@ -352,7 +352,7 @@ class RecommendationService:
                 LIMIT 80
             )
             SELECT nr.id, nr.name, nr.address, nr.phone, nr.latitude, nr.longitude,
-                   nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.distance_km,
+                   nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.rating, nr.distance_km,
                    d.id as dish_id, d.name as dish_name, d.price as dish_price,
                    d.calories as dish_calories, d.spicy_level as dish_spicy_level,
                    d.allergens as dish_allergens, d.dietary_tags as dish_dietary_tags,
@@ -411,6 +411,7 @@ class RecommendationService:
                         "open_time": row.open_time,
                         "close_time": row.close_time,
                         "is_sponsor": row.is_sponsor,
+                        "rating": getattr(row, "rating", None),
                         "service_licenses": row.service_licenses or [],
                         "distance_km": float(row.distance_km),
                         "distance_display": format_distance(float(row.distance_km)),
@@ -636,6 +637,7 @@ class RecommendationService:
                 open_time=r["open_time"],
                 close_time=r["close_time"],
                 is_sponsor=r["is_sponsor"],
+                rating=r.get("rating"),
                 service_licenses=r["service_licenses"],
                 distance_km=r["distance_km"],
                 distance_display=r["distance_display"],

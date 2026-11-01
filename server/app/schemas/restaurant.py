@@ -31,6 +31,7 @@ class RestaurantBase(BaseModel):
     close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
     service_licenses: List[str] = Field(default_factory=list, description="Danh sách giấy phép dịch vụ của quán (ATTP, PCCC, GPKD...)")
     is_sponsor: bool = Field(False, description="Đánh dấu quán ăn là nhà tài trợ")
+    rating: Optional[float] = Field(None, ge=0.0, le=5.0, description="Điểm đánh giá chất lượng quán ăn (0.0 đến 5.0)")
 
     @field_validator("service_licenses")
     @classmethod
@@ -58,6 +59,7 @@ class RestaurantUpdate(BaseModel):
     close_time: Optional[HHMMTime] = Field(None, description="Thời gian đóng cửa (HH:MM)")
     service_licenses: Optional[List[str]] = Field(None, description="Danh sách giấy phép dịch vụ của quán")
     is_sponsor: Optional[bool] = Field(None, description="Đánh dấu quán ăn là nhà tài trợ")
+    rating: Optional[float] = Field(None, ge=0.0, le=5.0, description="Điểm đánh giá chất lượng quán ăn (0.0 đến 5.0)")
     is_active: Optional[bool] = Field(None, description="Trạng thái hoạt động")
 
     @field_validator("service_licenses")

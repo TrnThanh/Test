@@ -88,6 +88,7 @@ classDiagram
         +time close_time
         +List~str~ service_licenses
         +bool is_sponsor
+        +float rating
         +bool is_active
         +datetime created_at
         +datetime updated_at
@@ -221,6 +222,7 @@ classDiagram
         +time open_time
         +time close_time
         +bool is_sponsor
+        +float rating
         +bool is_active
     }
 
@@ -235,6 +237,7 @@ classDiagram
         +time open_time
         +time close_time
         +bool is_sponsor
+        +float rating
         +bool is_active
         +datetime created_at
         +datetime updated_at

@@ -270,3 +270,157 @@ def test_restaurant_service_licenses_crud(client: TestClient):
     assert len(up_data["service_licenses"]) == 2
     assert "Giấy phép đồ uống có cồn" in up_data["service_licenses"]
 
+
+
+
+def test_create_restaurant_without_rating(client: TestClient):
+    """Kiểm tra tạo quán ăn không truyền rating thì rating mặc định là None (null)."""
+    payload = {
+        "name": "Bún chả Hương Liên",
+        "address": "24 Lê Văn Hưu, Hai Bà Trưng, Hà Nội",
+        "latitude": 21.0185,
+        "longitude": 105.8532,
+    }
+    response = client.post("/api/v1/restaurants", json=payload)
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert "rating" in data
+    assert data["rating"] is None
+
+
+def test_create_restaurant_with_valid_rating(client: TestClient):
+    """Kiểm tra tạo quán ăn với điểm rating hợp lệ (4.5)."""
+    payload = {
+        "name": "Cơm tấm Sài Gòn",
+        "address": "12 Tô Hiến Thành, Hai Bà Trưng, Hà Nội",
+        "latitude": 21.0125,
+        "longitude": 105.8502,
+        "rating": 4.5,
+    }
+    response = client.post("/api/v1/restaurants", json=payload)
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["rating"] == 4.5
+
+
+def test_create_restaurant_boundary_ratings(client: TestClient):
+    """Kiểm tra tạo quán ăn với các giá trị rating biên: 0.0 và 5.0."""
+    # Biên 0.0
+    r0 = client.post(
+        "/api/v1/restaurants",
+        json={
+            "name": "Quán ăn biên 0",
+            "address": "Địa chỉ 0",
+            "latitude": 21.0,
+            "longitude": 105.0,
+            "rating": 0.0,
+        },
+    )
+    assert r0.status_code == status.HTTP_201_CREATED
+    assert r0.json()["rating"] == 0.0
+
+    # Biên 5.0
+    r5 = client.post(
+        "/api/v1/restaurants",
+        json={
+            "name": "Quán ăn biên 5",
+            "address": "Địa chỉ 5",
+            "latitude": 21.0,
+            "longitude": 105.0,
+            "rating": 5.0,
+        },
+    )
+    assert r5.status_code == status.HTTP_201_CREATED
+    assert r5.json()["rating"] == 5.0
+
+
+def test_create_restaurant_invalid_rating_negative(client: TestClient):
+    """Kiểm tra API từ chối tạo quán ăn nếu rating < 0.0 (422 Unprocessable Entity)."""
+    payload = {
+        "name": "Quán lỗi rating âm",
+        "address": "Địa chỉ lỗi",
+        "latitude": 21.0,
+        "longitude": 105.0,
+        "rating": -0.5,
+    }
+    response = client.post("/api/v1/restaurants", json=payload)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_create_restaurant_invalid_rating_exceeds_five(client: TestClient):
+    """Kiểm tra API từ chối tạo quán ăn nếu rating > 5.0 (422 Unprocessable Entity)."""
+    payload = {
+        "name": "Quán lỗi rating vượt trần",
+        "address": "Địa chỉ lỗi",
+        "latitude": 21.0,
+        "longitude": 105.0,
+        "rating": 5.5,
+    }
+    response = client.post("/api/v1/restaurants", json=payload)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_update_restaurant_rating(client: TestClient):
+    """Kiểm tra cập nhật rating cho quán ăn qua API PUT."""
+    create_resp = client.post(
+        "/api/v1/restaurants",
+        json={
+            "name": "Quán Trà Sữa TocoToco",
+            "address": "54 Cầu Giấy, Hà Nội",
+            "latitude": 21.0345,
+            "longitude": 105.7985,
+        },
+    )
+    rest_id = create_resp.json()["id"]
+    assert create_resp.json()["rating"] is None
+
+    # Cập nhật rating lên 4.8
+    update_resp = client.put(
+        f"/api/v1/restaurants/{rest_id}",
+        json={"rating": 4.8},
+    )
+    assert update_resp.status_code == status.HTTP_200_OK
+    assert update_resp.json()["rating"] == 4.8
+
+
+def test_update_restaurant_keeps_existing_rating(client: TestClient):
+    """Kiểm tra khi sửa tên quán mà không truyền rating thì rating cũ vẫn được bảo toàn."""
+    create_resp = client.post(
+        "/api/v1/restaurants",
+        json={
+            "name": "Bánh Mì Phố Cổ",
+            "address": "38 Đinh Liệt, Hoàn Kiếm, Hà Nội",
+            "latitude": 21.0315,
+            "longitude": 105.8525,
+            "rating": 4.6,
+        },
+    )
+    rest_id = create_resp.json()["id"]
+
+    # Cập nhật chỉ tên quán
+    update_resp = client.put(
+        f"/api/v1/restaurants/{rest_id}",
+        json={"name": "Bánh Mì Phố Cổ - Cơ Sở 2"},
+    )
+    assert update_resp.status_code == status.HTTP_200_OK
+    data = update_resp.json()
+    assert data["name"] == "Bánh Mì Phố Cổ - Cơ Sở 2"
+    assert data["rating"] == 4.6
+
+
+def test_db_check_constraint_rating(db_session: Session):
+    """Kiểm tra ràng buộc CheckConstraint ck_restaurant_rating ở tầng Database PostgreSQL."""
+    from sqlalchemy.exc import IntegrityError
+
+    # Cố tình insert trực tiếp entity có rating vượt quá 5.0
+    invalid_restaurant = Restaurant(
+        name="Quán vi phạm CheckConstraint",
+        address="Địa chỉ vi phạm",
+        latitude=21.0,
+        longitude=105.0,
+        rating=9.9,
+    )
+    db_session.add(invalid_restaurant)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

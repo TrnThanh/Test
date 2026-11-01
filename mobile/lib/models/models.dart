@@ -9,6 +9,7 @@ class Restaurant {
   final double latitude;
   final double longitude;
   final bool isSponsor;
+  final double? rating;
   final bool isActive;
   final double? distanceMeters;
   final double? distanceKm;
@@ -28,6 +29,7 @@ class Restaurant {
     required this.latitude,
     required this.longitude,
     this.isSponsor = false,
+    this.rating,
     this.isActive = true,
     this.distanceMeters,
     this.distanceKm,
@@ -64,6 +66,7 @@ class Restaurant {
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       isSponsor: json['is_sponsor'] as bool? ?? false,
+      rating: json['rating'] != null ? (json['rating'] as num).toDouble() : null,
       isActive: json['is_active'] as bool? ?? true,
       distanceMeters: distM,
       distanceKm: distKm,
