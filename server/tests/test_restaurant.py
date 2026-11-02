@@ -424,3 +424,35 @@ def test_db_check_constraint_rating(db_session: Session):
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def test_sync_restaurant_ratings_from_json(db_session: Session):
+    """Kiểm tra phương thức sync_restaurant_ratings đồng bộ an toàn rating từ file JSON vào CSDL."""
+    from server.app.services.initial_seed_service import InitialSeedService
+
+    # 1. Tạo một quán ăn có tên khớp trong JSON nhưng chưa có rating
+    test_rest = Restaurant(
+        name="Wallace Gia Lâm",
+        address="Gia Lâm, Hà Nội",
+        latitude=21.0104,
+        longitude=105.9371739,
+        rating=None,
+    )
+    db_session.add(test_rest)
+    db_session.commit()
+    db_session.refresh(test_rest)
+    assert test_rest.rating is None
+
+    # 2. Chạy sync
+    stats = InitialSeedService.sync_restaurant_ratings(db_session)
+    assert stats["total"] > 0
+    assert stats["matched"] > 0
+
+    # 3. Quán đã được gán rating từ JSON
+    db_session.refresh(test_rest)
+    assert test_rest.rating is not None
+    assert 0.0 <= test_rest.rating <= 5.0
+
+    # 4. Kiểm tra tính Idempotent: chạy lại lần 2 không thay đổi thêm
+    stats_2 = InitialSeedService.sync_restaurant_ratings(db_session)
+    assert stats_2["updated"] == 0

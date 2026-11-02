@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 
 class WelcomeCategoryDialog extends StatefulWidget {
+  final ApiService? api;
+  final int? userId;
   final String? selectedCategory;
   final Function(String) onCategorySelected;
+  final VoidCallback? onCompleted;
 
   const WelcomeCategoryDialog({
     super.key,
+    this.api,
+    this.userId,
     this.selectedCategory,
     required this.onCategorySelected,
+    this.onCompleted,
   });
 
   @override
@@ -17,6 +24,7 @@ class WelcomeCategoryDialog extends StatefulWidget {
 
 class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
   String? _chosen;
+  bool _saving = false;
 
   final List<Map<String, dynamic>> _categories = const [
     {'name': 'Phở & Bún', 'icon': Icons.ramen_dining, 'desc': 'Phở bò, bún bò huế, bún chả'},
@@ -31,6 +39,73 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
   void initState() {
     super.initState();
     _chosen = widget.selectedCategory ?? 'Phở & Bún';
+  }
+
+  int? _getCategoryId(String? catName) {
+    switch (catName) {
+      case 'Phở & Bún':
+        return 1;
+      case 'Cơm & Xôi':
+        return 2;
+      case 'Bánh mì':
+        return 3;
+      case 'Đồ ăn vặt':
+        return 4;
+      case 'Cà phê & Trà sữa':
+        return 5;
+      case 'Lẩu & Nướng':
+        return 6;
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _handleConfirm() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+
+    if (widget.api != null && widget.userId != null) {
+      try {
+        final catId = _getCategoryId(_chosen);
+        final payload = <String, dynamic>{
+          'complete_onboarding': true,
+        };
+        if (catId != null) {
+          payload['favorite_category_ids'] = [catId];
+        }
+        await widget.api!.updateUserProfile(widget.userId!, payload);
+      } catch (_) {}
+    }
+
+    if (_chosen != null) {
+      widget.onCategorySelected(_chosen!);
+    }
+    widget.onCompleted?.call();
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _handleSkip() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+
+    if (widget.api != null && widget.userId != null) {
+      try {
+        await widget.api!.updateUserProfile(widget.userId!, {
+          'complete_onboarding': true,
+          'favorite_category_ids': [],
+        });
+      } catch (_) {}
+    }
+
+    widget.onCategorySelected('Tất cả');
+    widget.onCompleted?.call();
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -60,19 +135,25 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Hôm Nay Bạn Muốn Ăn Gì?',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Hôm Nay Bạn Muốn Ăn Gì?',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                       SizedBox(height: 2),
-                      Text('Chọn thể loại để PTC1 chuẩn bị món ngon cho bạn',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        'Chọn thể loại để PTC1 chuẩn bị món ngon cho bạn',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
             const Divider(height: 24),
-            const Text('Chọn 1 thể loại món bạn muốn ăn nhất:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            const Text(
+              'Chọn 1 thể loại món bạn muốn ăn nhất:',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
             Expanded(
               child: ListView.separated(
@@ -80,7 +161,7 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (ctx, i) {
                   final item = _categories[i];
-                  final name = item['name']!;
+                  final name = item['name'] as String;
                   final isSelected = _chosen == name;
                   return InkWell(
                     onTap: () => setState(() => _chosen = name),
@@ -116,7 +197,7 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
                                   ),
                                 ),
                                 Text(
-                                  item['desc']!,
+                                  item['desc'] as String,
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isSelected ? Colors.white70 : Colors.grey[600],
@@ -138,10 +219,7 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
             Row(
               children: [
                 TextButton(
-                  onPressed: () {
-                    widget.onCategorySelected('Tất cả');
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: _saving ? null : _handleSkip,
                   child: const Text('Xem tất cả món', style: TextStyle(color: Colors.grey)),
                 ),
                 const Spacer(),
@@ -152,13 +230,14 @@ class _WelcomeCategoryDialogState extends State<WelcomeCategoryDialog> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: () {
-                    if (_chosen != null) {
-                      widget.onCategorySelected(_chosen!);
-                    }
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Khám Phá', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: _saving ? null : _handleConfirm,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Khám Phá', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

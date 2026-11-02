@@ -7,6 +7,9 @@ Dịch vụ tự động khởi tạo dữ liệu ban đầu (Initial Seed Servi
 
 import json
 import logging
+import math
+import re
+import unicodedata
 from datetime import time
 from pathlib import Path
 from typing import Dict, List, Set
@@ -316,6 +319,17 @@ class InitialSeedService:
             phone = f"09{((idx * 9876543) % 90000000) + 10000000}"
             is_sponsor = (idx % 6 == 0)
 
+            # Lấy rating từ JSON nếu có
+            raw_rating = item.get("rating")
+            parsed_rating = None
+            if raw_rating is not None:
+                try:
+                    pr = round(float(raw_rating), 1)
+                    if 0.0 <= pr <= 5.0:
+                        parsed_rating = pr
+                except (ValueError, TypeError):
+                    parsed_rating = None
+
             # Tạo đối tượng Restaurant (cột location là GENERATED ALWAYS từ lat/lon)
             restaurant = Restaurant(
                 name=name,
@@ -328,6 +342,7 @@ class InitialSeedService:
                 close_time=close_t,
                 service_licenses=licenses,
                 is_sponsor=is_sponsor,
+                rating=parsed_rating,
             )
             db.add(restaurant)
             db.flush()
@@ -380,3 +395,82 @@ class InitialSeedService:
             inserted_dishes,
         )
         return True
+
+    @staticmethod
+    def sync_restaurant_ratings(db: Session) -> Dict[str, int]:
+        """
+        Đồng bộ điểm đánh giá (rating) từ file JSON ẩm thực mới vào CSDL PostgreSQL hiện tại.
+        - Khớp quán theo tên chuẩn hóa và vị trí tọa độ.
+        - Idempotent: Chỉ UPDATE khi điểm rating thực sự thay đổi.
+        - BẢO TOÀN DỮ LIỆU USER: Tuyệt đối không can thiệp các bảng khác ngoài cột rating bảng restaurants.
+        """
+        json_path = InitialSeedService.get_json_data_path()
+        if not json_path.exists():
+            logger.warning("Không tìm thấy file JSON ẩm thực tại %s để đồng bộ rating.", json_path)
+            return {"total": 0, "matched": 0, "updated": 0}
+
+        try:
+            with open(json_path, encoding="utf-8") as f:
+                items = json.load(f)
+        except Exception as err:
+            logger.error("Lỗi khi đọc file JSON đồng bộ rating: %s", err)
+            return {"total": 0, "matched": 0, "updated": 0}
+
+        db_restaurants = db.query(Restaurant).all()
+        if not db_restaurants:
+            return {"total": len(items), "matched": 0, "updated": 0}
+
+        def _normalize_name(s: str) -> str:
+            s = unicodedata.normalize("NFKD", (s or "").lower())
+            s = "".join(c for c in s if not unicodedata.combining(c)).replace("đ", "d")
+            return re.sub(r"[^a-z0-9]+", " ", s).strip()
+
+        matched_count = 0
+        updated_count = 0
+
+        for r in db_restaurants:
+            r_norm = _normalize_name(r.name)
+            target_item = None
+
+            # 1. Khớp theo tên chuẩn hóa (chính xác hoặc tương đồng)
+            for it in items:
+                it_norm = _normalize_name(it.get("name", ""))
+                if it_norm and (it_norm == r_norm or it_norm in r_norm or r_norm in it_norm):
+                    target_item = it
+                    break
+
+            # 2. Dự phòng: Khớp theo khoảng cách tọa độ gần nhất (bán kính <= 150m)
+            if not target_item:
+                min_dist = 999999.0
+                best_it = None
+                for it in items:
+                    try:
+                        it_lat = float(it.get("latitude", 0))
+                        it_lon = float(it.get("longitude", 0))
+                    except (ValueError, TypeError):
+                        continue
+                    d = math.hypot((it_lat - r.latitude) * 111000, (it_lon - r.longitude) * 100000)
+                    if d <= 150 and d < min_dist:
+                        min_dist = d
+                        best_it = it
+                if best_it:
+                    target_item = best_it
+
+            if target_item and target_item.get("rating") is not None:
+                try:
+                    val = round(float(target_item["rating"]), 1)
+                    if 0.0 <= val <= 5.0:
+                        matched_count += 1
+                        if r.rating != val:
+                            r.rating = val
+                            updated_count += 1
+                except (ValueError, TypeError):
+                    pass
+
+        if updated_count > 0:
+            db.commit()
+            logger.info("Đồng bộ rating quán ăn hoàn tất: %d matched, %d updated.", matched_count, updated_count)
+        else:
+            logger.debug("Rating quán ăn đã được đồng bộ từ trước (idempotent): %d matched.", matched_count)
+
+        return {"total": len(items), "matched": matched_count, "updated": updated_count}

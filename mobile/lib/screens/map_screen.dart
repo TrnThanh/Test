@@ -337,7 +337,7 @@ class _MapScreenState extends State<MapScreen> {
     return Marker(
       point: LatLng(r.latitude, r.longitude),
       width: isSelected ? 120 : (showLabel ? 96 : 36),
-      height: isSelected ? 72 : (showLabel ? 58 : 36),
+      height: isSelected ? 84 : (showLabel ? 72 : 36),
       alignment: Alignment.center,
       child: GestureDetector(
         onTap: () {
@@ -454,10 +454,42 @@ class _MapScreenState extends State<MapScreen> {
               ),
             if (showLabel) ...[
               const SizedBox(height: 2),
+              if (r.rating != null && r.rating! > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  margin: const EdgeInsets.only(bottom: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFFD97706) : Colors.amber.shade600,
+                      width: 1,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1)),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star, size: 10, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 2),
+                      Text(
+                        r.rating!.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF92400E),
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Flexible(
                 child: Text(
                   r.name,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -1124,6 +1156,14 @@ class _MapScreenState extends State<MapScreen> {
                                 const SizedBox(height: 2),
                                 Row(
                                   children: [
+                                    if (r.rating != null && r.rating! > 0) ...[
+                                      const Icon(Icons.star, size: 12, color: Colors.amber),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        '${r.rating!.toStringAsFixed(1)}  •  ',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1E293B)),
+                                      ),
+                                    ],
                                     if (r.distanceKm != null)
                                       Text('${r.distanceKm!.toStringAsFixed(1)} km  •  ', style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 11)),
                                     Container(
@@ -2006,21 +2046,32 @@ class _MapScreenState extends State<MapScreen> {
         // Đánh giá sao & Thể loại quán
         Row(
           children: [
-            const Text(
-              '4.5',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
-            ),
-            const SizedBox(width: 4),
-            ...List.generate(
-              5,
-              (i) => const Icon(Icons.star, size: 14, color: Colors.amber),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '(128)',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(width: 8),
+            if (_selectedRestaurant!.rating != null && _selectedRestaurant!.rating! > 0) ...[
+              Text(
+                _selectedRestaurant!.rating!.toStringAsFixed(1),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+              ),
+              const SizedBox(width: 4),
+              ...List.generate(5, (i) {
+                final score = _selectedRestaurant!.rating!;
+                if (score >= i + 1) {
+                  return const Icon(Icons.star, size: 14, color: Colors.amber);
+                } else if (score >= i + 0.5) {
+                  return const Icon(Icons.star_half, size: 14, color: Colors.amber);
+                } else {
+                  return Icon(Icons.star_border, size: 14, color: Colors.grey.shade400);
+                }
+              }),
+              const SizedBox(width: 4),
+            ] else ...[
+              const Icon(Icons.star_border, size: 14, color: Colors.grey),
+              const SizedBox(width: 2),
+              Text(
+                'Chưa có đánh giá',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade600),
+              ),
+              const SizedBox(width: 4),
+            ],
             Text(
               '•  ${getCuisineStyle(_selectedRestaurant!.name, _selectedRestaurant!.description).label}',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700),

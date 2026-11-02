@@ -6,12 +6,10 @@ import 'theme/app_colors.dart';
 
 class Ptc1App extends StatelessWidget {
   final ApiService? apiService;
-  final bool showInitialCategoryPrompt;
 
   const Ptc1App({
     super.key,
     this.apiService,
-    this.showInitialCategoryPrompt = true,
   });
 
   @override
@@ -103,7 +101,6 @@ class Ptc1App extends StatelessWidget {
       ),
       home: MainShell(
         apiService: apiService ?? ApiService(),
-        showInitialCategoryPrompt: showInitialCategoryPrompt,
       ),
     );
   }

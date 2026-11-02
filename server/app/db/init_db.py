@@ -187,3 +187,4 @@ def init_database() -> None:
         if getattr(settings, "AUTO_SEED_INITIAL_DATA", True):
             from server.app.services.initial_seed_service import InitialSeedService
             InitialSeedService.seed_initial_data_if_needed(db)
+            InitialSeedService.sync_restaurant_ratings(db)

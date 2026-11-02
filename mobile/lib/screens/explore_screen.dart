@@ -16,7 +16,6 @@ class ExploreScreen extends StatefulWidget {
   final RoleLoginResponse? currentUser;
   final VoidCallback onRequireLogin;
   final String? initialCategory;
-  final VoidCallback? onOpenCategoryPicker;
   final void Function(double lat, double lon, [Restaurant? restaurant])? onNavigateToMap;
   final VoidCallback? onNavigateToAccount;
 
@@ -26,7 +25,6 @@ class ExploreScreen extends StatefulWidget {
     this.currentUser,
     required this.onRequireLogin,
     this.initialCategory,
-    this.onOpenCategoryPicker,
     this.onNavigateToMap,
     this.onNavigateToAccount,
   });
@@ -1120,24 +1118,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                             _searchQuery = val;
                                           });
                                         },
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  InkWell(
-                                    onTap: () => widget.onOpenCategoryPicker?.call(),
-                                    borderRadius: BorderRadius.circular(999),
-                                    child: Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF1B3B2B),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.tune_rounded,
-                                        color: Colors.white,
-                                        size: 22,
                                       ),
                                     ),
                                   ),

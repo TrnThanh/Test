@@ -11,12 +11,10 @@ import '../widgets/welcome_category_dialog.dart';
 
 class MainShell extends StatefulWidget {
   final ApiService apiService;
-  final bool showInitialCategoryPrompt;
 
   const MainShell({
     super.key,
     required this.apiService,
-    this.showInitialCategoryPrompt = true,
   });
 
   @override
@@ -36,26 +34,6 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    if (widget.showInitialCategoryPrompt) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showInitialCategoryPicker();
-      });
-    }
-  }
-
-  void _showInitialCategoryPicker() {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => WelcomeCategoryDialog(
-        selectedCategory: _selectedCategory,
-        onCategorySelected: (cat) {
-          setState(() {
-            _selectedCategory = cat;
-          });
-        },
-      ),
-    );
   }
 
   void _onLoginSuccess(RoleLoginResponse user) {
@@ -80,14 +58,19 @@ class _MainShellState extends State<MainShell> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => OnboardingSurveyDialog(
+          builder: (ctx) => WelcomeCategoryDialog(
             api: widget.apiService,
             userId: user.id,
-            initialProfile: profile,
+            selectedCategory: _selectedCategory,
+            onCategorySelected: (cat) {
+              setState(() {
+                _selectedCategory = (cat == 'Tất cả' || cat == 'Xem tất cả món') ? null : cat;
+              });
+            },
             onCompleted: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Đã hoàn thành khảo sát sở thích ẩm thực & sức khỏe!'),
+                  content: Text('Đã lưu thể loại món ăn bạn yêu thích!'),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -136,7 +119,6 @@ class _MainShellState extends State<MainShell> {
         api: widget.apiService,
         currentUser: _currentUser,
         initialCategory: _selectedCategory,
-        onOpenCategoryPicker: _showInitialCategoryPicker,
         onRequireLogin: () {
           _openAuthModal(isRegister: false);
         },

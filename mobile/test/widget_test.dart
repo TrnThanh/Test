@@ -182,6 +182,17 @@ class FakeApiService extends ApiService {
   }
 
   @override
+  Future<RoleLoginResponse> loginUser(String email, String password) async {
+    return RoleLoginResponse(
+      id: 1,
+      email: email,
+      fullName: 'Thực Khách Test',
+      role: 'user',
+      sessionId: 'fake_jwt_token',
+    );
+  }
+
+  @override
   Future<UserProfile> updateUserProfile(int userId, Map<String, dynamic> data) async {
     _fakeProfile = UserProfile(
       id: 1,
@@ -192,11 +203,12 @@ class FakeApiService extends ApiService {
       birthYear: data['birth_year'] != null ? (data['birth_year'] as num).toInt() : _fakeProfile.birthYear,
       activityLevel: data['activity_level'] as String? ?? _fakeProfile.activityLevel,
       targetGoal: data['target_goal'] as String? ?? _fakeProfile.targetGoal,
+      favoriteCategoryIds: data['favorite_category_ids'] != null ? List<int>.from(data['favorite_category_ids']) : _fakeProfile.favoriteCategoryIds,
       dietaryPreferences: data['dietary_preferences'] != null ? List<String>.from(data['dietary_preferences']) : _fakeProfile.dietaryPreferences,
       spicyTolerance: data['spicy_tolerance'] as String? ?? _fakeProfile.spicyTolerance,
       allergies: data['allergies'] != null ? List<String>.from(data['allergies']) : _fakeProfile.allergies,
       budgetRange: data['budget_range'] as String? ?? _fakeProfile.budgetRange,
-      isOnboarded: true,
+      isOnboarded: data['complete_onboarding'] == true ? true : _fakeProfile.isOnboarded,
       bmi: 22.2,
       bmiCategory: 'normal',
     );
@@ -209,7 +221,7 @@ void main() {
     final fakeApi = FakeApiService();
 
     // Khởi chạy ứng dụng với fake api
-    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
     // 1. Kiểm tra màn hình Trang chủ (Khám phá) ban đầu
@@ -249,7 +261,7 @@ void main() {
   testWidgets('Kiểm thử Auth Gate khi khách vãng lai nhấn Xem chi tiết và bấm yêu thích', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
-    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
     // Bấm nút "Xem chi tiết" ở quán đầu tiên
@@ -285,7 +297,7 @@ void main() {
   testWidgets('Kiểm thử màn hình Đăng ký Thực khách', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
-    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
     // Vào Tab Tài khoản
@@ -335,30 +347,75 @@ void main() {
     expect(find.text('Lưu & Hoàn tất'), findsOneWidget);
   });
 
-  testWidgets('Kiểm thử WelcomeCategoryDialog khi vừa vào app và lọc thể loại món ăn', (WidgetTester tester) async {
+  testWidgets('Kiểm thử khi đăng nhập lần đầu tiên tự động hiển thị WelcomeCategoryDialog và lưu option duy nhất 1 lần', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
-    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: true));
+    // Khởi chạy app mặc định
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
-    // 1. Kiểm tra Dialog chào mừng tự động hiển thị
+    // Khách vãng lai vào thẳng Khám phá, không có popup
+    expect(find.text('Hôm Nay Bạn Muốn Ăn Gì?'), findsNothing);
+
+    // Chuyển sang Tab Tài khoản để đăng nhập
+    await tester.tap(find.text('Tài khoản'));
+    await tester.pumpAndSettle();
+
+    // Bấm nút Đăng nhập mở modal
+    await tester.tap(find.text('Đăng nhập'));
+    await tester.pumpAndSettle();
+
+    // Điền thông tin đăng nhập thực khách
+    final textFields = find.byType(TextField);
+    expect(textFields, findsAtLeastNWidgets(2));
+    await tester.enterText(textFields.at(0), 'khach@ptc1.vn');
+    await tester.enterText(textFields.at(1), 'Pass@123');
+
+    // Bấm nút Đăng nhập trong modal
+    await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    // 1. Kiểm tra dialog "Hôm Nay Bạn Muốn Ăn Gì?" hiển thị vì profile.isOnboarded == false
     expect(find.text('Hôm Nay Bạn Muốn Ăn Gì?'), findsOneWidget);
     expect(find.text('Phở & Bún'), findsAtLeastNWidgets(1));
-    expect(find.text('Khám Phá'), findsOneWidget);
 
-    // 2. Nhấn nút "Khám Phá Ngay"
+    // 2. Chọn thể loại "Cơm & Xôi" và nhấn "Khám Phá"
+    await tester.tap(find.text('Cơm & Xôi'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Khám Phá'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    // 3. Kiểm tra Dialog đã đóng và hiển thị màn hình Khám phá kèm danh sách quán
+    // 3. Dialog đã đóng, kiểm tra profile đã được lưu isOnboarded = true
+    expect(find.text('Hôm Nay Bạn Muốn Ăn Gì?'), findsNothing);
+    final profile = await fakeApi.getUserProfile(1);
+    expect(profile.isOnboarded, isTrue);
+    expect(profile.favoriteCategoryIds, contains(2));
+  });
+
+  testWidgets('Kiểm thử khởi chạy Ptc1App mặc định không hiện popup và vào thẳng Khám phá', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    // Khởi chạy app mặc định (showInitialCategoryPrompt = false)
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
+    await tester.pumpAndSettle();
+
+    // 1. Kiểm tra tuyệt đối KHÔNG hiển thị dialog "Hôm Nay Bạn Muốn Ăn Gì?"
+    expect(find.text('Hôm Nay Bạn Muốn Ăn Gì?'), findsNothing);
+
+    // 2. Vào thẳng màn hình Khám phá
     expect(find.textContaining('nay ăn gì nhỉ?'), findsOneWidget);
     expect(find.text('Phở Thìn Lò Đúc'), findsOneWidget);
   });
 
+
   testWidgets('Kiểm thử thẻ thời tiết và WeatherLandscapePainter thay đổi theo thời gian ngày và đêm', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
-    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
     // Xác nhận CustomPaint của WeatherLandscapePainter hiện diện trên màn hình
@@ -384,7 +441,7 @@ void main() {
   testWidgets('Kiểm thử thẻ thời tiết cố định khu vực Gia Lâm - Hà Nội và không mở popup chọn khu vực', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
-    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
     // Xác nhận thẻ thời tiết hiển thị thông tin nhiệt độ
@@ -530,7 +587,7 @@ void main() {
 
   testWidgets('Kiểm thử giao diện Thực đơn Bento Card mới, tìm kiếm và Modal chi tiết món DishDetailSheet', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
-    await tester.pumpWidget(Ptc1App(apiService: fakeApi, showInitialCategoryPrompt: false));
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
     // Mở thực đơn của quán
@@ -588,4 +645,38 @@ void main() {
     await tester.tap(closeDetailBtn);
     await tester.pumpAndSettle();
   });
+
+  testWidgets('Kiểm thử MapScreen hiển thị số rating của quán ăn trên bản đồ và BottomSheet', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MapScreen(
+          api: fakeApi,
+          currentUser: null,
+          onRequireLogin: () {},
+          initialRestaurant: Restaurant(
+            id: 99,
+            name: 'Phở Bò Rating Cao Gia Lâm',
+            address: 'Trâu Quỳ, Gia Lâm, Hà Nội',
+            latitude: 21.0046,
+            longitude: 105.9387,
+            openTime: '06:00',
+            closeTime: '22:00',
+            rating: 4.8,
+            isActive: true,
+          ),
+          initialLat: 21.0046,
+          initialLon: 105.9387,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Kiểm tra số rating 4.8 hiển thị trên Marker và BottomSheet chi tiết quán
+    expect(find.text('4.8'), findsWidgets);
+
+    // 2. Icon sao hiển thị tương ứng
+    expect(find.byIcon(Icons.star), findsWidgets);
+  });
+
 }
