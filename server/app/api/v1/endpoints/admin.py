@@ -28,7 +28,16 @@ def get_all_restaurants_for_admin(
     active_only: bool = Query(False, description="Chỉ lấy quán đang hoạt động"),
     db: Session = Depends(get_db),
 ) -> List[RestaurantResponse]:
-    """Admin lấy danh sách toàn bộ quán ăn toàn hệ thống (không giới hạn để quản lý toàn diện)."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/admin/restaurants?skip=0&limit=20&active_only=false
+    - Headers : (Không yêu cầu)
+    - Params  : skip (int, default 0), limit (int, tuỳ chọn), active_only (bool, default false)
+    - Body    : (Không có)
+    - Expected: 200 OK -> [{"id": 1, "name": "Quán Cơm Bình Dân", "is_active": true, ...}]
+    - Errors  : 422 Unprocessable Content (tham số query không hợp lệ)
+    """
     # Truy vấn danh sách toàn bộ quán từ cơ sở dữ liệu
     return RestaurantService.get_all_active_restaurants(
         db=db, skip=skip, limit=limit, active_only=active_only
@@ -46,7 +55,27 @@ def create_restaurant_as_admin(
     payload: RestaurantCreate,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """Quản trị viên tạo quán ăn mới trong hệ thống."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : POST
+    - URL     : http://localhost:8001/api/v1/admin/restaurants
+    - Headers : Content-Type: application/json
+    - Params  : (Không có)
+    - Body (raw JSON):
+      {
+        "name": "Quán Phở Bò Gia Truyền",
+        "address": "Số 12 Ngô Xuân Quảng, Gia Lâm, Hà Nội",
+        "latitude": 21.00512,
+        "longitude": 105.93245,
+        "phone": "0912345678",
+        "opening_time": "06:00",
+        "closing_time": "22:00",
+        "price_min": 35000,
+        "price_max": 60000
+      }
+    - Expected: 201 Created -> {"id": 1, "name": "Quán Phở Bò Gia Truyền", "is_active": true, ...}
+    - Errors  : 422 Unprocessable Content (thiếu tên quán hoặc toạ độ ngoài phạm vi)
+    """
     # Gọi service tạo mới quán ăn với quyền admin
     return RestaurantService.create_restaurant(db=db, data=payload)
 
@@ -58,7 +87,15 @@ def create_restaurant_as_admin(
     summary="Thống kê tổng quan toàn hệ thống (Dành cho Admin Dashboard)",
 )
 def get_system_stats(db: Session = Depends(get_db)) -> SystemStatsResponse:
-    """Trả về số lượng tổng hợp cơ sở dữ liệu: quán ăn, món ăn, danh mục, user."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/admin/stats
+    - Headers : (Không yêu cầu)
+    - Params  : (Không có)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"total_restaurants": 10, "total_dishes": 50, "total_categories": 8, "total_users": 5}
+    """
     # 1. Thu thập số liệu thống kê qua AdminService
     stats = AdminService.get_system_stats(db=db)
     # 2. Đóng gói vào SystemStatsResponse
@@ -72,7 +109,15 @@ def get_system_stats(db: Session = Depends(get_db)) -> SystemStatsResponse:
     summary="Lấy danh sách toàn bộ người dùng / Thực khách (Dành cho Admin)",
 )
 def get_all_users(db: Session = Depends(get_db)) -> List[AdminUserItem]:
-    """Danh sách tất cả các tài khoản người dùng đã đăng ký."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/admin/users
+    - Headers : (Không yêu cầu)
+    - Params  : (Không có)
+    - Body    : (Không có)
+    - Expected: 200 OK -> [{"id": 1, "email": "user@example.com", "full_name": "Nguyen Van A", "is_active": true, "created_at": "..."}]
+    """
     # Truy vấn danh sách người dùng
     return AdminService.get_all_users(db=db)
 
@@ -87,7 +132,16 @@ def delete_user_as_admin(
     user_id: int = Path(..., description="ID người dùng"),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Quản trị viên xóa tài khoản người dùng khỏi hệ thống (cascade xóa tùy chọn và món yêu thích)."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : DELETE
+    - URL     : http://localhost:8001/api/v1/admin/users/1
+    - Headers : (Không yêu cầu)
+    - Params  : Path user_id (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"message": "Đã xóa người dùng thành công.", "user_id": 1}
+    - Errors  : 404 Not Found (Không tìm thấy người dùng)
+    """
     success = AdminService.delete_user_as_admin(db=db, user_id=user_id)
     if not success:
         raise HTTPException(
@@ -108,7 +162,19 @@ def toggle_restaurant_status(
     status_in: RestaurantStatusUpdate = ...,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """Quản trị viên kích hoạt hoặc tạm dừng hoạt động quán ăn vi phạm."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : PATCH
+    - URL     : http://localhost:8001/api/v1/admin/restaurants/1/status
+    - Headers : Content-Type: application/json
+    - Params  : Path restaurant_id (int)
+    - Body (raw JSON):
+      {
+        "is_active": false
+      }
+    - Expected: 200 OK -> {"id": 1, "name": "...", "is_active": false}
+    - Errors  : 404 Not Found, 422 Unprocessable Content
+    """
     # 1. Gọi service cập nhật cờ is_active
     restaurant = AdminService.update_restaurant_status(
         db=db, restaurant_id=restaurant_id, is_active=status_in.is_active
@@ -134,7 +200,23 @@ def update_restaurant_as_admin(
     payload: RestaurantUpdate = ...,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """Quản trị viên cập nhật trực tiếp thông tin quán ăn (tên, toạ độ, địa chỉ, trạng thái)."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : PUT
+    - URL     : http://localhost:8001/api/v1/admin/restaurants/1
+    - Headers : Content-Type: application/json
+    - Params  : Path restaurant_id (int)
+    - Body (raw JSON):
+      {
+        "name": "Quán Phở Bò Gia Truyền (Đổi tên)",
+        "address": "Số 15 Ngô Xuân Quảng, Gia Lâm, Hà Nội",
+        "latitude": 21.00550,
+        "longitude": 105.93280,
+        "is_active": true
+      }
+    - Expected: 200 OK -> {"id": 1, "name": "Quán Phở Bò Gia Truyền (Đổi tên)", ...}
+    - Errors  : 404 Not Found, 422 Unprocessable Content
+    """
     # 1. Truy vấn quán ăn theo ID từ cơ sở dữ liệu
     restaurant = db.get(Restaurant, restaurant_id)
     if not restaurant:
@@ -166,7 +248,16 @@ def delete_restaurant_as_admin(
     restaurant_id: int = Path(..., description="ID quán ăn"),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Quản trị viên xoá cơ sở ẩm thực vi phạm khỏi hệ thống."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : DELETE
+    - URL     : http://localhost:8001/api/v1/admin/restaurants/1
+    - Headers : (Không yêu cầu)
+    - Params  : Path restaurant_id (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"message": "Đã xoá quán ăn thành công.", "restaurant_id": 1}
+    - Errors  : 404 Not Found (Không tìm thấy quán ăn với ID ...)
+    """
     # 1. Gọi service xoá cơ sở quán ăn
     success = AdminService.delete_restaurant_as_admin(db=db, restaurant_id=restaurant_id)
     # 2. Kiểm tra nếu không tìm thấy quán để xoá

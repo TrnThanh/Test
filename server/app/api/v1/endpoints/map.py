@@ -20,8 +20,14 @@ async def search_places(
     service: MapService = Depends(get_map_service),
 ) -> MapSearchResponse:
     """
-    Tìm kiếm thông tin địa điểm theo tên hoặc địa chỉ sử dụng OpenStreetMap Nominatim.
-    Trả về danh sách các địa điểm tìm thấy kèm theo toạ độ (lat, lon).
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/map/search?q=Học viện Nông nghiệp Việt Nam&limit=5
+    - Headers : (Không yêu cầu)
+    - Params  : q (str, bắt buộc), limit (int, mặc định 10, từ 1 đến 50)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"results": [{"name": "...", "display_name": "...", "lat": 21.0046, "lon": 105.9387}]}
+    - Errors  : 422 Unprocessable Content (thiếu tham số q)
     """
     # Gửi truy vấn tìm kiếm địa điểm tới Nominatim API
     return await service.search(query=q, limit=limit)
@@ -35,7 +41,14 @@ async def reverse_geocode(
     service: MapService = Depends(get_map_service),
 ) -> MapReverseResponse:
     """
-    Tra cứu thông tin địa chỉ chi tiết từ toạ độ địa lý (lat, lon) sử dụng OpenStreetMap Nominatim.
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/map/reverse?lat=21.0046&lon=105.9387
+    - Headers : (Không yêu cầu)
+    - Params  : lat (float, từ -90 đến 90), lon (float, từ -180 đến 180)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"display_name": "...", "address": {...}, "lat": 21.0046, "lon": 105.9387}
+    - Errors  : 404 Not Found, 422 Unprocessable Content
     """
     # Tra cứu địa chỉ ngược từ toạ độ lat, lon
     return await service.reverse(lat=lat, lon=lon)

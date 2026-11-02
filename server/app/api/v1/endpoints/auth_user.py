@@ -21,7 +21,32 @@ def register_user(
     user_in: UserRegister,
     db: Session = Depends(get_db),
 ) -> UserResponse:
-    """Đăng ký tài khoản mới cho thực khách và lưu trữ vào CSDL."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : POST
+    - URL     : http://localhost:8001/api/v1/auth/user/register
+    - Headers : Content-Type: application/json
+    - Params  : (Không có)
+    - Body (raw JSON):
+      {
+        "email": "khachhang@example.com",
+        "password": "user123",
+        "confirm_password": "user123",
+        "full_name": "Nguyễn Văn A",
+        "phone": "0987654321"
+      }
+    - Expected: 201 Created
+      {
+        "id": 1,
+        "email": "khachhang@example.com",
+        "full_name": "Nguyễn Văn A",
+        "phone": "0987654321",
+        "is_active": true,
+        "created_at": "...",
+        "session_id": "<hex_uuid>"
+      }
+    - Errors  : 400 Bad Request (Email already registered for user / confirm_password mismatch), 422 Unprocessable Content
+    """
     # 1. Kiểm tra xem email đã được đăng ký trước đó hay chưa
     existing_user = UserService.get_user_by_email(db, user_in.email)
     if existing_user:
@@ -66,7 +91,33 @@ def login_user(
     user_in: UserLogin,
     db: Session = Depends(get_db),
 ) -> RoleLoginResponse:
-    """Xác thực thông tin đăng nhập của thực khách và trả về phiên làm việc."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : POST
+    - URL     : http://localhost:8001/api/v1/auth/user/login
+    - Headers : Content-Type: application/json
+    - Params  : (Không có)
+    - Body (raw JSON):
+      {
+        "email": "khachhang@example.com",
+        "password": "user123"
+      }
+    - Expected: 200 OK
+      {
+        "message": "User login successful",
+        "role": "user",
+        "session_id": "<hex_uuid>",
+        "data": {
+          "id": 1,
+          "email": "khachhang@example.com",
+          "full_name": "Nguyễn Văn A",
+          "phone": "0987654321",
+          "is_active": true,
+          "created_at": "..."
+        }
+      }
+    - Errors  : 401 Unauthorized (Incorrect email or password), 422 Unprocessable Content
+    """
     # 1. Xác thực email và mật khẩu người dùng
     user = UserService.authenticate_user(db=db, email=user_in.email, password=user_in.password)
     # 2. Xử lý trường hợp sai thông tin đăng nhập

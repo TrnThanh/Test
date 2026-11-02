@@ -6,7 +6,6 @@ import httpx
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from server.app.core.config import settings
@@ -101,20 +100,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         map_service.set_route_client(None)
 
 
-openapi_tags = [
-    {
-        "name": "User Authentication",
-        "description": "API đăng ký và đăng nhập dành cho khách hàng / người dùng thông thường.",
-    },
-    {
-        "name": "Admin Authentication",
-        "description": "API đăng nhập dành cho quản trị viên hệ thống (mặc định: admin@example.com / admin123).",
-    },
-]
-
 # Hàm khởi tạo và đóng gói cấu hình cho toàn bộ ứng dụng FastAPI
 def create_app() -> FastAPI:
-    """Khởi tạo FastAPI app với giao diện Swagger UI tương tác."""
+    """Khởi tạo FastAPI app (đã tắt Swagger UI / OpenAPI docs theo chuẩn kiểm thử Postman trực tiếp)."""
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
@@ -123,10 +111,10 @@ def create_app() -> FastAPI:
 Backend FastAPI chuẩn hoá phục vụ ứng dụng tìm kiếm quán ăn, thực đơn món ăn đa chiều,
 dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không gian PostGIS.
         """,
-        openapi_tags=openapi_tags,
         lifespan=lifespan,
-        # Ẩn mục Schemas (models) ở chân trang Swagger UI /docs theo cấu hình chuẩn Swagger
-        swagger_ui_parameters={"defaultModelsExpandDepth": -1},
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     # Cấu hình CORS để Web Frontend (Vue 3 / Vite) và Mobile App (Flutter) giao tiếp thông suốt
@@ -178,49 +166,27 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
             },
         )
 
-    # Tùy biến schema OpenAPI Swagger UI: Thay thế mẫu lỗi 422 lồng phức tạp bằng thông điệp trực quan
-    def custom_openapi():
-        """Tùy biến tài liệu OpenAPI Swagger UI: Đơn giản hóa cấu trúc lỗi Validation Error."""
-        if app.openapi_schema:
-            return app.openapi_schema
-        openapi_schema = get_openapi(
-            title=app.title,
-            version=app.version,
-            description=app.description,
-            routes=app.routes,
-            tags=app.openapi_tags,
-        )
-        if "components" in openapi_schema and "schemas" in openapi_schema["components"]:
-            schemas = openapi_schema["components"]["schemas"]
-            schemas["HTTPValidationError"] = {
-                "title": "HTTPValidationError",
-                "type": "object",
-                "properties": {
-                    "detail": {
-                        "title": "Chi tiết lỗi",
-                        "type": "string",
-                        "example": "Thiếu trường email, thiếu trường password",
-                    },
-                },
-            }
-            if "ValidationError" in schemas:
-                del schemas["ValidationError"]
-        app.openapi_schema = openapi_schema
-        return app.openapi_schema
-
-    app.openapi = custom_openapi
-
     # Endpoint kiểm tra trạng thái sức khoẻ máy chủ (Health Check)
     @app.get("/", tags=["Health Check"])
     def root():
-        """Trả về thông tin phiên bản hệ thống và các liên kết tài liệu Swagger / Redoc."""
+        """
+        [POSTMAN TEST GUIDE]
+        - Method  : GET
+        - URL     : http://localhost:8001/
+        - Headers : (Không yêu cầu)
+        - Params  : (Không có)
+        - Body    : (Không có)
+        - Expected: 200 OK
+          {
+            "app": "PTC1 FastAPI Server",
+            "version": "0.1.0",
+            "status": "online"
+          }
+        """
         return {
             "app": settings.APP_NAME,
             "version": settings.APP_VERSION,
             "status": "online",
-            "docs": "/docs",
-            "redoc": "/redoc",
-            "docs_url": "/docs",
         }
 
     return app

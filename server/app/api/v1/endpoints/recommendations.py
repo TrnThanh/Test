@@ -29,7 +29,16 @@ def get_contextual_recommendations(
     seed: Optional[int] = Query(None, description="Seed ngẫu nhiên phục vụ kiểm thử đơn vị"),
     db: Session = Depends(get_db),
 ) -> ContextualRecommendationResponse:
-    """Đề xuất thực đơn và quán ăn dựa trên ngữ cảnh thời tiết, vị trí GPS và hồ sơ người dùng."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/recommendations/contextual?lat=21.0046&lon=105.9387&user_id=1&temp=25.0&weather_code=mild
+    - Headers : (Không yêu cầu)
+    - Params  : lat (float, bắt buộc), lon (float, bắt buộc), user_id (int, tuỳ chọn), temp (float, tuỳ chọn), weather_code (str, tuỳ chọn: hot, cold, rainy, mild), seed (int, tuỳ chọn)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"context": {"time_slot": "lunch", "weather": "mild", "temperature": 25.0}, "recommended_restaurants": [...], "suggested_dishes": [...]}
+    - Errors  : 422 Unprocessable Content (toạ độ ngoài phạm vi)
+    """
     # Kích hoạt thuật toán tính điểm và xếp hạng CARS từ RecommendationService
     return RecommendationService.get_contextual_recommendations(
         db=db,

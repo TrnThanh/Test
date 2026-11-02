@@ -21,7 +21,16 @@ async def get_current_weather(
     lon: Optional[float] = Query(None, description="Kinh độ (mặc định: toạ độ HVNN 105.9387)"),
     db: Session = Depends(get_db),
 ) -> CurrentWeatherResponse:
-    """Truy vấn thời tiết hiện tại và gợi ý danh mục món ăn tương ứng."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/weather/current?lat=21.0046&lon=105.9387
+    - Headers : (Không yêu cầu)
+    - Params  : lat (float, mặc định HVNN 21.0046), lon (float, mặc định HVNN 105.9387)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"temperature": 26.5, "humidity": 70, "weather_name": "Nắng ấm", "weather_condition": "clear", "recommended_categories": [...]}
+    - Errors  : 422 Unprocessable Content (toạ độ ngoài phạm vi)
+    """
     # 1. Đảm bảo dữ liệu thời tiết mặc định đã được khởi tạo trong CSDL
     WeatherService.seed_default_weathers(db)
     # 2. Gọi OpenWeatherMap API hoặc fallback dữ liệu nếu không có API key
@@ -39,7 +48,15 @@ def list_weathers(
     active_only: bool = True,
     db: Session = Depends(get_db),
 ):
-    """Lấy danh sách các kiểu thời tiết được hỗ trợ."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/weather?active_only=true
+    - Headers : (Không yêu cầu)
+    - Params  : active_only (bool, mặc định true)
+    - Body    : (Không có)
+    - Expected: 200 OK -> [{"id": 1, "code": "cold", "name": "Trời lạnh", "temp_min": 10.0, "temp_max": 19.0, "is_active": true}]
+    """
     # 1. Khởi tạo dữ liệu seed nếu chưa có
     WeatherService.seed_default_weathers(db)
     # 2. Lấy danh sách thời tiết từ database
@@ -56,7 +73,16 @@ def get_weather(
     weather_id: int,
     db: Session = Depends(get_db),
 ):
-    """Xem thông tin chi tiết của một kiểu thời tiết."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/weather/1
+    - Headers : (Không yêu cầu)
+    - Params  : Path weather_id (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"id": 1, "code": "cold", "name": "Trời lạnh", ...}
+    - Errors  : 404 Not Found
+    """
     # Tìm kiếm kiểu thời tiết theo ID
     return WeatherService.get_weather_by_id(db, weather_id)
 
@@ -72,7 +98,24 @@ def create_weather(
     data: WeatherCreate,
     db: Session = Depends(get_db),
 ):
-    """Tạo mới một trạng thái thời tiết."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : POST
+    - URL     : http://localhost:8001/api/v1/weather
+    - Headers : Content-Type: application/json
+    - Params  : (Không có)
+    - Body (raw JSON):
+      {
+        "code": "freezing",
+        "name": "Rét buốt có tuyết",
+        "description": "Nhiệt độ dưới 5 độ",
+        "temp_min": -5.0,
+        "temp_max": 5.0,
+        "is_active": true
+      }
+    - Expected: 201 Created -> {"id": 5, "code": "freezing", "name": "Rét buốt có tuyết", ...}
+    - Errors  : 400 Bad Request (trùng code), 422 Unprocessable Content
+    """
     # Tạo bản ghi thời tiết mới
     return WeatherService.create_weather(db, data)
 
@@ -88,7 +131,22 @@ def update_weather(
     data: WeatherUpdate,
     db: Session = Depends(get_db),
 ):
-    """Cập nhật thông tin cấu hình của một kiểu thời tiết."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : PUT
+    - URL     : http://localhost:8001/api/v1/weather/1
+    - Headers : Content-Type: application/json
+    - Params  : Path weather_id (int)
+    - Body (raw JSON):
+      {
+        "name": "Trời se lạnh",
+        "temp_min": 12.0,
+        "temp_max": 20.0,
+        "is_active": true
+      }
+    - Expected: 200 OK -> {"id": 1, "name": "Trời se lạnh", ...}
+    - Errors  : 404 Not Found, 422 Unprocessable Content
+    """
     return WeatherService.update_weather(db, weather_id, data)
 
 
@@ -101,6 +159,15 @@ def delete_weather(
     weather_id: int,
     db: Session = Depends(get_db),
 ):
-    """Xoá một trạng thái thời tiết khỏi hệ thống."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : DELETE
+    - URL     : http://localhost:8001/api/v1/weather/1
+    - Headers : (Không yêu cầu)
+    - Params  : Path weather_id (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"message": "Đã xoá trạng thái thời tiết ID 1 thành công."}
+    - Errors  : 404 Not Found
+    """
     WeatherService.delete_weather(db, weather_id)
     return {"message": f"Đã xoá trạng thái thời tiết ID {weather_id} thành công."}

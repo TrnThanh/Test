@@ -27,7 +27,16 @@ def link_weather_category(
     category_id: int,
     db: Session = Depends(get_db),
 ):
-    """Liên kết một nhóm danh mục món ăn với một điều kiện thời tiết phù hợp."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : POST
+    - URL     : http://localhost:8001/api/v1/weather-categories/weathers/1/categories/2
+    - Headers : (Không yêu cầu)
+    - Params  : Path weather_id (int), Path category_id (int)
+    - Body    : (Không có)
+    - Expected: 201 Created -> {"id": 1, "weather_id": 1, "category_id": 2, "created_at": "..."}
+    - Errors  : 404 Not Found (Weather hoặc Category không tồn tại)
+    """
     # Tạo liên kết trong CSDL (idempotent)
     return WeatherCategoryService.link_weather_category(
         db, weather_id=weather_id, category_id=category_id
@@ -44,7 +53,16 @@ def unlink_weather_category(
     category_id: int,
     db: Session = Depends(get_db),
 ):
-    """Xóa bỏ liên kết giữa thời tiết và danh mục món ăn."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : DELETE
+    - URL     : http://localhost:8001/api/v1/weather-categories/weathers/1/categories/2
+    - Headers : (Không yêu cầu)
+    - Params  : Path weather_id (int), Path category_id (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> {"message": "Đã hủy liên kết thời tiết và danh mục thành công"}
+    - Errors  : 404 Not Found
+    """
     # 1. Gọi service xóa liên kết
     WeatherCategoryService.unlink_weather_category(
         db, weather_id=weather_id, category_id=category_id
@@ -64,7 +82,16 @@ def get_categories_by_weather(
     weather_id: int,
     db: Session = Depends(get_db),
 ):
-    """Truy vấn các danh mục món ăn liên kết với kiểu thời tiết."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/weather-categories/weathers/1/categories
+    - Headers : (Không yêu cầu)
+    - Params  : Path weather_id (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> [{"id": 2, "name": "Lẩu & Nướng", "is_active": true}]
+    - Errors  : 404 Not Found
+    """
     # Lấy danh sách danh mục theo ID thời tiết
     return WeatherCategoryService.get_categories_by_weather(db, weather_id=weather_id)
 
@@ -79,7 +106,16 @@ def get_weathers_by_category(
     category_id: int,
     db: Session = Depends(get_db),
 ):
-    """Truy vấn các kiểu thời tiết liên kết với một danh mục."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/weather-categories/categories/2/weathers
+    - Headers : (Không yêu cầu)
+    - Params  : Path category_id (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> [{"id": 1, "code": "cold", "name": "Trời lạnh", ...}]
+    - Errors  : 404 Not Found
+    """
     # Lấy danh sách thời tiết theo ID danh mục
     return WeatherCategoryService.get_weathers_by_category(db, category_id=category_id)
 
@@ -95,7 +131,20 @@ def create_weather_category(
     data: WeatherCategoryCreate,
     db: Session = Depends(get_db),
 ):
-    """Tạo liên kết thời tiết - danh mục qua body JSON."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : POST
+    - URL     : http://localhost:8001/api/v1/weather-categories
+    - Headers : Content-Type: application/json
+    - Params  : (Không có)
+    - Body (raw JSON):
+      {
+        "weather_id": 1,
+        "category_id": 2
+      }
+    - Expected: 201 Created -> {"id": 1, "weather_id": 1, "category_id": 2, ...}
+    - Errors  : 404 Not Found, 422 Unprocessable Content
+    """
     # Tạo liên kết từ dữ liệu body
     return WeatherCategoryService.link_weather_category(
         db, weather_id=data.weather_id, category_id=data.category_id
@@ -115,7 +164,15 @@ def list_weather_categories(
     limit: int = Query(100, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """Danh sách các bản ghi liên kết N-N giữa thời tiết và danh mục."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : GET
+    - URL     : http://localhost:8001/api/v1/weather-categories?weather_id=1&skip=0&limit=50
+    - Headers : (Không yêu cầu)
+    - Params  : weather_id (int, tuỳ chọn), category_id (int, tuỳ chọn), skip (int), limit (int)
+    - Body    : (Không có)
+    - Expected: 200 OK -> [{"id": 1, "weather_id": 1, "category_id": 2, ...}]
+    """
     # Truy vấn danh sách liên kết qua hàm get_all_links của service
     return WeatherCategoryService.get_all_links(
         db, weather_id=weather_id, category_id=category_id, skip=skip, limit=limit

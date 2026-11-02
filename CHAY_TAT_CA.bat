@@ -16,8 +16,8 @@ if exist "%~dp0.venv\Scripts\python.exe" (
     start "PTC1 Backend FastAPI (Port 8001)" cmd /k "chcp 65001 >nul & cd /d "%~dp0" & title [PTC1] Backend FastAPI (Port 8001) & echo [*] Dang chay Backend tai http://localhost:8001 ... & python -m uvicorn server.app.main:app --reload --host 0.0.0.0 --port 8001"
 )
 
-:: Mo Swagger docs tren trinh duyet
-start "" "http://localhost:8001/docs"
+:: Mo Health Check tren trinh duyet (Swagger docs da tat, test bang Postman)
+start "" "http://localhost:8001/"
 
 echo [*] Cho 3 giay de Backend on dinh he thong...
 timeout /t 3 /nobreak >nul
@@ -40,7 +40,7 @@ start "PTC1 Mobile App (Port 3000)" cmd /k "chcp 65001 >nul & cd /d "%~dp0mobile
 echo.
 echo ==============================================================================
 echo [V] DA KHOI CHAY TOAN BO HE THONG THANH CONG!
-echo     - Backend FastAPI:  http://localhost:8001/docs
+echo     - Backend FastAPI:  http://localhost:8001/ (Health Check - Postman base: /api/v1)
 echo     - Web Client:       http://localhost:5173
 echo     - Mobile Client:    http://localhost:3000
 echo.

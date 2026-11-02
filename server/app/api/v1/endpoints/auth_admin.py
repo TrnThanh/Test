@@ -21,7 +21,32 @@ def login_admin(
     admin_in: AdminLogin,
     db: Session = Depends(get_db),
 ) -> RoleLoginResponse:
-    """Xác thực tài khoản quản trị viên và khởi tạo phiên làm việc."""
+    """
+    [POSTMAN TEST GUIDE]
+    - Method  : POST
+    - URL     : http://localhost:8001/api/v1/auth/admin/login
+    - Headers : Content-Type: application/json
+    - Params  : (Không có)
+    - Body (raw JSON):
+      {
+        "email": "admin@example.com",
+        "password": "admin123"
+      }
+    - Expected: 200 OK
+      {
+        "message": "Admin login successful",
+        "role": "admin",
+        "session_id": "<hex_uuid>",
+        "data": {
+          "id": 1,
+          "email": "admin@example.com",
+          "full_name": "System Administrator",
+          "is_active": true,
+          "created_at": "..."
+        }
+      }
+    - Errors  : 401 Unauthorized (Incorrect email or password), 422 Unprocessable Content (thiếu email/password)
+    """
     # 1. Gọi service xác thực thông tin đăng nhập admin
     admin = AdminService.authenticate_admin(db=db, email=admin_in.email, password=admin_in.password)
     # 2. Kiểm tra nếu thông tin đăng nhập không hợp lệ
