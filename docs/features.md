@@ -121,5 +121,5 @@ Tài liệu này tổng hợp chi tiết toàn bộ các tính năng đã đư�
 ### 2.5. Tab 4: Quản lý Tài khoản Khách hàng (Accounts Management)
 - Xem danh sách toàn bộ tài khoản người dùng (`users`) đã đăng ký trong hệ sinh thái.
 - Tìm kiếm tài khoản theo email hoặc họ tên.
-- Hiển thị ngày tạo tài khoản, ID định danh và trạng thái kích hoạt tài khoản (`is_active`).
+- Hiển thị ngày tạo tài khoản, ID định danh và thông tin liên hệ.
 - Chuẩn hóa mô hình 2 vai trò tinh gọn (`User` và `Admin`), loại bỏ hoàn toàn các cấu trúc role thừa thãi.

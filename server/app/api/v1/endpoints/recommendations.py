@@ -9,7 +9,19 @@ from server.app.services.recommendation_service import RecommendationService
 router = APIRouter()
 
 
-# Hệ thống gợi ý ẩm thực theo ngữ cảnh đa chiều (Context-Aware Recommender System - CARS)
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/recommendations/contextual?lat=21.0046&lon=105.9387&user_id=1&temp=25.0&weather_code=mild
+# Headers: (Không yêu cầu)
+# Đầu vào (Query Params):
+#   - lat          : 21.0046  (float -90 đến 90, bắt buộc)
+#   - lon          : 105.9387 (float -180 đến 180, bắt buộc)
+#   - user_id      : 1        (int, tuỳ chọn)
+#   - temp         : 25.0     (float -10 đến 50, tuỳ chọn)
+#   - weather_code : "mild"   (string, tuỳ chọn: hot, cold, rainy, mild)
+#   - seed         : 42       (int, tuỳ chọn)
+# Status Code gợi ý:
+#   - 200 OK                   : Gợi ý ẩm thực theo ngữ cảnh đa chiều (CARS) thành công
+#   - 422 Unprocessable Content: Toạ độ GPS ngoài phạm vi hợp lệ
 @router.get(
     "/contextual",
     response_model=ContextualRecommendationResponse,
@@ -29,16 +41,6 @@ def get_contextual_recommendations(
     seed: Optional[int] = Query(None, description="Seed ngẫu nhiên phục vụ kiểm thử đơn vị"),
     db: Session = Depends(get_db),
 ) -> ContextualRecommendationResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/recommendations/contextual?lat=21.0046&lon=105.9387&user_id=1&temp=25.0&weather_code=mild
-    - Headers : (Không yêu cầu)
-    - Params  : lat (float, bắt buộc), lon (float, bắt buộc), user_id (int, tuỳ chọn), temp (float, tuỳ chọn), weather_code (str, tuỳ chọn: hot, cold, rainy, mild), seed (int, tuỳ chọn)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"context": {"time_slot": "lunch", "weather": "mild", "temperature": 25.0}, "recommended_restaurants": [...], "suggested_dishes": [...]}
-    - Errors  : 422 Unprocessable Content (toạ độ ngoài phạm vi)
-    """
     # Kích hoạt thuật toán tính điểm và xếp hạng CARS từ RecommendationService
     return RecommendationService.get_contextual_recommendations(
         db=db,

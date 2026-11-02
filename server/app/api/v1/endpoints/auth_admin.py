@@ -9,7 +9,19 @@ from server.app.services.admin_service import AdminService
 router = APIRouter()
 
 
-# Xác thực đăng nhập quản trị viên hệ thống (Admin Console)
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/auth/admin/login
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Body raw JSON):
+# {
+#   "email": "admin@example.com",  // string (bắt buộc)
+#   "password": "admin123"         // string (bắt buộc)
+# }
+# Status Code gợi ý:
+#   - 200 OK                   : Đăng nhập quản trị viên thành công
+#   - 401 Unauthorized         : Sai email hoặc mật khẩu
+#   - 422 Unprocessable Content: Thiếu email hoặc mật khẩu
 @router.post(
     "/login",
     response_model=RoleLoginResponse,
@@ -21,32 +33,6 @@ def login_admin(
     admin_in: AdminLogin,
     db: Session = Depends(get_db),
 ) -> RoleLoginResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/auth/admin/login
-    - Headers : Content-Type: application/json
-    - Params  : (Không có)
-    - Body (raw JSON):
-      {
-        "email": "admin@example.com",
-        "password": "admin123"
-      }
-    - Expected: 200 OK
-      {
-        "message": "Admin login successful",
-        "role": "admin",
-        "session_id": "<hex_uuid>",
-        "data": {
-          "id": 1,
-          "email": "admin@example.com",
-          "full_name": "System Administrator",
-          "is_active": true,
-          "created_at": "..."
-        }
-      }
-    - Errors  : 401 Unauthorized (Incorrect email or password), 422 Unprocessable Content (thiếu email/password)
-    """
     # 1. Gọi service xác thực thông tin đăng nhập admin
     admin = AdminService.authenticate_admin(db=db, email=admin_in.email, password=admin_in.password)
     # 2. Kiểm tra nếu thông tin đăng nhập không hợp lệ

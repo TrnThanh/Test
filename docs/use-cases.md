@@ -96,7 +96,7 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
 
 #### UC-AUTH-02: Đăng nhập User
 - **Actor chính:** Khách hàng (User).
-- **Tiền điều kiện:** Tài khoản User đã đăng ký và đang kích hoạt (`is_active = True`).
+- **Tiền điều kiện:** Tài khoản User đã đăng ký.
 - **Luồng chính:**
   1. Người dùng gửi `email` và `password`.
   2. `UserService` truy vấn tìm `User` theo email.
@@ -104,7 +104,6 @@ Dành cho **Khách hàng (User/Guest)** tra cứu danh mục bữa ăn & trạng
   4. Trả về HTTP `200 OK` với thông tin User và vai trò `role: "user"`.
 - **Luồng ngoại lệ:**
   - *Sai email hoặc sai mật khẩu:* Trả về HTTP `401 Unauthorized` ("Email hoặc mật khẩu không chính xác.").
-  - *Tài khoản bị khóa (`is_active = False`):* Trả về HTTP `403 Forbidden` ("Tài khoản đã bị vô hiệu hóa.").
 - **API Endpoint:** `POST /api/v1/auth/user/login`.
 
 #### UC-AUTH-05: Đăng nhập Admin

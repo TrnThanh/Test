@@ -17,6 +17,7 @@ def apply_schema_patches(conn) -> None:
     """Thực thi các câu lệnh DDL vá schema cơ sở dữ liệu và tương thích ngược."""
     conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
     conn.execute(text("ALTER TABLE IF EXISTS admins DROP COLUMN IF EXISTS role_level CASCADE;"))
+    conn.execute(text("ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS is_active CASCADE;"))
     conn.execute(text("ALTER TABLE IF EXISTS restaurants DROP COLUMN IF EXISTS seller_id CASCADE;"))
     conn.execute(text("DROP TABLE IF EXISTS sellers CASCADE;"))
     conn.execute(text("DROP TABLE IF EXISTS user_profiles CASCADE;"))

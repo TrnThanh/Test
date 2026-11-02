@@ -8,7 +8,15 @@ from server.app.services.option_user_service import OptionUserService
 router = APIRouter()
 
 
-# Lấy danh sách tuỳ chọn ẩn hoặc hiện các danh mục món ăn theo cấu hình của người dùng
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/users/1/options?hide=true
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - user_id: 1 (int, bắt buộc)
+# Đầu vào (Query Params):
+#   - hide: true (bool, tuỳ chọn)
+# Status Code gợi ý:
+#   - 200 OK: Lấy danh sách tùy chọn ẩn/hiện danh mục của người dùng thành công
 @router.get(
     "/{user_id}/options",
     response_model=List[OptionUserResponse],
@@ -21,20 +29,25 @@ def get_user_options(
     hide: Optional[bool] = Query(None, description="Lọc theo trạng thái ẩn (true/false)"),
     db: Session = Depends(get_db),
 ) -> List[OptionUserResponse]:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/users/1/options?hide=true
-    - Headers : (Không yêu cầu)
-    - Params  : Path user_id (int), Query hide (bool, tuỳ chọn)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "user_id": 1, "category_id": 3, "hide": true, "category_name": "Đồ uống"}]
-    """
     # Lấy danh sách tùy chọn theo user_id
     return OptionUserService.get_user_options(db=db, user_id=user_id, hide=hide)
 
 
-# Thiết lập trạng thái ẩn hoặc hiện cho một danh mục món ăn cụ thể của người dùng
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/users/1/options
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Path Param):
+#   - user_id: 1 (int, bắt buộc)
+# Đầu vào (Body raw JSON):
+# {
+#   "category_id": 3,  // int (bắt buộc)
+#   "hide": true       // bool (bắt buộc)
+# }
+# Status Code gợi ý:
+#   - 201 Created              : Tạo hoặc cập nhật tùy chọn ẩn danh mục thành công
+#   - 404 Not Found            : Người dùng hoặc danh mục không tồn tại
+#   - 422 Unprocessable Content: Sai kiểu dữ liệu
 @router.post(
     "/{user_id}/options",
     response_model=OptionUserResponse,
@@ -47,25 +60,19 @@ def create_user_option(
     data: OptionUserCreate,
     db: Session = Depends(get_db),
 ) -> OptionUserResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/users/1/options
-    - Headers : Content-Type: application/json
-    - Params  : Path user_id (int)
-    - Body (raw JSON):
-      {
-        "category_id": 3,
-        "hide": true
-      }
-    - Expected: 201 Created -> {"id": 1, "user_id": 1, "category_id": 3, "hide": true, "category_name": "Đồ uống"}
-    - Errors  : 404 Not Found (User hoặc Category không tồn tại), 422 Unprocessable Content
-    """
     # Lưu tùy chọn danh mục của người dùng vào CSDL
     return OptionUserService.create_user_option(db=db, user_id=user_id, data=data)
 
 
-# Xoá tuỳ chọn ẩn danh mục của người dùng (khôi phục về trạng thái hiển thị mặc định)
+# [POSTMAN GUIDE]
+# DELETE http://localhost:8001/api/v1/users/1/options/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - user_id   : 1 (int, bắt buộc)
+#   - option_id : 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 204 No Content: Xóa tùy chọn ẩn danh mục thành công (khôi phục hiển thị)
+#   - 404 Not Found : Tùy chọn không tồn tại hoặc không thuộc quyền sở hữu của người dùng
 @router.delete(
     "/{user_id}/options/{option_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -77,15 +84,5 @@ def delete_user_option(
     option_id: int,
     db: Session = Depends(get_db),
 ) -> None:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : DELETE
-    - URL     : http://localhost:8001/api/v1/users/1/options/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path user_id (int), Path option_id (int)
-    - Body    : (Không có)
-    - Expected: 204 No Content
-    - Errors  : 404 Not Found (Tùy chọn không tồn tại hoặc không thuộc user)
-    """
     # Gọi service xóa bản ghi tùy chọn
     OptionUserService.delete_user_option(db=db, user_id=user_id, option_id=option_id)

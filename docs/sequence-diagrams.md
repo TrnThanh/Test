@@ -61,7 +61,7 @@ sequenceDiagram
     DB-->>Svc: User record
     Svc->>Sec: verify_password(password, hashed_password)
     Sec-->>Svc: True (khớp mật khẩu)
-    Svc-->>API: User (is_active = True)
+    Svc-->>API: User record
     deactivate Svc
     API-->>User: HTTP 200 OK (RoleLoginResponse role='user', session_id=uuid.uuid4().hex)
     deactivate API

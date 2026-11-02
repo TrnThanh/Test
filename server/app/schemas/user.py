@@ -53,7 +53,6 @@ class UserResponse(BaseModel):
     email: str = Field(..., description="Địa chỉ email", examples=["user@example.com"])
     full_name: Optional[str] = Field(None, description="Họ và tên")
     phone: Optional[str] = Field(None, description="Số điện thoại liên hệ")
-    is_active: bool = Field(True, description="Trạng thái kích hoạt")
     created_at: datetime = Field(..., description="Thời gian tạo tài khoản")
     session_id: Optional[str] = Field(None, description="Mã phiên làm việc đăng nhập")
     role: str = Field("user", description="Vai trò tài khoản")

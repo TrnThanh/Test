@@ -32,7 +32,6 @@ class AdminUserItem(BaseModel):
     email: str
     full_name: Optional[str] = None
     phone: Optional[str] = None
-    is_active: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

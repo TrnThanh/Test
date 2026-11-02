@@ -13,7 +13,21 @@ router = APIRouter()
 # PHÂN HỆ 1: Danh mục toàn cục (Global Master Categories)
 # ==============================================================================
 
-# Tạo mới một danh mục phân loại món ăn dùng chung cho toàn bộ hệ thống
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/categories
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Body raw JSON):
+# {
+#   "name": "Món Cuốn & Gỏi",                                        // string (bắt buộc)
+#   "description": "Các món cuốn bánh tráng, gỏi tôm thịt tươi mát",  // string (tuỳ chọn)
+#   "display_order": 1,                                              // int (tuỳ chọn, default: 0)
+#   "is_active": true                                                // bool (tuỳ chọn, default: true)
+# }
+# Status Code gợi ý:
+#   - 201 Created              : Tạo danh mục món ăn mới toàn cục thành công
+#   - 400 Bad Request          : Tên danh mục đã tồn tại
+#   - 422 Unprocessable Content: Thiếu tên danh mục hoặc sai kiểu dữ liệu
 @router.post(
     "/categories",
     response_model=CategoryResponse,
@@ -24,22 +38,6 @@ def create_category(
     category_in: CategoryCreate,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/categories
-    - Headers : Content-Type: application/json
-    - Params  : (Không có)
-    - Body (raw JSON):
-      {
-        "name": "Món Cuốn & Gỏi",
-        "description": "Các món cuốn bánh tráng, gỏi tôm thịt tươi mát",
-        "display_order": 1,
-        "is_active": true
-      }
-    - Expected: 201 Created -> {"id": 1, "name": "Món Cuốn & Gỏi", "display_order": 1, "is_active": true}
-    - Errors  : 400 Bad Request (Tên danh mục đã tồn tại), 422 Unprocessable Content
-    """
     # Gọi service thêm danh mục toàn cục vào cơ sở dữ liệu
     return CategoryService.create_category(
         db=db,
@@ -47,7 +45,14 @@ def create_category(
     )
 
 
-# Lấy danh sách toàn bộ các nhóm danh mục món ăn trong hệ thống
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/categories?is_active_only=true
+# Headers: (Không yêu cầu)
+# Đầu vào (Query Params):
+#   - is_active_only : false (bool, default: false)
+#   - restaurant_id  : 1     (int, tuỳ chọn)
+# Status Code gợi ý:
+#   - 200 OK: Lấy danh sách các nhóm danh mục món ăn toàn cục thành công
 @router.get(
     "/categories",
     response_model=List[CategoryResponse],
@@ -58,15 +63,6 @@ def get_categories(
     restaurant_id: Optional[int] = Query(None, description="Lọc danh mục có món thuộc quán ăn này"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/categories?is_active_only=true
-    - Headers : (Không yêu cầu)
-    - Params  : is_active_only (bool, mặc định false), restaurant_id (int, tuỳ chọn)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "name": "Cơm", "dish_count": 12, "is_active": true}]
-    """
     # Lấy danh sách danh mục theo trạng thái và quán ăn
     return CategoryService.get_categories(
         db=db,
@@ -79,7 +75,21 @@ def get_categories(
 # PHÂN HỆ 2: Endpoints danh mục tương thích ngược theo quán ăn
 # ==============================================================================
 
-# Tạo nhóm danh mục món ăn gắn với một quán ăn cụ thể (tương thích ngược)
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/restaurants/1/categories
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Path Param):
+#   - restaurant_id: 1 (int, bắt buộc)
+# Đầu vào (Body raw JSON):
+# {
+#   "name": "Đồ uống đặc biệt",  // string (bắt buộc)
+#   "display_order": 2           // int (tuỳ chọn)
+# }
+# Status Code gợi ý:
+#   - 201 Created              : Tạo nhóm danh mục món ăn cho quán thành công
+#   - 400 Bad Request          : Tên danh mục đã tồn tại
+#   - 422 Unprocessable Content: Sai dữ liệu đầu vào hoặc thiếu tên danh mục
 @router.post(
     "/restaurants/{restaurant_id}/categories",
     response_model=CategoryResponse,
@@ -91,20 +101,6 @@ def create_category_legacy(
     category_in: CategoryCreate = ...,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/restaurants/1/categories
-    - Headers : Content-Type: application/json
-    - Params  : Path restaurant_id (int)
-    - Body (raw JSON):
-      {
-        "name": "Đồ uống đặc biệt",
-        "display_order": 2
-      }
-    - Expected: 201 Created -> {"id": 2, "name": "Đồ uống đặc biệt", "restaurant_id": 1}
-    - Errors  : 400 Bad Request, 422 Unprocessable Content
-    """
     # Tạo danh mục có gắn restaurant_id
     return CategoryService.create_category(
         db=db,
@@ -113,7 +109,15 @@ def create_category_legacy(
     )
 
 
-# Lấy danh sách các nhóm danh mục của quán ăn cụ thể
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants/1/categories?is_active_only=true
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - restaurant_id: 1 (int, bắt buộc)
+# Đầu vào (Query Params):
+#   - is_active_only: false (bool, default: false)
+# Status Code gợi ý:
+#   - 200 OK: Lấy danh sách các nhóm danh mục của quán ăn thành công
 @router.get(
     "/restaurants/{restaurant_id}/categories",
     response_model=List[CategoryResponse],
@@ -124,15 +128,6 @@ def get_restaurant_categories(
     is_active_only: bool = Query(False, description="Chỉ lấy danh mục đang hoạt động"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants/1/categories?is_active_only=true
-    - Headers : (Không yêu cầu)
-    - Params  : Path restaurant_id (int), Query is_active_only (bool)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "name": "Món chính", ...}]
-    """
     # Lấy danh sách danh mục theo quán ăn cụ thể
     return CategoryService.get_categories(
         db=db,
@@ -141,7 +136,14 @@ def get_restaurant_categories(
     )
 
 
-# Lấy thông tin chi tiết một danh mục món ăn theo ID
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/categories/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - category_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Chi tiết một danh mục món ăn thành công
+#   - 404 Not Found: Không tìm thấy danh mục món ăn
 @router.get(
     "/categories/{category_id}",
     response_model=CategoryResponse,
@@ -151,21 +153,26 @@ def get_category_detail(
     category_id: int = Path(..., description="ID danh mục"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/categories/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path category_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"id": 1, "name": "Cơm", "description": "...", "is_active": true}
-    - Errors  : 404 Not Found
-    """
     # Truy vấn chi tiết danh mục theo ID
     return CategoryService.get_category_by_id(db=db, category_id=category_id)
 
 
-# Cập nhật thông tin danh mục món ăn (tên, thứ tự hiển thị, trạng thái)
+# [POSTMAN GUIDE]
+# PUT http://localhost:8001/api/v1/categories/1
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Path Param):
+#   - category_id: 1 (int, bắt buộc)
+# Đầu vào (Body raw JSON):
+# {
+#   "name": "Cơm & Mì Phở",  // string (tuỳ chọn)
+#   "display_order": 1,      // int (tuỳ chọn)
+#   "is_active": true        // bool (tuỳ chọn)
+# }
+# Status Code gợi ý:
+#   - 200 OK                   : Cập nhật danh mục món ăn thành công
+#   - 404 Not Found            : Không tìm thấy danh mục
+#   - 422 Unprocessable Content: Dữ liệu cập nhật không hợp lệ
 @router.put(
     "/categories/{category_id}",
     response_model=CategoryResponse,
@@ -176,21 +183,6 @@ def update_category(
     category_in: CategoryUpdate = ...,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : PUT
-    - URL     : http://localhost:8001/api/v1/categories/1
-    - Headers : Content-Type: application/json
-    - Params  : Path category_id (int)
-    - Body (raw JSON):
-      {
-        "name": "Cơm & Mì Phở",
-        "display_order": 1,
-        "is_active": true
-      }
-    - Expected: 200 OK -> {"id": 1, "name": "Cơm & Mì Phở", ...}
-    - Errors  : 404 Not Found, 422 Unprocessable Content
-    """
     # Cập nhật thông tin danh mục qua service
     return CategoryService.update_category(
         db=db,
@@ -199,7 +191,14 @@ def update_category(
     )
 
 
-# Xoá một danh mục món ăn (các món ăn thuộc danh mục sẽ chuyển thành không phân loại)
+# [POSTMAN GUIDE]
+# DELETE http://localhost:8001/api/v1/categories/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - category_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Xoá danh mục món ăn thành công
+#   - 404 Not Found: Không tìm thấy danh mục món ăn cần xoá
 @router.delete(
     "/categories/{category_id}",
     summary="Xoá danh mục món ăn",
@@ -208,16 +207,6 @@ def delete_category(
     category_id: int = Path(..., description="ID danh mục cần xoá"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : DELETE
-    - URL     : http://localhost:8001/api/v1/categories/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path category_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"message": "Danh mục 1 đã được xoá thành công..."}
-    - Errors  : 404 Not Found
-    """
     # 1. Gọi service xoá danh mục và gán category_id = None cho các món liên quan
     CategoryService.delete_category(
         db=db,

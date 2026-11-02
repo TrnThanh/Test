@@ -14,7 +14,15 @@ from server.app.services.weather_category_service import WeatherCategoryService
 router = APIRouter()
 
 
-# Thiết lập mối liên kết N-N giữa một điều kiện thời tiết và một nhóm danh mục món ăn
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/weather-categories/weathers/1/categories/2
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - weather_id  : 1 (int, bắt buộc)
+#   - category_id : 2 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 201 Created  : Thiết lập liên kết thời tiết và danh mục thành công
+#   - 404 Not Found: Trạng thái thời tiết hoặc danh mục không tồn tại
 @router.post(
     "/weathers/{weather_id}/categories/{category_id}",
     response_model=WeatherCategoryResponse,
@@ -27,23 +35,21 @@ def link_weather_category(
     category_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/weather-categories/weathers/1/categories/2
-    - Headers : (Không yêu cầu)
-    - Params  : Path weather_id (int), Path category_id (int)
-    - Body    : (Không có)
-    - Expected: 201 Created -> {"id": 1, "weather_id": 1, "category_id": 2, "created_at": "..."}
-    - Errors  : 404 Not Found (Weather hoặc Category không tồn tại)
-    """
     # Tạo liên kết trong CSDL (idempotent)
     return WeatherCategoryService.link_weather_category(
         db, weather_id=weather_id, category_id=category_id
     )
 
 
-# Hủy mối liên kết giữa điều kiện thời tiết và nhóm danh mục món ăn
+# [POSTMAN GUIDE]
+# DELETE http://localhost:8001/api/v1/weather-categories/weathers/1/categories/2
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - weather_id  : 1 (int, bắt buộc)
+#   - category_id : 2 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Hủy liên kết giữa thời tiết và danh mục thành công
+#   - 404 Not Found: Bản ghi liên kết không tồn tại
 @router.delete(
     "/weathers/{weather_id}/categories/{category_id}",
     summary="Hủy liên kết giữa thời tiết và danh mục món ăn",
@@ -53,16 +59,6 @@ def unlink_weather_category(
     category_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : DELETE
-    - URL     : http://localhost:8001/api/v1/weather-categories/weathers/1/categories/2
-    - Headers : (Không yêu cầu)
-    - Params  : Path weather_id (int), Path category_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"message": "Đã hủy liên kết thời tiết và danh mục thành công"}
-    - Errors  : 404 Not Found
-    """
     # 1. Gọi service xóa liên kết
     WeatherCategoryService.unlink_weather_category(
         db, weather_id=weather_id, category_id=category_id
@@ -71,7 +67,14 @@ def unlink_weather_category(
     return {"message": "Đã hủy liên kết thời tiết và danh mục thành công"}
 
 
-# Lấy danh sách các nhóm danh mục món ăn phù hợp với một điều kiện thời tiết cụ thể
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/weather-categories/weathers/1/categories
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - weather_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy danh sách các danh mục món ăn theo trạng thái thời tiết thành công
+#   - 404 Not Found: Trạng thái thời tiết không tồn tại
 @router.get(
     "/weathers/{weather_id}/categories",
     response_model=List[CategoryResponse],
@@ -82,21 +85,18 @@ def get_categories_by_weather(
     weather_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/weather-categories/weathers/1/categories
-    - Headers : (Không yêu cầu)
-    - Params  : Path weather_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 2, "name": "Lẩu & Nướng", "is_active": true}]
-    - Errors  : 404 Not Found
-    """
     # Lấy danh sách danh mục theo ID thời tiết
     return WeatherCategoryService.get_categories_by_weather(db, weather_id=weather_id)
 
 
-# Lấy danh sách các điều kiện thời tiết được áp dụng cho một danh mục món ăn cụ thể
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/weather-categories/categories/2/weathers
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - category_id: 2 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy danh sách trạng thái thời tiết áp dụng cho một danh mục thành công
+#   - 404 Not Found: Danh mục món ăn không tồn tại
 @router.get(
     "/categories/{category_id}/weathers",
     response_model=List[WeatherResponse],
@@ -106,21 +106,23 @@ def get_weathers_by_category(
     category_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/weather-categories/categories/2/weathers
-    - Headers : (Không yêu cầu)
-    - Params  : Path category_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "code": "cold", "name": "Trời lạnh", ...}]
-    - Errors  : 404 Not Found
-    """
     # Lấy danh sách thời tiết theo ID danh mục
     return WeatherCategoryService.get_weathers_by_category(db, category_id=category_id)
 
 
-# Tạo liên kết giữa thời tiết và danh mục món ăn thông qua payload request body
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/weather-categories
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Body raw JSON):
+# {
+#   "weather_id": 1,  // int (bắt buộc)
+#   "category_id": 2  // int (bắt buộc)
+# }
+# Status Code gợi ý:
+#   - 201 Created              : Tạo liên kết thời tiết và danh mục thành công
+#   - 404 Not Found            : Trạng thái thời tiết hoặc danh mục không tồn tại
+#   - 422 Unprocessable Content: Sai kiểu dữ liệu
 @router.post(
     "",
     response_model=WeatherCategoryResponse,
@@ -131,27 +133,22 @@ def create_weather_category(
     data: WeatherCategoryCreate,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/weather-categories
-    - Headers : Content-Type: application/json
-    - Params  : (Không có)
-    - Body (raw JSON):
-      {
-        "weather_id": 1,
-        "category_id": 2
-      }
-    - Expected: 201 Created -> {"id": 1, "weather_id": 1, "category_id": 2, ...}
-    - Errors  : 404 Not Found, 422 Unprocessable Content
-    """
     # Tạo liên kết từ dữ liệu body
     return WeatherCategoryService.link_weather_category(
         db, weather_id=data.weather_id, category_id=data.category_id
     )
 
 
-# Lấy danh sách toàn bộ các bản ghi liên kết thời tiết - danh mục có hỗ trợ phân trang
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/weather-categories?weather_id=1&skip=0&limit=50
+# Headers: (Không yêu cầu)
+# Đầu vào (Query Params):
+#   - weather_id  : 1  (int, tuỳ chọn)
+#   - category_id : 2  (int, tuỳ chọn)
+#   - skip        : 0  (int, default: 0)
+#   - limit       : 50 (int 1-100, default: 100)
+# Status Code gợi ý:
+#   - 200 OK: Lấy danh sách các bản ghi liên kết thời tiết - danh mục thành công
 @router.get(
     "",
     response_model=List[WeatherCategoryResponse],
@@ -164,15 +161,6 @@ def list_weather_categories(
     limit: int = Query(100, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/weather-categories?weather_id=1&skip=0&limit=50
-    - Headers : (Không yêu cầu)
-    - Params  : weather_id (int, tuỳ chọn), category_id (int, tuỳ chọn), skip (int), limit (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "weather_id": 1, "category_id": 2, ...}]
-    """
     # Truy vấn danh sách liên kết qua hàm get_all_links của service
     return WeatherCategoryService.get_all_links(
         db, weather_id=weather_id, category_id=category_id, skip=skip, limit=limit

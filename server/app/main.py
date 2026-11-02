@@ -166,23 +166,14 @@ dịch vụ bản đồ địa lý OpenStreetMap Geocoding và truy vấn không
             },
         )
 
-    # Endpoint kiểm tra trạng thái sức khoẻ máy chủ (Health Check)
+    # [POSTMAN GUIDE]
+    # GET http://localhost:8001/
+    # Headers: (Không yêu cầu)
+    # Đầu vào: Không có
+    # Status Code gợi ý:
+    #   - 200 OK: Trả về trạng thái hoạt động của hệ thống
     @app.get("/", tags=["Health Check"])
     def root():
-        """
-        [POSTMAN TEST GUIDE]
-        - Method  : GET
-        - URL     : http://localhost:8001/
-        - Headers : (Không yêu cầu)
-        - Params  : (Không có)
-        - Body    : (Không có)
-        - Expected: 200 OK
-          {
-            "app": "PTC1 FastAPI Server",
-            "version": "0.1.0",
-            "status": "online"
-          }
-        """
         return {
             "app": settings.APP_NAME,
             "version": settings.APP_VERSION,

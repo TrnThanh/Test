@@ -29,6 +29,7 @@ erDiagram
         string email UK "Email đăng nhập (Unique, Index)"
         string hashed_password "Mật khẩu băm PBKDF2"
         string full_name "Họ tên người dùng (Nullable)"
+        string phone "Số điện thoại liên hệ (Nullable)"
         float height_cm "Chiều cao (50-260 cm, Nullable)"
         float weight_kg "Cân nặng (10-500 kg, Nullable)"
         string gender "Giới tính: male, female, other"

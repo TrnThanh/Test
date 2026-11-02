@@ -21,7 +21,25 @@ router = APIRouter()
 # NHÓM ENDPOINT 1: Quản lý Quán ăn (CRUD Operations)
 # ==============================================================================
 
-# Tạo mới một cơ sở ẩm thực trong hệ thống (chỉ dành cho quản trị viên)
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/restaurants
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Body raw JSON):
+# {
+#   "name": "Bún Bò Huế Ngự Uyển",             // string (bắt buộc)
+#   "address": "Số 45 Trâu Quỳ, Gia Lâm, Hà Nội", // string (bắt buộc)
+#   "latitude": 21.0062,                        // float (-90 đến 90, bắt buộc)
+#   "longitude": 105.9341,                      // float (-180 đến 180, bắt buộc)
+#   "phone": "0988776655",                      // string (tuỳ chọn)
+#   "opening_time": "06:30",                    // string HH:MM (tuỳ chọn)
+#   "closing_time": "21:30",                    // string HH:MM (tuỳ chọn)
+#   "price_min": 40000,                         // int (tuỳ chọn)
+#   "price_max": 65000                          // int (tuỳ chọn)
+# }
+# Status Code gợi ý:
+#   - 201 Created              : Tạo quán ăn mới thành công
+#   - 422 Unprocessable Content: Thiếu trường bắt buộc hoặc toạ độ ngoài phạm vi
 @router.post(
     "/restaurants",
     response_model=RestaurantResponse,
@@ -33,32 +51,26 @@ def create_restaurant(
     payload: RestaurantCreate,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/restaurants
-    - Headers : Content-Type: application/json
-    - Params  : (Không có)
-    - Body (raw JSON):
-      {
-        "name": "Bún Bò Huế Ngự Uyển",
-        "address": "Số 45 Trâu Quỳ, Gia Lâm, Hà Nội",
-        "latitude": 21.0062,
-        "longitude": 105.9341,
-        "phone": "0988776655",
-        "opening_time": "06:30",
-        "closing_time": "21:30",
-        "price_min": 40000,
-        "price_max": 65000
-      }
-    - Expected: 201 Created -> {"id": 2, "name": "Bún Bò Huế Ngự Uyển", "is_active": true, ...}
-    - Errors  : 422 Unprocessable Content
-    """
     # Chuyển payload sang tầng service để xác thực và lưu vào cơ sở dữ liệu
     return RestaurantService.create_restaurant(db=db, data=payload)
 
 
-# Cập nhật thông tin chi tiết của một quán ăn theo ID
+# [POSTMAN GUIDE]
+# PUT http://localhost:8001/api/v1/restaurants/1
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Path Param):
+#   - restaurant_id: 1 (int, bắt buộc)
+# Đầu vào (Body raw JSON):
+# {
+#   "name": "Bún Bò Huế Ngự Uyển (Cơ sở 1)",  // string (tuỳ chọn)
+#   "opening_time": "06:00",                   // string HH:MM (tuỳ chọn)
+#   "closing_time": "22:00"                    // string HH:MM (tuỳ chọn)
+# }
+# Status Code gợi ý:
+#   - 200 OK                   : Cập nhật thông tin quán ăn thành công
+#   - 404 Not Found            : Không tìm thấy quán ăn
+#   - 422 Unprocessable Content: Dữ liệu cập nhật không hợp lệ
 @router.put(
     "/restaurants/{restaurant_id}",
     response_model=RestaurantResponse,
@@ -70,28 +82,20 @@ def update_restaurant(
     payload: RestaurantUpdate = ...,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : PUT
-    - URL     : http://localhost:8001/api/v1/restaurants/1
-    - Headers : Content-Type: application/json
-    - Params  : Path restaurant_id (int)
-    - Body (raw JSON):
-      {
-        "name": "Bún Bò Huế Ngự Uyển (Cơ sở 1)",
-        "opening_time": "06:00",
-        "closing_time": "22:00"
-      }
-    - Expected: 200 OK -> {"id": 1, "name": "Bún Bò Huế Ngự Uyển (Cơ sở 1)", ...}
-    - Errors  : 404 Not Found, 422 Unprocessable Content
-    """
     # Gọi service cập nhật các trường thông tin thay đổi
     return RestaurantService.update_restaurant(
         db=db, restaurant_id=restaurant_id, data=payload
     )
 
 
-# Xoá hoàn toàn một cơ sở quán ăn khỏi hệ thống
+# [POSTMAN GUIDE]
+# DELETE http://localhost:8001/api/v1/restaurants/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - restaurant_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Xoá quán ăn thành công
+#   - 404 Not Found: Quán ăn không tồn tại
 @router.delete(
     "/restaurants/{restaurant_id}",
     status_code=status.HTTP_200_OK,
@@ -102,16 +106,6 @@ def delete_restaurant(
     restaurant_id: int = Path(..., description="ID quán ăn"),
     db: Session = Depends(get_db),
 ) -> dict:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : DELETE
-    - URL     : http://localhost:8001/api/v1/restaurants/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path restaurant_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"message": "Đã xoá quán ăn thành công.", "restaurant_id": 1}
-    - Errors  : 404 Not Found
-    """
     # 1. Gọi service để xoá bản ghi quán ăn và cascade xoá món ăn liên quan
     RestaurantService.delete_restaurant(
         db=db, restaurant_id=restaurant_id
@@ -124,7 +118,18 @@ def delete_restaurant(
 # NHÓM ENDPOINT 2: Công khai (Public) dành cho Khách hàng & Bản đồ
 # ==============================================================================
 
-# Tìm kiếm các quán ăn xung quanh vị trí khách hàng dựa trên không gian địa lý PostGIS
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants/nearby?lat=21.0046&lon=105.9387&radius_km=3.0&skip=0&limit=50
+# Headers: (Không yêu cầu)
+# Đầu vào (Query Params):
+#   - lat       : 21.0046 (float -90 đến 90, bắt buộc)
+#   - lon       : 105.9387 (float -180 đến 180, bắt buộc)
+#   - radius_km : 3.0    (float > 0 đến 100, default: 5.0)
+#   - skip      : 0      (int, default: 0)
+#   - limit     : 50     (int 1-500, default: 100)
+# Status Code gợi ý:
+#   - 200 OK                   : Tìm kiếm quán ăn xung quanh thành công
+#   - 422 Unprocessable Content: Toạ độ hoặc bán kính không hợp lệ
 @router.get(
     "/restaurants/nearby",
     response_model=List[NearbyRestaurantResponse],
@@ -139,23 +144,20 @@ def find_nearby_restaurants(
     limit: int = Query(100, ge=1, le=500, description="Số lượng bản ghi tối đa"),
     db: Session = Depends(get_db),
 ) -> List[NearbyRestaurantResponse]:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants/nearby?lat=21.0046&lon=105.9387&radius_km=3.0&skip=0&limit=50
-    - Headers : (Không yêu cầu)
-    - Params  : lat (float, bắt buộc), lon (float, bắt buộc), radius_km (float, mặc định 5.0), skip (int), limit (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "name": "...", "distance_meters": 350.5, "distance_km": 0.35, "latitude": 21.005, "longitude": 105.939}]
-    - Errors  : 422 Unprocessable Content
-    """
     # Uỷ thác cho RestaurantService thực thi câu lệnh SQL không gian và tính khoảng cách
     return RestaurantService.get_nearby_restaurants(
         db=db, lat=lat, lon=lon, radius_km=radius_km, skip=skip, limit=limit
     )
 
 
-# Lấy danh sách toàn bộ các quán ăn đang hoạt động để hiển thị danh mục khám phá
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants?skip=0&limit=50
+# Headers: (Không yêu cầu)
+# Đầu vào (Query Params):
+#   - skip  : 0  (int, default: 0)
+#   - limit : 50 (int, tuỳ chọn)
+# Status Code gợi ý:
+#   - 200 OK: Xem danh sách tất cả quán ăn đang hoạt động thành công
 @router.get(
     "/restaurants",
     response_model=List[RestaurantResponse],
@@ -167,22 +169,25 @@ def list_public_restaurants(
     limit: Optional[int] = Query(None, description="Số lượng bản ghi tối đa (để trống để lấy tất cả)"),
     db: Session = Depends(get_db),
 ) -> List[RestaurantResponse]:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants?skip=0&limit=50
-    - Headers : (Không yêu cầu)
-    - Params  : skip (int, mặc định 0), limit (int, tuỳ chọn)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "name": "Quán Cơm...", "is_active": true, ...}]
-    """
     # Lấy danh sách tất cả quán có cờ is_active = True
     return RestaurantService.get_all_active_restaurants(
         db=db, skip=skip, limit=limit, active_only=True
     )
 
 
-# Chỉ đường đi bộ thực tế bám sát ngõ ngách, đường phố từ vị trí người dùng đến quán ăn
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants/1/route?user_lat=21.0046&user_lon=105.9387
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - restaurant_id : 1        (int, bắt buộc)
+# Đầu vào (Query Params):
+#   - user_lat      : 21.0046  (float -90 đến 90, bắt buộc)
+#   - user_lon      : 105.9387 (float -180 đến 180, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK                   : Tìm đường đi bộ ngắn nhất đến quán ăn thành công
+#   - 400 Bad Request          : Khoảng cách vượt quá giới hạn (tối đa 50km)
+#   - 404 Not Found            : Quán không tồn tại hoặc đã ngừng hoạt động
+#   - 422 Unprocessable Content: Quán chưa có toạ độ hợp lệ hoặc toạ độ gửi lên sai
 @router.get(
     "/restaurants/{restaurant_id}/route",
     response_model=RestaurantRouteResponse,
@@ -195,16 +200,6 @@ async def get_walking_route_to_restaurant(
     user_lon: float = Query(..., ge=-180.0, le=180.0, description="Kinh độ xuất phát của người dùng"),
     db: Session = Depends(get_db),
 ) -> RestaurantRouteResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants/1/route?user_lat=21.0046&user_lon=105.9387
-    - Headers : (Không yêu cầu)
-    - Params  : Path restaurant_id (int), Query user_lat (float), Query user_lon (float)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"restaurant_id": 1, "distance_meters": 450.0, "duration_seconds": 320.0, "geometry": "...", "steps": [...]}
-    - Errors  : 400 Bad Request (khoảng cách > 50km), 404 Not Found (quán không tồn tại/ngừng hoạt động), 422 Unprocessable Content
-    """
     # 1. Truy vấn thông tin quán ăn từ cơ sở dữ liệu
     restaurant = RestaurantService.get_restaurant_by_id(db=db, restaurant_id=restaurant_id)
     # 2. Kiểm tra quán có đang mở cửa / hoạt động hay không
@@ -239,7 +234,18 @@ async def get_walking_route_to_restaurant(
     )
 
 
-# Tính khoảng cách trực tiếp từ vị trí khách hàng đến quán ăn cụ thể
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants/1/distance?lat=21.0046&lon=105.9387
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - restaurant_id : 1        (int, bắt buộc)
+# Đầu vào (Query Params):
+#   - lat           : 21.0046  (float -90 đến 90, bắt buộc)
+#   - lon           : 105.9387 (float -180 đến 180, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK                   : Tính khoảng cách đến quán ăn thành công
+#   - 404 Not Found            : Không tìm thấy quán ăn
+#   - 422 Unprocessable Content: Toạ độ khách hàng ngoài phạm vi hợp lệ
 @router.get(
     "/restaurants/{restaurant_id}/distance",
     response_model=DistanceResponse,
@@ -252,23 +258,20 @@ def get_distance_to_restaurant(
     lon: float = Query(..., ge=-180.0, le=180.0, description="Kinh độ hiện tại của khách hàng"),
     db: Session = Depends(get_db),
 ) -> DistanceResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants/1/distance?lat=21.0046&lon=105.9387
-    - Headers : (Không yêu cầu)
-    - Params  : Path restaurant_id (int), Query lat (float), Query lon (float)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"restaurant_id": 1, "restaurant_name": "...", "distance_meters": 350.5, "distance_km": 0.35}
-    - Errors  : 404 Not Found, 422 Unprocessable Content
-    """
     # Gọi hàm tính khoảng cách PostGIS từ RestaurantService
     return RestaurantService.calculate_distance_to_restaurant(
         db=db, restaurant_id=restaurant_id, lat=lat, lon=lon
     )
 
 
-# Lấy thông tin chi tiết toạ độ và địa chỉ quán ăn phục vụ dẫn đường
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - restaurant_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy thông tin chi tiết toạ độ quán ăn thành công
+#   - 404 Not Found: Không tìm thấy quán ăn với ID tương ứng
 @router.get(
     "/restaurants/{restaurant_id}",
     response_model=RestaurantResponse,
@@ -279,15 +282,5 @@ def get_public_restaurant_detail(
     restaurant_id: int,
     db: Session = Depends(get_db),
 ) -> RestaurantResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path restaurant_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"id": 1, "name": "...", "latitude": 21.005, "longitude": 105.939, "address": "...", "is_active": true}
-    - Errors  : 404 Not Found
-    """
     # Trả về thông tin đầy đủ của quán ăn theo ID
     return RestaurantService.get_restaurant_by_id(db=db, restaurant_id=restaurant_id)

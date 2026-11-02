@@ -9,7 +9,22 @@ from server.app.services.user_service import UserService
 router = APIRouter()
 
 
-# Đăng ký tài khoản người dùng mới (Thực khách)
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/auth/user/register
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Body raw JSON):
+# {
+#   "email": "khachhang@example.com",     // string (bắt buộc, email hợp lệ)
+#   "password": "user123",                 // string (bắt buộc, tối thiểu 6 ký tự)
+#   "confirm_password": "user123",         // string (bắt buộc, khớp với password)
+#   "full_name": "Nguyễn Văn A",           // string (tuỳ chọn)
+#   "phone": "0987654321"                  // string (tuỳ chọn, đúng định dạng SĐT)
+# }
+# Status Code gợi ý:
+#   - 201 Created              : Đăng ký tài khoản thành công
+#   - 400 Bad Request          : Email đã được sử dụng hoặc confirm_password không khớp
+#   - 422 Unprocessable Content: Thiếu trường bắt buộc hoặc sai định dạng dữ liệu
 @router.post(
     "/register",
     response_model=UserResponse,
@@ -21,32 +36,6 @@ def register_user(
     user_in: UserRegister,
     db: Session = Depends(get_db),
 ) -> UserResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/auth/user/register
-    - Headers : Content-Type: application/json
-    - Params  : (Không có)
-    - Body (raw JSON):
-      {
-        "email": "khachhang@example.com",
-        "password": "user123",
-        "confirm_password": "user123",
-        "full_name": "Nguyễn Văn A",
-        "phone": "0987654321"
-      }
-    - Expected: 201 Created
-      {
-        "id": 1,
-        "email": "khachhang@example.com",
-        "full_name": "Nguyễn Văn A",
-        "phone": "0987654321",
-        "is_active": true,
-        "created_at": "...",
-        "session_id": "<hex_uuid>"
-      }
-    - Errors  : 400 Bad Request (Email already registered for user / confirm_password mismatch), 422 Unprocessable Content
-    """
     # 1. Kiểm tra xem email đã được đăng ký trước đó hay chưa
     existing_user = UserService.get_user_by_email(db, user_in.email)
     if existing_user:
@@ -62,7 +51,6 @@ def register_user(
         "email": user.email,
         "full_name": user.full_name,
         "phone": user.phone,
-        "is_active": user.is_active,
         "created_at": user.created_at.isoformat(),
     }
     return UserResponse(
@@ -70,7 +58,6 @@ def register_user(
         email=user.email,
         full_name=user.full_name,
         phone=user.phone,
-        is_active=user.is_active,
         created_at=user.created_at,
         session_id=session_id,
         role="user",
@@ -79,7 +66,19 @@ def register_user(
     )
 
 
-# Đăng nhập tài khoản người dùng thông thường
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/auth/user/login
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Body raw JSON):
+# {
+#   "email": "khachhang@example.com",  // string (bắt buộc)
+#   "password": "user123"              // string (bắt buộc)
+# }
+# Status Code gợi ý:
+#   - 200 OK                   : Đăng nhập thành công, trả về session_id và thông tin user
+#   - 401 Unauthorized         : Sai email hoặc mật khẩu
+#   - 422 Unprocessable Content: Thiếu trường bắt buộc (email hoặc password)
 @router.post(
     "/login",
     response_model=RoleLoginResponse,
@@ -91,33 +90,6 @@ def login_user(
     user_in: UserLogin,
     db: Session = Depends(get_db),
 ) -> RoleLoginResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/auth/user/login
-    - Headers : Content-Type: application/json
-    - Params  : (Không có)
-    - Body (raw JSON):
-      {
-        "email": "khachhang@example.com",
-        "password": "user123"
-      }
-    - Expected: 200 OK
-      {
-        "message": "User login successful",
-        "role": "user",
-        "session_id": "<hex_uuid>",
-        "data": {
-          "id": 1,
-          "email": "khachhang@example.com",
-          "full_name": "Nguyễn Văn A",
-          "phone": "0987654321",
-          "is_active": true,
-          "created_at": "..."
-        }
-      }
-    - Errors  : 401 Unauthorized (Incorrect email or password), 422 Unprocessable Content
-    """
     # 1. Xác thực email và mật khẩu người dùng
     user = UserService.authenticate_user(db=db, email=user_in.email, password=user_in.password)
     # 2. Xử lý trường hợp sai thông tin đăng nhập
@@ -132,7 +104,6 @@ def login_user(
         "email": user.email,
         "full_name": user.full_name,
         "phone": user.phone,
-        "is_active": user.is_active,
         "created_at": user.created_at.isoformat(),
     }
     # 4. Trả về thông tin đăng nhập thành công

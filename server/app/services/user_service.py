@@ -61,7 +61,6 @@ class UserService:
                 hashed_password=hash_password("123456"),
                 full_name="Nguyễn Văn Thực Khách",
                 phone="0912345678",
-                is_active=True,
             )
             db.add(user)
             db.commit()

@@ -13,7 +13,28 @@ router = APIRouter()
 # PHÂN HỆ 1: Quản lý Món ăn (Dishes & Menu Management)
 # ==============================================================================
 
-# Tạo mới món ăn cho cơ sở ẩm thực kèm phân loại danh mục, độ cay và dị ứng
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/restaurants/1/dishes
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Path Param):
+#   - restaurant_id: 1 (int, bắt buộc)
+# Đầu vào (Body raw JSON):
+# {
+#   "name": "Bún Bò Huế Đặc Biệt",                                    // string (bắt buộc)
+#   "price": 55000,                                                    // int (bắt buộc)
+#   "description": "Bún bò giò heo, chả cua, tiết, sả ruốc",           // string (tuỳ chọn)
+#   "category_id": 1,                                                  // int (tuỳ chọn)
+#   "spicy_level": 2,                                                  // int 0-3 (tuỳ chọn, default: 0)
+#   "calories": 520,                                                   // int (tuỳ chọn)
+#   "is_available": true,                                              // bool (tuỳ chọn, default: true)
+#   "ingredients": ["Thịt bò", "Bún sợi to", "Chả cua", "Hành hoa"],   // array[string] (tuỳ chọn)
+#   "allergens": []                                                    // array[string] (tuỳ chọn)
+# }
+# Status Code gợi ý:
+#   - 201 Created              : Tạo món ăn mới cho quán thành công
+#   - 404 Not Found            : Quán ăn không tồn tại
+#   - 422 Unprocessable Content: Sai dữ liệu đầu vào hoặc thiếu tên/giá
 @router.post(
     "/restaurants/{restaurant_id}/dishes",
     response_model=DishResponse,
@@ -25,27 +46,6 @@ def create_dish(
     dish_in: DishCreate = ...,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/restaurants/1/dishes
-    - Headers : Content-Type: application/json
-    - Params  : Path restaurant_id (int)
-    - Body (raw JSON):
-      {
-        "name": "Bún Bò Huế Đặc Biệt",
-        "price": 55000,
-        "description": "Bún bò giò heo, chả cua, tiết, nước dùng thơm mùi sả ruốc",
-        "category_id": 1,
-        "spicy_level": 2,
-        "calories": 520,
-        "is_available": true,
-        "ingredients": ["Thịt bò", "Bún sợi to", "Chả cua", "Hành hoa"],
-        "allergens": []
-      }
-    - Expected: 201 Created -> {"id": 1, "name": "Bún Bò Huế Đặc Biệt", "price": 55000, "restaurant_id": 1, ...}
-    - Errors  : 404 Not Found (quán không tồn tại), 422 Unprocessable Content
-    """
     # 1. Gọi service để kiểm tra dữ liệu và thêm món ăn vào CSDL
     dish = DishService.create_dish(
         db=db,
@@ -56,7 +56,25 @@ def create_dish(
     return DishService.to_dish_response(dish)
 
 
-# Lấy danh sách thực đơn món ăn của quán theo nhiều tiêu chí lọc linh hoạt
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants/1/dishes?category_id=1&available_only=true
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - restaurant_id : 1     (int, bắt buộc)
+# Đầu vào (Query Params):
+#   - category_id   : 1     (int, tuỳ chọn)
+#   - category      : "Cơm" (string, tuỳ chọn)
+#   - spicy_level   : 1     (int 0-3, tuỳ chọn)
+#   - dietary_tag   : "vegan" (string, tuỳ chọn)
+#   - meal_type     : "lunch" (string, tuỳ chọn)
+#   - allergen      : "đậu phộng" (string, tuỳ chọn)
+#   - ingredient    : "bò"  (string, tuỳ chọn)
+#   - available_only: true  (bool, default: true)
+#   - skip          : 0     (int, default: 0)
+#   - limit         : 100   (int, default: 100)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy thực đơn của quán ăn thành công
+#   - 404 Not Found: Quán ăn không tồn tại
 @router.get(
     "/restaurants/{restaurant_id}/dishes",
     response_model=List[DishResponse],
@@ -76,16 +94,6 @@ def get_restaurant_dishes(
     limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants/1/dishes?category_id=1&available_only=true
-    - Headers : (Không yêu cầu)
-    - Params  : Path restaurant_id (int), Query category_id (int), spicy_level (int), dietary_tag (str), meal_type (str), allergen (str), ingredient (str), available_only (bool, default true), skip (int), limit (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "name": "Bún Bò Huế", "price": 50000, "is_available": true, ...}]
-    - Errors  : 404 Not Found
-    """
     # 1. Truy vấn danh sách món ăn từ service theo các điều kiện lọc
     dishes = DishService.get_dishes_by_restaurant(
         db=db,
@@ -105,7 +113,14 @@ def get_restaurant_dishes(
     return [DishService.to_dish_response(d) for d in dishes]
 
 
-# Lấy danh sách tên các nhóm món (categories) duy nhất của một quán ăn
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/restaurants/1/dish-categories
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - restaurant_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy danh sách nhóm món (category) của quán thành công
+#   - 404 Not Found: Quán ăn không tồn tại
 @router.get(
     "/restaurants/{restaurant_id}/dish-categories",
     response_model=List[str],
@@ -115,16 +130,6 @@ def get_dish_categories(
     restaurant_id: int = Path(..., description="ID quán ăn"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/restaurants/1/dish-categories
-    - Headers : (Không yêu cầu)
-    - Params  : Path restaurant_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> ["Món chính", "Đồ uống", "Tráng miệng"]
-    - Errors  : 404 Not Found
-    """
     # Lấy danh sách chuỗi category duy nhất
     return DishService.get_distinct_categories_by_restaurant(
         db=db,
@@ -132,7 +137,14 @@ def get_dish_categories(
     )
 
 
-# Xem chi tiết một món ăn cụ thể theo mã định danh ID
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/dishes/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - dish_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy thông tin chi tiết của món ăn thành công
+#   - 404 Not Found: Món ăn không tồn tại
 @router.get(
     "/dishes/{dish_id}",
     response_model=DishResponse,
@@ -142,23 +154,28 @@ def get_dish_detail(
     dish_id: int = Path(..., description="ID món ăn"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/dishes/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path dish_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"id": 1, "name": "Bún Bò Huế", "price": 50000, "calories": 520, ...}
-    - Errors  : 404 Not Found
-    """
     # 1. Tìm kiếm món ăn theo ID
     dish = DishService.get_dish_by_id(db=db, dish_id=dish_id)
     # 2. Trả về thông tin chi tiết
     return DishService.to_dish_response(dish)
 
 
-# Cập nhật thông tin chi tiết của món ăn đã có
+# [POSTMAN GUIDE]
+# PUT http://localhost:8001/api/v1/dishes/1
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Path Param):
+#   - dish_id: 1 (int, bắt buộc)
+# Đầu vào (Body raw JSON):
+# {
+#   "price": 55000,        // int (tuỳ chọn)
+#   "is_available": true,  // bool (tuỳ chọn)
+#   "spicy_level": 1       // int 0-3 (tuỳ chọn)
+# }
+# Status Code gợi ý:
+#   - 200 OK                   : Cập nhật món ăn thành công
+#   - 404 Not Found            : Không tìm thấy món ăn
+#   - 422 Unprocessable Content: Dữ liệu cập nhật không hợp lệ
 @router.put(
     "/dishes/{dish_id}",
     response_model=DishResponse,
@@ -169,21 +186,6 @@ def update_dish(
     dish_in: DishUpdate = ...,
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : PUT
-    - URL     : http://localhost:8001/api/v1/dishes/1
-    - Headers : Content-Type: application/json
-    - Params  : Path dish_id (int)
-    - Body (raw JSON):
-      {
-        "price": 55000,
-        "is_available": true,
-        "spicy_level": 1
-      }
-    - Expected: 200 OK -> {"id": 1, "name": "...", "price": 55000, ...}
-    - Errors  : 404 Not Found, 422 Unprocessable Content
-    """
     # 1. Gọi service cập nhật các trường mới của món ăn
     dish = DishService.update_dish(
         db=db,
@@ -194,7 +196,14 @@ def update_dish(
     return DishService.to_dish_response(dish)
 
 
-# Xoá một món ăn khỏi thực đơn của quán
+# [POSTMAN GUIDE]
+# DELETE http://localhost:8001/api/v1/dishes/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - dish_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Xoá món ăn thành công
+#   - 404 Not Found: Món ăn không tồn tại
 @router.delete(
     "/dishes/{dish_id}",
     summary="Xoá món ăn",
@@ -203,16 +212,6 @@ def delete_dish(
     dish_id: int = Path(..., description="ID món ăn cần xoá"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : DELETE
-    - URL     : http://localhost:8001/api/v1/dishes/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path dish_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"message": "Món ăn với ID 1 đã được xoá thành công."}
-    - Errors  : 404 Not Found
-    """
     # 1. Xoá món ăn khỏi cơ sở dữ liệu
     DishService.delete_dish(db=db, dish_id=dish_id)
     # 2. Trả về thông báo hoàn tất
@@ -223,7 +222,15 @@ def delete_dish(
 # PHÂN HỆ 2: Món ăn yêu thích (Favourite Dishes)
 # ==============================================================================
 
-# Lưu một món ăn vào danh sách yêu thích của người dùng
+# [POSTMAN GUIDE]
+# POST http://localhost:8001/api/v1/users/1/favourites/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - user_id: 1 (int, bắt buộc)
+#   - dish_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 201 Created  : Lưu món ăn vào danh sách yêu thích thành công
+#   - 404 Not Found: Người dùng hoặc món ăn không tồn tại
 @router.post(
     "/users/{user_id}/favourites/{dish_id}",
     response_model=FavouriteDishResponse,
@@ -235,16 +242,6 @@ def add_dish_to_favourites(
     dish_id: int = Path(..., description="ID món ăn yêu thích"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : POST
-    - URL     : http://localhost:8001/api/v1/users/1/favourites/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path user_id (int), Path dish_id (int)
-    - Body    : (Không có)
-    - Expected: 201 Created -> {"id": 1, "user_id": 1, "dish_id": 1, "created_at": "...", "dish": {...}}
-    - Errors  : 404 Not Found (User hoặc Dish không tồn tại)
-    """
     # 1. Thêm bản ghi vào bảng favourite_dishes (đảm bảo tính idempotent)
     fav = DishService.add_to_favourites(db=db, user_id=user_id, dish_id=dish_id)
     # 2. Đóng gói kết quả phản hồi kèm thông tin món ăn
@@ -257,7 +254,15 @@ def add_dish_to_favourites(
     )
 
 
-# Bỏ một món ăn khỏi danh sách yêu thích của người dùng
+# [POSTMAN GUIDE]
+# DELETE http://localhost:8001/api/v1/users/1/favourites/1
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - user_id: 1 (int, bắt buộc)
+#   - dish_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Bỏ món ăn khỏi danh sách yêu thích thành công
+#   - 404 Not Found: Bản ghi yêu thích không tồn tại
 @router.delete(
     "/users/{user_id}/favourites/{dish_id}",
     summary="Thực khách bỏ lưu món ăn khỏi danh sách yêu thích",
@@ -267,23 +272,23 @@ def remove_dish_from_favourites(
     dish_id: int = Path(..., description="ID món ăn cần bỏ yêu thích"),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : DELETE
-    - URL     : http://localhost:8001/api/v1/users/1/favourites/1
-    - Headers : (Không yêu cầu)
-    - Params  : Path user_id (int), Path dish_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"message": "Đã bỏ món ăn ID 1 khỏi danh sách yêu thích."}
-    - Errors  : 404 Not Found
-    """
     # 1. Xoá bản ghi món yêu thích của người dùng
     DishService.remove_from_favourites(db=db, user_id=user_id, dish_id=dish_id)
     # 2. Trả về thông báo phản hồi
     return {"message": f"Đã bỏ món ăn ID {dish_id} khỏi danh sách yêu thích."}
 
 
-# Lấy danh sách toàn bộ món ăn yêu thích của một người dùng
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/users/1/favourites?skip=0&limit=50
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - user_id: 1  (int, bắt buộc)
+# Đầu vào (Query Params):
+#   - skip   : 0  (int, default: 0)
+#   - limit  : 50 (int, default: 50)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy danh sách món ăn yêu thích của thực khách thành công
+#   - 404 Not Found: Người dùng không tồn tại
 @router.get(
     "/users/{user_id}/favourites",
     response_model=List[FavouriteDishResponse],
@@ -295,16 +300,6 @@ def get_user_favourite_dishes(
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/users/1/favourites?skip=0&limit=50
-    - Headers : (Không yêu cầu)
-    - Params  : Path user_id (int), Query skip (int), Query limit (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> [{"id": 1, "user_id": 1, "dish_id": 1, "dish": {"id": 1, "name": "Bún Bò", ...}}]
-    - Errors  : 404 Not Found
-    """
     # 1. Truy vấn các món yêu thích của người dùng theo phân trang
     favs = DishService.get_user_favourites(db=db, user_id=user_id, skip=skip, limit=limit)
     # 2. Map dữ liệu sang danh sách FavouriteDishResponse

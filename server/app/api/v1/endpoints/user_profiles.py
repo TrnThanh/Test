@@ -7,7 +7,14 @@ from server.app.services.user_profile_service import UserProfileService
 router = APIRouter()
 
 
-# Lấy thông tin hồ sơ sức khoẻ, thể trạng (BMI) và sở thích dinh dưỡng của người dùng
+# [POSTMAN GUIDE]
+# GET http://localhost:8001/api/v1/users/1/profile
+# Headers: (Không yêu cầu)
+# Đầu vào (Path Param):
+#   - user_id: 1 (int, bắt buộc)
+# Status Code gợi ý:
+#   - 200 OK       : Lấy thông tin hồ sơ sức khoẻ và thể trạng thành công
+#   - 404 Not Found: Người dùng không tồn tại
 @router.get(
     "/{user_id}/profile",
     response_model=UserProfileResponse,
@@ -19,21 +26,31 @@ def get_user_profile(
     user_id: int,
     db: Session = Depends(get_db),
 ) -> UserProfileResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : GET
-    - URL     : http://localhost:8001/api/v1/users/1/profile
-    - Headers : (Không yêu cầu)
-    - Params  : Path user_id (int)
-    - Body    : (Không có)
-    - Expected: 200 OK -> {"id": 1, "user_id": 1, "height_cm": 170.0, "weight_kg": 65.0, "bmi": 22.49, "favorite_category_ids": [1, 2], "is_onboarded": true}
-    - Errors  : 404 Not Found (User không tồn tại)
-    """
     # Gọi service lấy hồ sơ hoặc tạo mặc định nếu người dùng mới
     return UserProfileService.get_or_create_profile(db=db, user_id=user_id)
 
 
-# Cập nhật thông tin hồ sơ thể trạng và hoàn tất khảo sát Onboarding ban đầu
+# [POSTMAN GUIDE]
+# PUT http://localhost:8001/api/v1/users/1/profile
+# Headers:
+#   Content-Type: application/json
+# Đầu vào (Path Param):
+#   - user_id: 1 (int, bắt buộc)
+# Đầu vào (Body raw JSON):
+# {
+#   "height_cm": 172.5,                   // float (tuỳ chọn)
+#   "weight_kg": 64.0,                    // float (tuỳ chọn)
+#   "goal": "Duy trì cân nặng",           // string (tuỳ chọn)
+#   "dietary_preference": "none",         // string (tuỳ chọn)
+#   "favorite_category_ids": [1, 2],      // array[int] (tuỳ chọn)
+#   "spicy_tolerance": 2,                 // int 0-3 (tuỳ chọn)
+#   "budget_level": "medium",             // string (tuỳ chọn)
+#   "complete_onboarding": true           // bool (tuỳ chọn)
+# }
+# Status Code gợi ý:
+#   - 200 OK                   : Cập nhật hồ sơ thể trạng thành công
+#   - 404 Not Found            : Người dùng không tồn tại
+#   - 422 Unprocessable Content: Sai kiểu dữ liệu
 @router.put(
     "/{user_id}/profile",
     response_model=UserProfileResponse,
@@ -46,25 +63,5 @@ def update_user_profile(
     data: UserProfileUpdate,
     db: Session = Depends(get_db),
 ) -> UserProfileResponse:
-    """
-    [POSTMAN TEST GUIDE]
-    - Method  : PUT
-    - URL     : http://localhost:8001/api/v1/users/1/profile
-    - Headers : Content-Type: application/json
-    - Params  : Path user_id (int)
-    - Body (raw JSON):
-      {
-        "height_cm": 172.5,
-        "weight_kg": 64.0,
-        "goal": "Duy trì cân nặng",
-        "dietary_preference": "none",
-        "favorite_category_ids": [1, 2],
-        "spicy_tolerance": 2,
-        "budget_level": "medium",
-        "complete_onboarding": true
-      }
-    - Expected: 200 OK -> {"id": 1, "user_id": 1, "height_cm": 172.5, "weight_kg": 64.0, "bmi": 21.51, "is_onboarded": true, ...}
-    - Errors  : 404 Not Found, 422 Unprocessable Content
-    """
     # Cập nhật thông tin qua service
     return UserProfileService.update_profile(db=db, user_id=user_id, data=data)

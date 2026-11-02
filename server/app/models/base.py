@@ -11,7 +11,6 @@ class AccountMixin(SQLModel):
     email: str = Field(sa_type=String(255), unique=True, index=True, nullable=False)
     hashed_password: str = Field(sa_type=String(255), nullable=False)
     full_name: Optional[str] = Field(default=None, sa_type=String(255), nullable=True)
-    is_active: bool = Field(default=True, nullable=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_type=DateTime(timezone=True),

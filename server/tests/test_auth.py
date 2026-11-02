@@ -38,7 +38,7 @@ def test_register_user_success(client: TestClient) -> None:
 
     assert data["full_name"] == "Nguyen Van User"
 
-    assert data["is_active"] is True
+    assert "is_active" not in data
 
     assert "id" in data
 
