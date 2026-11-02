@@ -1,11 +1,33 @@
+import re
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class AdminLogin(BaseModel):
-    email: str = Field(..., description="Email đăng nhập quản trị viên", examples=["admin@example.com"])
-    password: str = Field(..., description="Mật khẩu", examples=["AdminPass123"])
+    email: str = Field(
+        ...,
+        min_length=3,
+        max_length=255,
+        description="Email đăng nhập quản trị viên",
+        examples=["admin@example.com"],
+    )
+    password: str = Field(
+        ...,
+        min_length=6,
+        max_length=72,
+        description="Mật khẩu",
+        examples=["AdminPass123"],
+    )
+
+    @field_validator("email")
+    @classmethod
+    def clean_admin_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        email_regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+        if not re.match(email_regex, v):
+            raise ValueError("Địa chỉ email quản trị viên không đúng định dạng.")
+        return v
 
 
 class AdminResponse(BaseModel):

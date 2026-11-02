@@ -1,22 +1,38 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from server.app.schemas.category import CategoryResponse
 
 
 class WeatherBase(BaseModel):
-    code: str = Field(..., max_length=50, description="Mã trạng thái thời tiết (hot, cold, rainy, mild, SPRING_PATTERN_001...)")
-    name: str = Field(..., max_length=255, description="Tên thời tiết (Nắng nóng, Mưa rào, Trời lạnh...)")
+    code: str = Field(..., min_length=1, max_length=50, description="Mã trạng thái thời tiết (hot, cold, rainy, mild, SPRING_PATTERN_001...)")
+    name: str = Field(..., min_length=1, max_length=255, description="Tên thời tiết (Nắng nóng, Mưa rào, Trời lạnh...)")
     description: Optional[str] = Field(None, max_length=5000, description="Mô tả thời tiết")
-    min_temp: Optional[float] = Field(None, description="Nhiệt độ tối thiểu (°C)")
-    max_temp: Optional[float] = Field(None, description="Nhiệt độ tối đa (°C)")
+    min_temp: Optional[float] = Field(None, ge=-50.0, le=60.0, description="Nhiệt độ tối thiểu (°C)")
+    max_temp: Optional[float] = Field(None, ge=-50.0, le=60.0, description="Nhiệt độ tối đa (°C)")
     min_humidity: Optional[int] = Field(None, ge=0, le=100, description="Độ ẩm tối thiểu (%)")
     max_humidity: Optional[int] = Field(None, ge=0, le=100, description="Độ ẩm tối đa (%)")
     condition: Optional[str] = Field(None, max_length=100, description="Điều kiện khí hậu")
     icon: Optional[str] = Field(None, max_length=100, description="Tên icon hoặc URL")
     season: Optional[str] = Field(None, max_length=50, description="Mùa trong năm (spring, summer, autumn, winter, dry, rainy...)")
-    sort_order: int = Field(0, description="Thứ tự hiển thị")
+    sort_order: int = Field(0, ge=0, description="Thứ tự hiển thị")
     is_active: bool = Field(True, description="Trạng thái kích hoạt")
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Mã thời tiết không được để trống.")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Tên thời tiết không được để trống.")
+        return v
 
 
 class WeatherCreate(WeatherBase):
@@ -24,17 +40,27 @@ class WeatherCreate(WeatherBase):
 
 
 class WeatherUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=255)
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=5000)
-    min_temp: Optional[float] = None
-    max_temp: Optional[float] = None
+    min_temp: Optional[float] = Field(None, ge=-50.0, le=60.0)
+    max_temp: Optional[float] = Field(None, ge=-50.0, le=60.0)
     min_humidity: Optional[int] = Field(None, ge=0, le=100)
     max_humidity: Optional[int] = Field(None, ge=0, le=100)
     condition: Optional[str] = Field(None, max_length=100)
     icon: Optional[str] = Field(None, max_length=100)
     season: Optional[str] = Field(None, max_length=50)
-    sort_order: Optional[int] = None
+    sort_order: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("Tên thời tiết không được để trống.")
+            return v
+        return None
 
 
 class WeatherResponse(WeatherBase):

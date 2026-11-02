@@ -312,6 +312,72 @@ void main() {
     expect(find.text('Đăng ký ngay'), findsOneWidget);
   });
 
+  testWidgets('Kiểm thử validation client trên AuthFormModal khi nhập email hoặc mật khẩu không hợp lệ', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: AuthFormModal(
+          api: fakeApi,
+          onSuccess: (_) {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // 1. Để trống bấm Đăng nhập -> Báo lỗi nhập đầy đủ
+    await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
+    await tester.pumpAndSettle();
+    expect(find.text('⚠️ Vui lòng nhập đầy đủ Email và Mật khẩu'), findsOneWidget);
+
+    // 2. Nhập email sai định dạng
+    final textFields = find.byType(TextField);
+    await tester.enterText(textFields.at(0), 'invalid-email');
+    await tester.enterText(textFields.at(1), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
+    await tester.pumpAndSettle();
+    expect(find.text('⚠️ Địa chỉ email không đúng định dạng'), findsOneWidget);
+
+    // 3. Nhập mật khẩu < 6 ký tự
+    await tester.enterText(textFields.at(0), 'valid@ptc1.vn');
+    await tester.enterText(textFields.at(1), '123');
+    await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
+    await tester.pumpAndSettle();
+    expect(find.text('⚠️ Mật khẩu phải có tối thiểu 6 ký tự'), findsOneWidget);
+  });
+
+  testWidgets('Kiểm thử validation chiều cao, cân nặng và năm sinh trên OnboardingSurveyDialog', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: OnboardingSurveyDialog(
+          api: fakeApi,
+          userId: 1,
+          onCompleted: () {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Chuyển sang Tab 2 Thể chất
+    await tester.tap(find.text('2. Thể Chất'));
+    await tester.pumpAndSettle();
+
+    // Nhập chiều cao không hợp lệ (ví dụ: 10 cm)
+    final textFields = find.byType(TextField);
+    await tester.enterText(textFields.at(0), '10');
+
+    // Chuyển sang Tab 3 Khẩu vị và bấm Lưu & Hoàn tất
+    await tester.tap(find.text('3. Khẩu Vị'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lưu & Hoàn tất'));
+    await tester.pumpAndSettle();
+
+    // Xác nhận hiển thị thông báo lỗi rõ ràng trên UI
+    expect(find.text('Chiều cao phải là số từ 50 đến 260 cm.'), findsOneWidget);
+  });
+
   testWidgets('Kiểm thử hiển thị dialog Onboarding Survey và các thành phần khảo sát', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 

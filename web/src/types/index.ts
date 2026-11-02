@@ -21,6 +21,7 @@ export interface Restaurant {
   longitude: number;
   is_sponsor?: boolean;
   rating?: number | null;
+  admin_rating?: number | null;
   is_active: boolean;
   distance_meters?: number | null;
   distance_km?: number | null;

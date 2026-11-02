@@ -30,6 +30,7 @@ class RestaurantService:
             service_licenses=data.service_licenses,
             is_sponsor=data.is_sponsor,
             rating=data.rating,
+            admin_rating=data.admin_rating,
             is_active=True,
         )
         # 2. Lưu vào CSDL và làm mới dữ liệu

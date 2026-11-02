@@ -391,3 +391,27 @@ def test_register_user_friendly_validation_errors(client: TestClient) -> None:
     assert "Mật khẩu" in data_short["detail"]
 
     assert "6 ký tự" in data_short["detail"]
+
+    # 4. Email sai định dạng (không có @ hoặc domain)
+    response_bad_email = client.post(
+        "/api/v1/auth/user/register",
+        json={
+            "email": "not-an-email",
+            "password": "valid_password_123",
+            "full_name": "Test User",
+        },
+    )
+    assert response_bad_email.status_code == 422
+    assert "email không đúng định dạng" in response_bad_email.json()["detail"].lower()
+
+    # 5. Số điện thoại sai định dạng
+    response_bad_phone = client.post(
+        "/api/v1/auth/user/register",
+        json={
+            "email": "valid_email@example.com",
+            "password": "valid_password_123",
+            "phone": "12345abcdef",
+        },
+    )
+    assert response_bad_phone.status_code == 422
+    assert "số điện thoại không hợp lệ" in response_bad_phone.json()["detail"].lower()

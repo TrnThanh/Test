@@ -36,7 +36,6 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
 
   final Set<String> _selectedDiets = {};
   final Set<String> _selectedAllergies = {};
-  final Set<String> _selectedCategories = {};
 
   bool _saving = false;
   String? _error;
@@ -138,9 +137,46 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
     });
 
     try {
-      final double? h = double.tryParse(_heightCtrl.text.trim());
-      final double? w = double.tryParse(_weightCtrl.text.trim());
-      final int? by = int.tryParse(_birthYearCtrl.text.trim());
+      final heightText = _heightCtrl.text.trim();
+      final weightText = _weightCtrl.text.trim();
+      final birthYearText = _birthYearCtrl.text.trim();
+
+      double? h;
+      if (heightText.isNotEmpty) {
+        h = double.tryParse(heightText);
+        if (h == null || h < 50 || h > 260) {
+          setState(() {
+            _saving = false;
+            _error = 'Chiều cao phải là số từ 50 đến 260 cm.';
+          });
+          return;
+        }
+      }
+
+      double? w;
+      if (weightText.isNotEmpty) {
+        w = double.tryParse(weightText);
+        if (w == null || w < 10 || w > 300) {
+          setState(() {
+            _saving = false;
+            _error = 'Cân nặng phải là số từ 10 đến 300 kg.';
+          });
+          return;
+        }
+      }
+
+      int? by;
+      if (birthYearText.isNotEmpty) {
+        by = int.tryParse(birthYearText);
+        final currentYear = DateTime.now().year;
+        if (by == null || by < 1920 || by > currentYear) {
+          setState(() {
+            _saving = false;
+            _error = 'Năm sinh phải từ 1920 đến $currentYear.';
+          });
+          return;
+        }
+      }
 
       final payload = <String, dynamic>{
         'gender': _gender,
@@ -154,9 +190,9 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
         'complete_onboarding': true,
       };
 
-      if (h != null && h >= 50 && h <= 260) payload['height_cm'] = h;
-      if (w != null && w >= 10 && w <= 500) payload['weight_kg'] = w;
-      if (by != null && by >= 1920 && by <= 2026) payload['birth_year'] = by;
+      if (h != null) payload['height_cm'] = h;
+      if (w != null) payload['weight_kg'] = w;
+      if (by != null) payload['birth_year'] = by;
 
       await widget.api.updateUserProfile(widget.userId, payload);
       widget.onCompleted();

@@ -6,8 +6,8 @@ from server.app.schemas.category import CategoryResponse
 
 
 class WeatherCategoryBase(BaseModel):
-    weather_id: int = Field(..., description="ID của trạng thái thời tiết")
-    category_id: int = Field(..., description="ID của danh mục món ăn")
+    weather_id: int = Field(..., gt=0, description="ID của trạng thái thời tiết")
+    category_id: int = Field(..., gt=0, description="ID của danh mục món ăn")
 
 
 class WeatherCategoryCreate(WeatherCategoryBase):

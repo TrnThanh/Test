@@ -48,6 +48,37 @@ class _AuthFormModalState extends State<AuthFormModal> {
       return;
     }
 
+    final emailRegex = RegExp(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(() => _error = 'Địa chỉ email không đúng định dạng');
+      return;
+    }
+
+    if (pwd.length < 6) {
+      setState(() => _error = 'Mật khẩu phải có tối thiểu 6 ký tự');
+      return;
+    }
+
+    if (_isRegister) {
+      final confirmPwd = _confirmPasswordCtrl.text;
+      if (confirmPwd.isEmpty) {
+        setState(() => _error = 'Vui lòng xác nhận lại mật khẩu');
+        return;
+      }
+      if (confirmPwd != pwd) {
+        setState(() => _error = 'Mật khẩu xác nhận không trùng khớp');
+        return;
+      }
+      final phone = _phoneCtrl.text.trim();
+      if (phone.isNotEmpty) {
+        final phoneRegex = RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$');
+        if (!phoneRegex.hasMatch(phone)) {
+          setState(() => _error = 'Số điện thoại không hợp lệ (gồm 10 số, đầu 03, 05, 07, 08, 09)');
+          return;
+        }
+      }
+    }
+
     setState(() {
       _loading = true;
       _error = null;
@@ -59,20 +90,6 @@ class _AuthFormModalState extends State<AuthFormModal> {
         res = await widget.api.loginUser(email, pwd);
       } else {
         final confirmPwd = _confirmPasswordCtrl.text;
-        if (confirmPwd.isEmpty) {
-          setState(() {
-            _loading = false;
-            _error = 'Vui lòng xác nhận lại mật khẩu';
-          });
-          return;
-        }
-        if (confirmPwd != pwd) {
-          setState(() {
-            _loading = false;
-            _error = 'Mật khẩu xác nhận không trùng khớp';
-          });
-          return;
-        }
         final name = _nameCtrl.text.trim();
         final phone = _phoneCtrl.text.trim();
         res = await widget.api.registerUser(email, pwd, name, phone, confirmPwd);

@@ -135,6 +135,7 @@ const newLat = ref(21.0055);
 const newLon = ref(105.9325);
 const newIsSponsor = ref(false);
 const newRating = ref<number | undefined>(undefined);
+const newAdminRating = ref<number | undefined>(undefined);
 const newLicenses = ref('');
 const createSaving = ref(false);
 const isGeocodingCreate = ref(false);
@@ -150,6 +151,7 @@ function openCreateModal() {
   newLon.value = 105.9325;
   newIsSponsor.value = false;
   newRating.value = undefined;
+  newAdminRating.value = undefined;
   newLicenses.value = '';
   showCreateModal.value = true;
 }
@@ -187,6 +189,35 @@ async function handleCreateSubmit() {
     showToast('Vui lòng nhập tên quán và địa chỉ');
     return;
   }
+  const cleanPhone = newPhone.value.trim();
+  if (cleanPhone) {
+    const rawDigits = cleanPhone.replace(/[-. ]/g, '');
+    const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
+    if (!phoneRegex.test(rawDigits)) {
+      showToast('Số điện thoại không hợp lệ (phải từ 10-11 chữ số)');
+      return;
+    }
+  }
+  const latNum = Number(newLat.value);
+  const lonNum = Number(newLon.value);
+  if (isNaN(latNum) || latNum < -90 || latNum > 90 || isNaN(lonNum) || lonNum < -180 || lonNum > 180) {
+    showToast('Toạ độ (vĩ độ / kinh độ) không hợp lệ');
+    return;
+  }
+  if (newRating.value !== undefined && newRating.value !== null && String(newRating.value).trim() !== '') {
+    const rNum = Number(newRating.value);
+    if (isNaN(rNum) || rNum < 0 || rNum > 5) {
+      showToast('Điểm đánh giá phải từ 0.0 đến 5.0 sao');
+      return;
+    }
+  }
+  if (newAdminRating.value !== undefined && newAdminRating.value !== null && String(newAdminRating.value).trim() !== '') {
+    const arNum = Number(newAdminRating.value);
+    if (isNaN(arNum) || arNum < 0 || arNum > 5) {
+      showToast('Điểm Admin thẩm định phải từ 0.0 đến 5.0 sao');
+      return;
+    }
+  }
   createSaving.value = true;
   try {
     const created = await api.createRestaurantAsAdmin({
@@ -200,6 +231,7 @@ async function handleCreateSubmit() {
       longitude: Number(newLon.value),
       is_sponsor: newIsSponsor.value,
       rating: newRating.value !== undefined && newRating.value !== null && !isNaN(Number(newRating.value)) ? Number(newRating.value) : undefined,
+      admin_rating: newAdminRating.value !== undefined && newAdminRating.value !== null && !isNaN(Number(newAdminRating.value)) ? Number(newAdminRating.value) : undefined,
       service_licenses: newLicenses.value
         .split(',')
         .map((s) => s.trim())
@@ -229,6 +261,7 @@ const editLon = ref(105.9325);
 const editIsActive = ref(true);
 const editIsSponsor = ref(false);
 const editRating = ref<number | undefined>(undefined);
+const editAdminRating = ref<number | undefined>(undefined);
 const editLicenses = ref('');
 const editSaving = ref(false);
 const isGeocodingEdit = ref(false);
@@ -246,6 +279,7 @@ function openEditModal(r: Restaurant) {
   editIsActive.value = r.is_active;
   editIsSponsor.value = !!r.is_sponsor;
   editRating.value = r.rating !== null && r.rating !== undefined ? r.rating : undefined;
+  editAdminRating.value = r.admin_rating !== null && r.admin_rating !== undefined ? r.admin_rating : undefined;
   editLicenses.value = (r.service_licenses || []).map((l: any) => typeof l === 'string' ? l : (l.name || String(l))).join(', ');
   showEditModal.value = true;
 }
@@ -285,6 +319,35 @@ async function handleEditSubmit() {
     showToast('Vui lòng nhập tên quán và địa chỉ');
     return;
   }
+  const cleanPhone = editPhone.value.trim();
+  if (cleanPhone) {
+    const rawDigits = cleanPhone.replace(/[-. ]/g, '');
+    const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
+    if (!phoneRegex.test(rawDigits)) {
+      showToast('Số điện thoại không hợp lệ (phải từ 10-11 chữ số)');
+      return;
+    }
+  }
+  const latNum = Number(editLat.value);
+  const lonNum = Number(editLon.value);
+  if (isNaN(latNum) || latNum < -90 || latNum > 90 || isNaN(lonNum) || lonNum < -180 || lonNum > 180) {
+    showToast('Toạ độ (vĩ độ / kinh độ) không hợp lệ');
+    return;
+  }
+  if (editRating.value !== undefined && editRating.value !== null && String(editRating.value).trim() !== '') {
+    const rNum = Number(editRating.value);
+    if (isNaN(rNum) || rNum < 0 || rNum > 5) {
+      showToast('Điểm đánh giá phải từ 0.0 đến 5.0 sao');
+      return;
+    }
+  }
+  if (editAdminRating.value !== undefined && editAdminRating.value !== null && String(editAdminRating.value).trim() !== '') {
+    const arNum = Number(editAdminRating.value);
+    if (isNaN(arNum) || arNum < 0 || arNum > 5) {
+      showToast('Điểm Admin thẩm định phải từ 0.0 đến 5.0 sao');
+      return;
+    }
+  }
   editSaving.value = true;
   try {
     const updated = await api.updateRestaurantAsAdmin(editingRestaurant.value.id, {
@@ -299,6 +362,7 @@ async function handleEditSubmit() {
       is_active: editIsActive.value,
       is_sponsor: editIsSponsor.value,
       rating: editRating.value !== undefined && editRating.value !== null && !isNaN(Number(editRating.value)) ? Number(editRating.value) : undefined,
+      admin_rating: editAdminRating.value !== undefined && editAdminRating.value !== null && !isNaN(Number(editAdminRating.value)) ? Number(editAdminRating.value) : undefined,
       service_licenses: editLicenses.value
         .split(',')
         .map((s) => s.trim())
@@ -430,6 +494,7 @@ async function handleDeleteSubmit() {
                 <div class="rest-name-row">
                   <b class="rest-name">{{ r.name }}</b>
                   <Chip v-if="r.rating !== undefined && r.rating !== null" variant="default">⭐ {{ Number(r.rating).toFixed(1) }}</Chip>
+                  <Chip v-if="r.admin_rating !== undefined && r.admin_rating !== null" variant="ok">👑 Admin: {{ Number(r.admin_rating).toFixed(1) }}</Chip>
                   <Chip v-if="r.is_sponsor" variant="warn">⭐ Tài trợ</Chip>
                 </div>
                 <small v-if="r.phone" class="rest-phone">
@@ -578,6 +643,18 @@ async function handleDeleteSubmit() {
               max="5"
               class="form-input"
               placeholder="VD: 4.5 (tùy chọn)"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Điểm Admin thẩm định (0.0 - 5.0)</label>
+            <input
+              v-model.number="newAdminRating"
+              type="number"
+              step="0.1"
+              min="0"
+              max="5"
+              class="form-input"
+              placeholder="VD: 4.8 (tùy chọn)"
             />
           </div>
           <div class="form-group">
@@ -743,6 +820,18 @@ async function handleDeleteSubmit() {
               max="5"
               class="form-input"
               placeholder="VD: 4.5 (để trống nếu chưa có)"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Điểm Admin thẩm định (0.0 - 5.0)</label>
+            <input
+              v-model.number="editAdminRating"
+              type="number"
+              step="0.1"
+              min="0"
+              max="5"
+              class="form-input"
+              placeholder="VD: 4.8 (để trống nếu chưa có)"
             />
           </div>
           <div class="form-group">

@@ -13,8 +13,20 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 
 async function handleLogin() {
-  if (!email.value.trim() || !password.value) {
+  const cleanEmail = email.value.trim();
+  if (!cleanEmail || !password.value) {
     error.value = 'Vui lòng nhập đầy đủ Email và Mật khẩu quản trị.';
+    return;
+  }
+
+  const emailRegex = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+  if (!emailRegex.test(cleanEmail)) {
+    error.value = 'Địa chỉ email quản trị không đúng định dạng.';
+    return;
+  }
+
+  if (password.value.length < 6) {
+    error.value = 'Mật khẩu quản trị phải có tối thiểu 6 ký tự.';
     return;
   }
 

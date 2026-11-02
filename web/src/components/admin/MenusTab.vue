@@ -225,7 +225,12 @@ async function handleCreateDishSubmit() {
     const calNum = newDishCalories.value != null && String(newDishCalories.value).trim() !== ''
       ? Number(newDishCalories.value)
       : undefined;
-    const calories = calNum !== undefined && !isNaN(calNum) && calNum > 0 ? calNum : undefined;
+    if (calNum !== undefined && (isNaN(calNum) || calNum < 0 || calNum > 20000)) {
+      showToast('Lượng calo phải là số từ 0 đến 20,000 kcal');
+      newDishSaving.value = false;
+      return;
+    }
+    const calories = calNum !== undefined && !isNaN(calNum) && calNum >= 0 ? calNum : undefined;
 
     const created = await api.createDish(props.selectedRestaurantId, {
       name: newDishName.value.trim(),
@@ -304,7 +309,12 @@ async function handleEditDishSubmit() {
     const calNum = editDishCalories.value != null && String(editDishCalories.value).trim() !== ''
       ? Number(editDishCalories.value)
       : undefined;
-    const calories = calNum !== undefined && !isNaN(calNum) && calNum > 0 ? calNum : undefined;
+    if (calNum !== undefined && (isNaN(calNum) || calNum < 0 || calNum > 20000)) {
+      showToast('Lượng calo phải là số từ 0 đến 20,000 kcal');
+      editDishSaving.value = false;
+      return;
+    }
+    const calories = calNum !== undefined && !isNaN(calNum) && calNum >= 0 ? calNum : undefined;
 
     const updated = await api.updateDish(editingDish.value.id, {
       name: editDishName.value.trim(),

@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class DishBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Tên món ăn")
-    price: float = Field(..., ge=0.0, description="Đơn giá món ăn (>= 0)")
+    price: float = Field(..., ge=0.0, le=100000000.0, description="Đơn giá món ăn (>= 0)")
     calories: Optional[int] = Field(None, ge=0, le=20000, description="Lượng calo của món ăn (kcal, >= 0)")
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả món ăn")
     image_url: Optional[str] = Field(None, max_length=1000, description="Đường dẫn ảnh minh hoạ")
@@ -17,6 +17,14 @@ class DishBase(BaseModel):
     allergens: List[str] = Field(default_factory=list, description="Mảng dị ứng thực phẩm (peanut, seafood, dairy...)")
     ingredients: List[str] = Field(default_factory=list, description="Danh sách nguyên liệu món ăn (vd: ['Thịt bò', 'Hành lá'])")
     is_available: bool = Field(True, description="Trạng thái còn món / tạm hết món")
+
+    @field_validator("name")
+    @classmethod
+    def validate_dish_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Tên món ăn không được để trống.")
+        return v
 
     @field_validator("category")
     @classmethod
@@ -43,7 +51,7 @@ class DishCreate(DishBase):
 
 class DishUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Tên món ăn")
-    price: Optional[float] = Field(None, ge=0.0, description="Đơn giá món ăn")
+    price: Optional[float] = Field(None, ge=0.0, le=100000000.0, description="Đơn giá món ăn")
     calories: Optional[int] = Field(None, ge=0, le=20000, description="Lượng calo của món ăn (kcal)")
     description: Optional[str] = Field(None, max_length=1000, description="Mô tả món ăn")
     image_url: Optional[str] = Field(None, max_length=1000, description="Ảnh minh hoạ")
@@ -55,6 +63,16 @@ class DishUpdate(BaseModel):
     allergens: Optional[List[str]] = Field(None, description="Mảng dị ứng thực phẩm")
     ingredients: Optional[List[str]] = Field(None, description="Danh sách nguyên liệu")
     is_available: Optional[bool] = Field(None, description="Trạng thái còn món")
+
+    @field_validator("name")
+    @classmethod
+    def validate_dish_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("Tên món ăn không được để trống.")
+            return v
+        return None
 
     @field_validator("category")
     @classmethod

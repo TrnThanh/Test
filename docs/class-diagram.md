@@ -89,6 +89,7 @@ classDiagram
         +List~str~ service_licenses
         +bool is_sponsor
         +float rating
+        +Optional~float~ admin_rating
         +bool is_active
         +datetime created_at
         +datetime updated_at
@@ -223,6 +224,7 @@ classDiagram
         +time close_time
         +bool is_sponsor
         +float rating
+        +Optional~float~ admin_rating
         +bool is_active
     }
 
@@ -238,6 +240,7 @@ classDiagram
         +time close_time
         +bool is_sponsor
         +float rating
+        +Optional~float~ admin_rating
         +bool is_active
         +datetime created_at
         +datetime updated_at

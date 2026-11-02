@@ -78,6 +78,15 @@ def apply_schema_patches(conn) -> None:
     # --- TASK-038: Cải tổ Schema: Categories toàn cục, Dish đa dạng phân loại & Restaurant tài trợ ---
     conn.execute(text("ALTER TABLE IF EXISTS restaurants ADD COLUMN IF NOT EXISTS is_sponsor BOOLEAN NOT NULL DEFAULT FALSE;"))
     conn.execute(text("ALTER TABLE IF EXISTS restaurants ADD COLUMN IF NOT EXISTS rating DOUBLE PRECISION DEFAULT NULL;"))
+    conn.execute(text("ALTER TABLE IF EXISTS restaurants ADD COLUMN IF NOT EXISTS admin_rating DOUBLE PRECISION DEFAULT NULL;"))
+    conn.execute(text("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_restaurant_admin_rating') THEN
+                ALTER TABLE restaurants ADD CONSTRAINT ck_restaurant_admin_rating CHECK (admin_rating IS NULL OR (admin_rating >= 0.0 AND admin_rating <= 5.0));
+            END IF;
+        END $$;
+    """))
     conn.execute(text("""
         DO $$
         BEGIN

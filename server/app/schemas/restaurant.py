@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, time
 from typing import Optional, List, Annotated
 from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, PlainSerializer, field_validator
@@ -32,6 +33,37 @@ class RestaurantBase(BaseModel):
     service_licenses: List[str] = Field(default_factory=list, description="Danh sách giấy phép dịch vụ của quán (ATTP, PCCC, GPKD...)")
     is_sponsor: bool = Field(False, description="Đánh dấu quán ăn là nhà tài trợ")
     rating: Optional[float] = Field(None, ge=0.0, le=5.0, description="Điểm đánh giá chất lượng quán ăn (0.0 đến 5.0)")
+    admin_rating: Optional[float] = Field(None, ge=0.0, le=5.0, description="Điểm đánh giá thẩm định của Quản trị viên (0.0 đến 5.0)")
+
+    @field_validator("name")
+    @classmethod
+    def validate_restaurant_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Tên quán ăn không được để trống.")
+        return v
+
+    @field_validator("address")
+    @classmethod
+    def validate_restaurant_address(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Địa chỉ quán ăn không được để trống.")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_restaurant_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None
+        cleaned_phone = v.replace("-", "").replace(".", "").replace(" ", "")
+        phone_regex = r"^(0|\+84)[0-9]{9,10}$"
+        if not re.match(phone_regex, cleaned_phone):
+            raise ValueError("Số điện thoại quán ăn không hợp lệ (phải từ 10-11 chữ số).")
+        return cleaned_phone
 
     @field_validator("service_licenses")
     @classmethod
@@ -60,7 +92,42 @@ class RestaurantUpdate(BaseModel):
     service_licenses: Optional[List[str]] = Field(None, description="Danh sách giấy phép dịch vụ của quán")
     is_sponsor: Optional[bool] = Field(None, description="Đánh dấu quán ăn là nhà tài trợ")
     rating: Optional[float] = Field(None, ge=0.0, le=5.0, description="Điểm đánh giá chất lượng quán ăn (0.0 đến 5.0)")
+    admin_rating: Optional[float] = Field(None, ge=0.0, le=5.0, description="Điểm đánh giá thẩm định của Quản trị viên (0.0 đến 5.0)")
     is_active: Optional[bool] = Field(None, description="Trạng thái hoạt động")
+
+    @field_validator("name")
+    @classmethod
+    def validate_restaurant_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("Tên quán ăn không được để trống.")
+            return v
+        return None
+
+    @field_validator("address")
+    @classmethod
+    def validate_restaurant_address(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError("Địa chỉ quán ăn không được để trống.")
+            return v
+        return None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_restaurant_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None
+        cleaned_phone = v.replace("-", "").replace(".", "").replace(" ", "")
+        phone_regex = r"^(0|\+84)[0-9]{9,10}$"
+        if not re.match(phone_regex, cleaned_phone):
+            raise ValueError("Số điện thoại quán ăn không hợp lệ (phải từ 10-11 chữ số).")
+        return cleaned_phone
 
     @field_validator("service_licenses")
     @classmethod

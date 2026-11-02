@@ -456,3 +456,89 @@ def test_sync_restaurant_ratings_from_json(db_session: Session):
     # 4. Kiểm tra tính Idempotent: chạy lại lần 2 không thay đổi thêm
     stats_2 = InitialSeedService.sync_restaurant_ratings(db_session)
     assert stats_2["updated"] == 0
+
+
+def test_create_restaurant_with_admin_rating(client: TestClient):
+    """Kiểm tra tạo quán ăn mới với điểm admin_rating hợp lệ."""
+    payload = {
+        "name": "Quán Bún Chả Admin Chấm",
+        "address": "100 Ngô Xuân Quảng, Gia Lâm, Hà Nội",
+        "latitude": 21.0055,
+        "longitude": 105.9325,
+        "admin_rating": 4.8,
+    }
+    response = client.post("/api/v1/restaurants", json=payload)
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["name"] == payload["name"]
+    assert data["admin_rating"] == 4.8
+
+
+def test_create_restaurant_invalid_admin_rating_bounds(client: TestClient):
+    """Kiểm tra API từ chối admin_rating vượt trần (> 5.0) hoặc âm (< 0.0)."""
+    # 1. Quá 5.0
+    resp_over = client.post(
+        "/api/v1/restaurants",
+        json={
+            "name": "Quán lỗi admin rating quá 5",
+            "address": "Địa chỉ lỗi",
+            "latitude": 21.0,
+            "longitude": 105.0,
+            "admin_rating": 5.5,
+        },
+    )
+    assert resp_over.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    # 2. Âm (< 0.0)
+    resp_neg = client.post(
+        "/api/v1/restaurants",
+        json={
+            "name": "Quán lỗi admin rating âm",
+            "address": "Địa chỉ lỗi",
+            "latitude": 21.0,
+            "longitude": 105.0,
+            "admin_rating": -0.5,
+        },
+    )
+    assert resp_neg.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_update_restaurant_admin_rating(client: TestClient):
+    """Kiểm tra cập nhật admin_rating cho quán ăn qua API PUT."""
+    create_resp = client.post(
+        "/api/v1/restaurants",
+        json={
+            "name": "Quán Phở Thẩm Định",
+            "address": "25 Cửu Việt, Gia Lâm, Hà Nội",
+            "latitude": 21.0080,
+            "longitude": 105.9350,
+        },
+    )
+    rest_id = create_resp.json()["id"]
+    assert create_resp.json()["admin_rating"] is None
+
+    # Cập nhật admin_rating lên 4.9
+    update_resp = client.put(
+        f"/api/v1/restaurants/{rest_id}",
+        json={"admin_rating": 4.9},
+    )
+    assert update_resp.status_code == status.HTTP_200_OK
+    assert update_resp.json()["admin_rating"] == 4.9
+
+
+def test_db_check_constraint_admin_rating(db_session: Session):
+    """Kiểm tra ràng buộc CheckConstraint ck_restaurant_admin_rating ở tầng Database PostgreSQL."""
+    from sqlalchemy.exc import IntegrityError
+
+    invalid_restaurant = Restaurant(
+        name="Quán vi phạm CheckConstraint Admin Rating",
+        address="Địa chỉ vi phạm",
+        latitude=21.0,
+        longitude=105.0,
+        admin_rating=9.9,
+    )
+    db_session.add(invalid_restaurant)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
