@@ -6,8 +6,6 @@ import '../screens/favourites_screen.dart';
 import '../screens/map_screen.dart';
 import '../services/api_service.dart';
 import '../widgets/auth_form_modal.dart';
-import '../widgets/onboarding_survey_dialog.dart';
-import '../widgets/welcome_category_dialog.dart';
 
 class MainShell extends StatefulWidget {
   final ApiService apiService;
@@ -46,40 +44,8 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.black,
       ),
     );
-    _checkAndShowOnboarding(user);
   }
 
-  Future<void> _checkAndShowOnboarding(RoleLoginResponse user) async {
-    try {
-      final profile = await widget.apiService.getUserProfile(user.id);
-      if (!profile.isOnboarded && mounted) {
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => WelcomeCategoryDialog(
-            api: widget.apiService,
-            userId: user.id,
-            selectedCategory: _selectedCategory,
-            onCategorySelected: (cat) {
-              setState(() {
-                _selectedCategory = (cat == 'Tất cả' || cat == 'Xem tất cả món') ? null : cat;
-              });
-            },
-            onCompleted: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã lưu thể loại món ăn bạn yêu thích!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-          ),
-        );
-      }
-    } catch (_) {}
-  }
 
   void _onLogout() {
     setState(() {

@@ -347,7 +347,7 @@ void main() {
     expect(find.text('Lưu & Hoàn tất'), findsOneWidget);
   });
 
-  testWidgets('Kiểm thử khi đăng nhập lần đầu tiên tự động hiển thị WelcomeCategoryDialog và lưu option duy nhất 1 lần', (WidgetTester tester) async {
+  testWidgets('Kiểm thử khi đăng nhập tài khoản thực khách thành công không còn hiển thị WelcomeCategoryDialog và vào thẳng app', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
     // Khởi chạy app mặc định
@@ -377,23 +377,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    // 1. Kiểm tra dialog "Hôm Nay Bạn Muốn Ăn Gì?" hiển thị vì profile.isOnboarded == false
-    expect(find.text('Hôm Nay Bạn Muốn Ăn Gì?'), findsOneWidget);
-    expect(find.text('Phở & Bún'), findsAtLeastNWidgets(1));
-
-    // 2. Chọn thể loại "Cơm & Xôi" và nhấn "Khám Phá"
-    await tester.tap(find.text('Cơm & Xôi'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Khám Phá'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-
-    // 3. Dialog đã đóng, kiểm tra profile đã được lưu isOnboarded = true
+    // 1. Kiểm tra tuyệt đối KHÔNG hiển thị dialog "Hôm Nay Bạn Muốn Ăn Gì?"
     expect(find.text('Hôm Nay Bạn Muốn Ăn Gì?'), findsNothing);
-    final profile = await fakeApi.getUserProfile(1);
-    expect(profile.isOnboarded, isTrue);
-    expect(profile.favoriteCategoryIds, contains(2));
+
+    // 2. Kiểm tra thông tin người dùng hiển thị thành công trong Tab Tài khoản
+    expect(find.text('Tài Khoản Thực Khách'), findsOneWidget);
+    expect(find.text('Thực Khách Test'), findsOneWidget);
+    expect(find.byTooltip('Đăng xuất'), findsOneWidget);
   });
 
   testWidgets('Kiểm thử khởi chạy Ptc1App mặc định không hiện popup và vào thẳng Khám phá', (WidgetTester tester) async {
@@ -426,7 +416,7 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: Column(
-            children: const [
+            children: [
               CustomPaint(size: Size(120, 80), painter: WeatherLandscapePainter(isNight: false)),
               CustomPaint(size: Size(120, 80), painter: WeatherLandscapePainter(isNight: true)),
             ],

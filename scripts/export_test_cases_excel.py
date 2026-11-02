@@ -331,9 +331,9 @@ def create_excel_report():
         ("TC-FLUTTER-04", "Kiểm thử hiển thị dialog Onboarding Survey",
          "Hiển thị hộp thoại khảo sát thể chất 3 bước, tính toán BMI và sở thích",
          "Render đầy đủ các slider chiều cao, cân nặng, radio mục tiêu sức khỏe", "PASS"),
-        ("TC-FLUTTER-05", "Kiểm thử WelcomeCategoryDialog & Lọc thể loại món ăn",
-         "Hiển thị dialog chào đón thực khách và chọn lọc món theo danh mục",
-         "Lọc danh sách quán ăn phản hồi tức thì theo danh mục đã chọn", "PASS"),
+        ("TC-FLUTTER-05", "Kiểm thử đăng nhập thực khách & vào thẳng app không popup",
+         "Đăng nhập tài khoản thực khách thành công và kiểm tra không còn popup cản trở",
+         "Giao diện chuyển đổi phiên làm việc và hiển thị thông tin thực khách chuẩn xác", "PASS"),
     ]
 
     for col_idx, h in enumerate(mob_headers, start=1):

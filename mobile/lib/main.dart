@@ -17,7 +17,6 @@ export 'utils/helpers.dart';
 export 'widgets/auth_form_modal.dart';
 export 'widgets/onboarding_survey_dialog.dart';
 export 'widgets/restaurant_menu_widget.dart';
-export 'widgets/welcome_category_dialog.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

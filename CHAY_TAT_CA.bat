@@ -22,16 +22,16 @@ start "" "http://localhost:8001/"
 echo [*] Cho 3 giay de Backend on dinh he thong...
 timeout /t 3 /nobreak >nul
 
-:: 2. KHOI DONG WEB FRONTEND VUE 3 (Port 5173)
-echo [*] Buoc 2: Dang khoi dong Web Client (Vue 3 + Vite) tai http://localhost:5173 ...
+:: 2. KHOI DONG WEB FRONTEND VUE 3 (Port 5174)
+echo [*] Buoc 2: Dang khoi dong Web Client (Vue 3 + Vite) tai http://localhost:5174 ...
 if not exist "%~dp0web\node_modules" (
     echo [*] Thu vien node_modules chua ton tai, dang tien hanh npm install...
     cd /d "%~dp0web" && call npm install && cd /d "%~dp0"
 )
-start "PTC1 Web Client (Port 5173)" cmd /k "chcp 65001 >nul & cd /d "%~dp0web" & title [PTC1] Web Client (Port 5173) & echo [*] Dang chay Vite Dev Server tai http://localhost:5173 ... & npm run dev"
+start "PTC1 Web Client (Port 5174)" cmd /k "chcp 65001 >nul & cd /d "%~dp0web" & title [PTC1] Web Client (Port 5174) & echo [*] Dang chay Vite Dev Server tai http://localhost:5174 ... & npm run dev"
 
 :: Mo Web tren trinh duyet
-start "" "http://localhost:5173"
+start "" "http://localhost:5174"
 
 :: 3. KHOI DONG FLUTTER MOBILE (Port 3000)
 echo [*] Buoc 3: Dang khoi dong Flutter Mobile App tai http://localhost:3000 ...
@@ -41,7 +41,7 @@ echo.
 echo ==============================================================================
 echo [V] DA KHOI CHAY TOAN BO HE THONG THANH CONG!
 echo     - Backend FastAPI:  http://localhost:8001/ (Health Check - Postman base: /api/v1)
-echo     - Web Client:       http://localhost:5173
+echo     - Web Client:       http://localhost:5174
 echo     - Mobile Client:    http://localhost:3000
 echo.
 echo     Moi dich vu dang chay doc lap trong 1 cua so console rieng biet.
