@@ -65,6 +65,11 @@ class _MapScreenState extends State<MapScreen> {
   late final MapController _mapController;
   final _searchCtrl = TextEditingController();
 
+  // Quản lý TileProvider dùng chung, bật silenceExceptions = true để triệt tiêu ClientException ra console khi huỷ/lỗi tile mạng
+  late final TileProvider _tileProvider = NetworkTileProvider(
+    silenceExceptions: true,
+  );
+
   // Bounding box giới hạn phạm vi bản đồ trong địa phận Huyện Gia Lâm, Hà Nội
   static final giaLamBounds = LatLngBounds(
     const LatLng(20.9250, 105.8600),
@@ -705,6 +710,13 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _tileProvider.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     _mapController = MapController();
@@ -1274,6 +1286,8 @@ class _MapScreenState extends State<MapScreen> {
                 tileBounds: giaLamBounds,
                 maxNativeZoom: 19,
                 maxZoom: 20.0,
+                tileProvider: _tileProvider,
+                evictErrorTileStrategy: EvictErrorTileStrategy.notVisibleRespectMargin,
               ),
               // 1.1 LOP MAT NA CAT MIENG BANH GIA LAM - CHE PHU VINH VIEN 100% CAC VUNG NGOAI
               PolygonLayer(

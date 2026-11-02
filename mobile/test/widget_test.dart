@@ -545,6 +545,14 @@ void main() {
 
     expect(find.byType(FlutterMap), findsOneWidget);
     expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
+
+    // Kiểm tra cấu hình TileLayer có silenceExceptions và evictErrorTileStrategy
+    final tileLayerFinder = find.byType(TileLayer);
+    expect(tileLayerFinder, findsOneWidget);
+    final tileLayerWidget = tester.widget<TileLayer>(tileLayerFinder);
+    expect(tileLayerWidget.evictErrorTileStrategy, EvictErrorTileStrategy.notVisibleRespectMargin);
+    expect(tileLayerWidget.tileProvider, isA<NetworkTileProvider>());
+    expect((tileLayerWidget.tileProvider as NetworkTileProvider).silenceExceptions, isTrue);
   });
 
   test('LocationService.getDeviceLocation trả về null an toàn khi chạy headless test', () async {

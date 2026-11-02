@@ -63,20 +63,24 @@ class LocationService {
         return null;
       }
 
-      // 4. Lấy toạ độ GPS chính xác với timeout 2 lớp (10s trong settings, 12s ngoài future)
+      // 4. Lấy toạ độ GPS chính xác với timeout 2 lớp (5s trong settings, 6s ngoài future)
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 10),
+          timeLimit: Duration(seconds: 5),
         ),
-      ).timeout(const Duration(seconds: 12));
+      ).timeout(const Duration(seconds: 6));
 
       return {
         'lat': position.latitude,
         'lon': position.longitude,
       };
+    } on TimeoutException {
+      // Xử lý riêng biệt khi hết thời gian chờ phản hồi GPS (đặc biệt trên Web hoặc máy không có chip GPS)
+      debugPrint('[LocationService] Quá thời gian chờ phản hồi toạ độ GPS (timeout), sử dụng vị trí mặc định.');
+      return await _lastKnownOrNull();
     } catch (e) {
-      // Bắt an toàn mọi ngoại lệ bao gồm MissingPluginException trong test và TimeoutException
+      // Bắt an toàn mọi ngoại lệ bao gồm MissingPluginException trong test
       debugPrint('[LocationService] Lỗi khi lấy toạ độ GPS: $e');
       return await _lastKnownOrNull();
     }
