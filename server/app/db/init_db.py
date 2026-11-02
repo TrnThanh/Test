@@ -7,6 +7,7 @@ from server.app.services.admin_service import AdminService
 from server.app.services.user_service import UserService
 from server.app.services.meal_type_service import MealTypeService
 from server.app.services.weather_service import WeatherService
+from server.app.services.category_service import CategoryService
 # Import models để Base.metadata nhận diện các bảng trước khi create_all
 import server.app.models  # noqa: F401
 
@@ -194,6 +195,7 @@ def init_database() -> None:
         UserService.seed_default_user(db)
         MealTypeService.seed_default_meal_types(db)
         WeatherService.seed_4000_weather_patterns(db)
+        CategoryService.seed_default_categories(db)
         if getattr(settings, "AUTO_SEED_INITIAL_DATA", True):
             from server.app.services.initial_seed_service import InitialSeedService
             InitialSeedService.seed_initial_data_if_needed(db)

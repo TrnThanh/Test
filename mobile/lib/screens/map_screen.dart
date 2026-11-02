@@ -40,8 +40,20 @@ class CuisineStyle {
 
 CuisineStyle getCuisineStyle(String name, String? description) {
   final lower = ('$name ${description ?? ""}').toLowerCase();
-  if (lower.contains('phở') || lower.contains('bún') || lower.contains('miến') || lower.contains('mỳ') || lower.contains('mì')) {
-    return const CuisineStyle(Icons.ramen_dining, Color(0xFF00897B), 'Phở & Bún');
+  if (lower.contains('chay') || lower.contains('thực dưỡng')) {
+    return const CuisineStyle(Icons.eco, Color(0xFF2E7D32), 'Ẩm thực Chay & Thực dưỡng');
+  }
+  if (lower.contains('ốc') || lower.contains('sò') || lower.contains('ngao') || lower.contains('nhậu') || lower.contains('hàu') || lower.contains('hến')) {
+    return const CuisineStyle(Icons.sports_bar, Color(0xFF0097A7), 'Ốc & Quán lai rai');
+  }
+  if (lower.contains('chè') || lower.contains('kem') || lower.contains('caramen') || lower.contains('tàu hũ') || lower.contains('flan')) {
+    return const CuisineStyle(Icons.icecream, Color(0xFFC2185B), 'Chè & Tráng miệng');
+  }
+  if (lower.contains('bánh cuốn') || lower.contains('bánh xèo') || lower.contains('gỏi cuốn') || lower.contains('bún chả') || lower.contains('bún đậu') || lower.contains('bánh bèo') || lower.contains('bột lọc')) {
+    return const CuisineStyle(Icons.lunch_dining, Color(0xFF5D4037), 'Bánh truyền thống & Món cuốn');
+  }
+  if (lower.contains('phở') || lower.contains('bún') || lower.contains('miến') || lower.contains('mỳ') || lower.contains('mì') || lower.contains('hủ tiếu') || lower.contains('bánh canh')) {
+    return const CuisineStyle(Icons.ramen_dining, Color(0xFF00897B), 'Phở, Bún & Món nước');
   }
   if (lower.contains('cơm') || lower.contains('xôi') || lower.contains('niêu') || lower.contains('sườn nướng')) {
     return const CuisineStyle(Icons.rice_bowl, Color(0xFFE65100), 'Cơm & Xôi');
@@ -49,13 +61,13 @@ CuisineStyle getCuisineStyle(String name, String? description) {
   if (lower.contains('lẩu') || lower.contains('nướng') || lower.contains('bbq') || lower.contains('bò tảng')) {
     return const CuisineStyle(Icons.outdoor_grill, Color(0xFFD32F2F), 'Lẩu & Nướng');
   }
-  if (lower.contains('cà phê') || lower.contains('cafe') || lower.contains('coffee') || lower.contains('trà sữa') || lower.contains('trà đào') || lower.contains('tea')) {
-    return const CuisineStyle(Icons.local_cafe, Color(0xFF6A1B9A), 'Cà phê & Trà sữa');
+  if (lower.contains('cà phê') || lower.contains('cafe') || lower.contains('coffee') || lower.contains('trà sữa') || lower.contains('trà đào') || lower.contains('trà') || lower.contains('tea')) {
+    return const CuisineStyle(Icons.local_cafe, Color(0xFF6A1B9A), 'Cà phê & Thức uống giải khát');
   }
   if (lower.contains('bánh mì') || lower.contains('bánh mỳ') || lower.contains('bakery') || lower.contains('pate')) {
     return const CuisineStyle(Icons.bakery_dining, Color(0xFF1565C0), 'Bánh mì');
   }
-  if (lower.contains('ăn vặt') || lower.contains('nem') || lower.contains('khoai') || lower.contains('chè') || lower.contains('bánh tráng')) {
+  if (lower.contains('ăn vặt') || lower.contains('nem') || lower.contains('khoai') || lower.contains('bánh tráng')) {
     return const CuisineStyle(Icons.fastfood, Color(0xFFF57F17), 'Đồ ăn vặt');
   }
   return const CuisineStyle(Icons.restaurant, kPrimaryGreen, 'Ẩm thực');
@@ -153,12 +165,16 @@ class _MapScreenState extends State<MapScreen> {
 
   static const List<Map<String, dynamic>> _foodCategories = [
     {'name': 'Tất cả', 'icon': Icons.restaurant_menu},
-    {'name': 'Phở & Bún', 'icon': Icons.ramen_dining},
+    {'name': 'Phở, Bún & Món nước', 'icon': Icons.ramen_dining},
     {'name': 'Cơm & Xôi', 'icon': Icons.rice_bowl},
     {'name': 'Bánh mì', 'icon': Icons.bakery_dining},
-    {'name': 'Đồ ăn vặt', 'icon': Icons.fastfood},
-    {'name': 'Cà phê & Trà sữa', 'icon': Icons.local_cafe},
+    {'name': 'Bánh truyền thống & Món cuốn', 'icon': Icons.lunch_dining},
     {'name': 'Lẩu & Nướng', 'icon': Icons.outdoor_grill},
+    {'name': 'Ốc & Quán lai rai', 'icon': Icons.sports_bar},
+    {'name': 'Đồ ăn vặt', 'icon': Icons.fastfood},
+    {'name': 'Chè & Tráng miệng', 'icon': Icons.icecream},
+    {'name': 'Cà phê & Thức uống giải khát', 'icon': Icons.local_cafe},
+    {'name': 'Ẩm thực Chay & Thực dưỡng', 'icon': Icons.eco},
   ];
 
   bool _restaurantMatchesCategory(Restaurant r, String cat) {
@@ -167,12 +183,16 @@ class _MapScreenState extends State<MapScreen> {
     if (style.label == cat) return true;
 
     final text = '${r.name} ${r.description ?? ""} ${r.recommendation?.featuredDish.name ?? ""}'.toLowerCase();
-    if (cat == 'Phở & Bún') return text.contains('phở') || text.contains('bún') || text.contains('miến') || text.contains('mỳ') || text.contains('mì');
+    if (cat == 'Phở, Bún & Món nước' || cat == 'Phở & Bún') return text.contains('phở') || text.contains('bún') || text.contains('miến') || text.contains('mỳ') || text.contains('mì') || text.contains('hủ tiếu') || text.contains('bánh canh');
     if (cat == 'Cơm & Xôi') return text.contains('cơm') || text.contains('xôi') || text.contains('niêu');
     if (cat == 'Bánh mì') return text.contains('bánh mì') || text.contains('bánh mỳ') || text.contains('pate');
-    if (cat == 'Đồ ăn vặt') return text.contains('ăn vặt') || text.contains('vặt') || text.contains('nem') || text.contains('khoai') || text.contains('chè') || text.contains('bánh tráng');
-    if (cat == 'Cà phê & Trà sữa') return text.contains('cà phê') || text.contains('trà sữa') || text.contains('trà') || text.contains('cafe') || text.contains('coffee');
+    if (cat == 'Bánh truyền thống & Món cuốn') return text.contains('bánh cuốn') || text.contains('bánh xèo') || text.contains('gỏi cuốn') || text.contains('bún chả') || text.contains('bún đậu') || text.contains('bánh bèo');
     if (cat == 'Lẩu & Nướng') return text.contains('lẩu') || text.contains('nướng') || text.contains('bbq');
+    if (cat == 'Ốc & Quán lai rai') return text.contains('ốc') || text.contains('sò') || text.contains('ngao') || text.contains('nhậu') || text.contains('bia') || text.contains('hàu');
+    if (cat == 'Đồ ăn vặt') return text.contains('ăn vặt') || text.contains('vặt') || text.contains('nem') || text.contains('khoai') || text.contains('bánh tráng');
+    if (cat == 'Chè & Tráng miệng') return text.contains('chè') || text.contains('kem') || text.contains('caramen') || text.contains('tàu hũ') || text.contains('flan');
+    if (cat == 'Cà phê & Thức uống giải khát' || cat == 'Cà phê & Trà sữa') return text.contains('cà phê') || text.contains('trà sữa') || text.contains('trà') || text.contains('cafe') || text.contains('coffee');
+    if (cat == 'Ẩm thực Chay & Thực dưỡng') return text.contains('chay') || text.contains('thực dưỡng') || text.contains('nấm');
     return false;
   }
   double _currentZoom = 14.0;

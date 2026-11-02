@@ -28,13 +28,16 @@ INITIAL_SEED_KEY = "gialam_204_restaurants_v1"
 
 # Danh sách danh mục chuẩn
 DEFAULT_CATEGORIES = [
-    "Phở & Bún",
+    "Phở, Bún & Món nước",
     "Cơm & Xôi",
     "Bánh mì",
-    "Đồ ăn vặt",
-    "Cà phê & Trà sữa",
+    "Bánh truyền thống & Món cuốn",
     "Lẩu & Nướng",
-    "Món chay",
+    "Ốc & Quán lai rai",
+    "Đồ ăn vặt",
+    "Chè & Tráng miệng",
+    "Cà phê & Thức uống giải khát",
+    "Ẩm thực Chay & Thực dưỡng",
 ]
 
 # Các địa điểm không phải quán ăn trong JSON cần loại bỏ

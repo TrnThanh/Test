@@ -39,7 +39,18 @@ def test_seeded_categories_exist():
         categories = db.query(Category).filter(Category.is_active == True).all()
         cat_names = [c.name for c in categories]
         
-        expected_cats = ["Phở & Bún", "Cơm & Xôi", "Bánh mì", "Đồ ăn vặt", "Cà phê & Trà sữa", "Lẩu & Nướng"]
+        expected_cats = [
+            "Phở, Bún & Món nước",
+            "Cơm & Xôi",
+            "Bánh mì",
+            "Bánh truyền thống & Món cuốn",
+            "Lẩu & Nướng",
+            "Ốc & Quán lai rai",
+            "Đồ ăn vặt",
+            "Chè & Tráng miệng",
+            "Cà phê & Thức uống giải khát",
+            "Ẩm thực Chay & Thực dưỡng",
+        ]
         for expected in expected_cats:
             assert expected in cat_names, f"Thiếu danh mục '{expected}'"
     finally:

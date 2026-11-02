@@ -153,3 +153,96 @@ class CategoryService:
         # 2. Xoá bản ghi danh mục
         db.delete(cat)
         db.commit()
+
+    # Tự động nạp hoặc cập nhật 10 thể loại món ăn Việt Nam chuẩn hóa
+    @staticmethod
+    def seed_default_categories(db: Session) -> None:
+        """Khởi tạo hoặc cập nhật 10 thể loại món ăn Việt Nam chuẩn hóa toàn cục."""
+        categories_data = [
+            (
+                "Phở, Bún & Món nước",
+                "Các món nước thanh ngọt, sợi bún phở mềm mịn, nước dùng hầm xương đậm đà chuẩn vị truyền thống.",
+                1,
+                ["phở & bún"],
+            ),
+            (
+                "Cơm & Xôi",
+                "Cơm niêu giòn đáy, cơm sườn nướng mật ong và xôi nếp dẻo thơm chắc dạ trọn vẹn từng bữa ăn.",
+                2,
+                [],
+            ),
+            (
+                "Bánh mì",
+                "Bánh mì nướng giòn rụm, đầy đặn nhân pate thịt nguội, xúc xích và rau thơm tươi ngon.",
+                3,
+                [],
+            ),
+            (
+                "Bánh truyền thống & Món cuốn",
+                "Bún chả, bún đậu mắm tôm, gỏi cuốn tôm thịt, bánh cuốn nóng và các món bánh dân dã truyền thống.",
+                4,
+                [],
+            ),
+            (
+                "Lẩu & Nướng",
+                "Nồi lẩu bốc khói nghi ngút và thịt nướng xèo xèo thơm phức lý tưởng cho những buổi hội ngộ sum vầy.",
+                5,
+                [],
+            ),
+            (
+                "Ốc & Quán lai rai",
+                "Ốc hương xào bơ tỏi, ngao hấp sả, chân gà sả tắc và các món nhậu lai rai đậm đà chuẩn vị.",
+                6,
+                [],
+            ),
+            (
+                "Đồ ăn vặt",
+                "Nem chua rán giòn rụm, bánh tráng nướng, khoai tây lắc phô mai thơm ngon cho bữa xế vui vẻ.",
+                7,
+                [],
+            ),
+            (
+                "Chè & Tráng miệng",
+                "Chè bưởi, tàu hũ trân châu, caramen béo ngậy và các món tráng miệng ngọt ngào thanh mát.",
+                8,
+                [],
+            ),
+            (
+                "Cà phê & Thức uống giải khát",
+                "Cà phê đậm đà, trà hoa quả thanh mát giải nhiệt và thức uống giải khát sảng khoái.",
+                9,
+                ["cà phê & trà sữa"],
+            ),
+            (
+                "Ẩm thực Chay & Thực dưỡng",
+                "Món chay thanh tịnh, lẩu nấm dưỡng sinh thanh lọc cơ thể từ rau củ quả tự nhiên.",
+                10,
+                ["món chay"],
+            ),
+        ]
+
+        for name, desc, order, legacy_aliases in categories_data:
+            cat = None
+            # Tìm danh mục theo tên hiện tại
+            cat = db.execute(select(Category).where(func.lower(Category.name) == name.lower())).scalar_one_or_none()
+            if not cat and legacy_aliases:
+                for alias in legacy_aliases:
+                    cat = db.execute(select(Category).where(func.lower(Category.name) == alias.lower())).scalar_one_or_none()
+                    if cat:
+                        break
+
+            if cat:
+                cat.name = name
+                cat.description = desc
+                cat.display_order = order
+                cat.is_active = True
+            else:
+                new_cat = Category(
+                    name=name,
+                    description=desc,
+                    display_order=order,
+                    is_active=True,
+                )
+                db.add(new_cat)
+
+        db.commit()

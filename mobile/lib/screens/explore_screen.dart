@@ -66,13 +66,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   final List<String> _categories = const [
     'Tất cả',
-    'Phở',
-    'Bún',
-    'Cơm',
+    'Phở, Bún & Món nước',
+    'Cơm & Xôi',
     'Bánh mì',
-    'Ăn vặt',
-    'Đồ uống',
+    'Bánh truyền thống & Món cuốn',
     'Lẩu & Nướng',
+    'Ốc & Quán lai rai',
+    'Đồ ăn vặt',
+    'Chè & Tráng miệng',
+    'Cà phê & Thức uống giải khát',
+    'Ẩm thực Chay & Thực dưỡng',
   ];
 
   @override
@@ -467,11 +470,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
         bool match(String keyword) =>
             name.contains(keyword) || desc.contains(keyword) || featuredDishName.contains(keyword);
 
-        if (cat == 'phở & bún') return match('phở') || match('bún');
-        if (cat == 'cơm & xôi') return match('cơm') || match('xôi');
-        if (cat == 'ăn vặt') return match('ăn vặt') || match('vặt');
-        if (cat == 'đồ uống') return match('đồ uống') || match('cà phê') || match('trà sữa') || match('nước');
-        if (cat == 'lẩu & nướng') return match('lẩu') || match('nướng');
+        if (cat == 'phở, bún & món nước' || cat == 'phở & bún' || cat == 'phở' || cat == 'bún') {
+          return match('phở') || match('bún') || match('miến') || match('mì') || match('mỳ') || match('hủ tiếu') || match('bánh canh');
+        }
+        if (cat == 'cơm & xôi' || cat == 'cơm') return match('cơm') || match('xôi') || match('niêu') || match('sườn');
+        if (cat == 'bánh mì') return match('bánh mì') || match('bánh mỳ') || match('pate') || match('bánh bao');
+        if (cat == 'bánh truyền thống & món cuốn') {
+          return match('bánh cuốn') || match('bánh xèo') || match('gỏi cuốn') || match('bún chả') || match('bún đậu') || match('bánh bèo') || match('bột lọc');
+        }
+        if (cat == 'lẩu & nướng') return match('lẩu') || match('nướng') || match('bbq');
+        if (cat == 'ốc & quán lai rai') return match('ốc') || match('ngao') || match('sò') || match('nhậu') || match('bia') || match('chân gà') || match('mực');
+        if (cat == 'đồ ăn vặt' || cat == 'ăn vặt') return match('ăn vặt') || match('nem chua rán') || match('khoai') || match('bánh tráng');
+        if (cat == 'chè & tráng miệng') return match('chè') || match('caramen') || match('tàu hũ') || match('kem') || match('sữa chua') || match('flan');
+        if (cat == 'cà phê & thức uống giải khát' || cat == 'cà phê & trà sữa' || cat == 'đồ uống') {
+          return match('cà phê') || match('cafe') || match('coffee') || match('trà sữa') || match('trà') || match('nước mía') || match('sinh tố') || match('nước');
+        }
+        if (cat == 'ẩm thực chay & thực dưỡng' || cat == 'món chay') return match('chay') || match('thực dưỡng') || match('nấm');
         return match(cat);
       }).toList();
     }
@@ -1132,13 +1146,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   children: _categories.map((cat) {
                                     final isSelected = (_currentCategory ?? 'Tất cả') == cat;
                                     IconData iconData = Icons.restaurant;
-                                    if (cat == 'Phở') iconData = Icons.ramen_dining_outlined;
-                                    else if (cat == 'Bún') iconData = Icons.soup_kitchen_outlined;
-                                    else if (cat == 'Cơm') iconData = Icons.rice_bowl_outlined;
-                                    else if (cat == 'Bánh mì') iconData = Icons.local_cafe_outlined;
-                                    else if (cat == 'Ăn vặt') iconData = Icons.fastfood_outlined;
-                                    else if (cat == 'Đồ uống') iconData = Icons.local_drink_outlined;
+                                    if (cat == 'Phở, Bún & Món nước' || cat == 'Phở' || cat == 'Bún') iconData = Icons.ramen_dining_outlined;
+                                    else if (cat == 'Cơm & Xôi' || cat == 'Cơm') iconData = Icons.rice_bowl_outlined;
+                                    else if (cat == 'Bánh mì') iconData = Icons.bakery_dining_outlined;
+                                    else if (cat == 'Bánh truyền thống & Món cuốn') iconData = Icons.lunch_dining_outlined;
                                     else if (cat == 'Lẩu & Nướng') iconData = Icons.outdoor_grill_outlined;
+                                    else if (cat == 'Ốc & Quán lai rai') iconData = Icons.sports_bar_outlined;
+                                    else if (cat == 'Đồ ăn vặt' || cat == 'Ăn vặt') iconData = Icons.fastfood_outlined;
+                                    else if (cat == 'Chè & Tráng miệng') iconData = Icons.icecream_outlined;
+                                    else if (cat == 'Cà phê & Thức uống giải khát' || cat == 'Đồ uống') iconData = Icons.local_cafe_outlined;
+                                    else if (cat == 'Ẩm thực Chay & Thực dưỡng') iconData = Icons.eco_outlined;
 
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 10),
