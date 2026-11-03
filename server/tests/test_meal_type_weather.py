@@ -66,8 +66,8 @@ def test_create_custom_weather(client: TestClient):
         "code": "stormy",
         "name": "Bão to gió lớn",
         "description": "Mưa bão lớn, khuyến khích đặt ship tại nhà",
-        "min_temp": 18.0,
-        "max_temp": 24.0,
+        "temperature": 21.0,
+        "humidity": 80.0,
         "condition": "storm",
         "icon": "weather-lightning",
         "season": "rainy",
@@ -152,8 +152,8 @@ def test_update_and_delete_weather(client: TestClient):
             "code": "test_foggy",
             "name": "Sương mù dày đặc",
             "description": "Tầm nhìn hạn chế",
-            "min_temp": 12.0,
-            "max_temp": 18.0,
+            "temperature": 15.0,
+            "humidity": 85.0,
             "season": "winter",
         },
     )
@@ -166,24 +166,24 @@ def test_update_and_delete_weather(client: TestClient):
         json={
             "name": "Sương mù buổi sáng",
             "description": "Sương mù kèm se lạnh",
-            "min_temp": 14.0,
-            "max_temp": 20.0,
+            "temperature": 16.0,
+            "humidity": 80.0,
             "season": "spring",
         },
     )
     assert update_resp.status_code == 200
     updated_data = update_resp.json()
     assert updated_data["name"] == "Sương mù buổi sáng"
-    assert updated_data["min_temp"] == 14.0
-    assert updated_data["max_temp"] == 20.0
+    assert updated_data["temperature"] == 16.0
+    assert updated_data["humidity"] == 80.0
     assert updated_data["season"] == "spring"
 
-    # 3. Thử cập nhật min_temp > max_temp -> 400
+    # 3. Thử cập nhật temperature ngoài khoảng -50..60 -> 400
     bad_resp = client.put(
         f"/api/v1/weather/{w_id}",
-        json={"min_temp": 30.0, "max_temp": 20.0},
+        json={"temperature": 100.0},
     )
-    assert bad_resp.status_code == 400
+    assert bad_resp.status_code in (400, 422)
 
     # 4. Xoá thời tiết
     del_resp = client.delete(f"/api/v1/weather/{w_id}")

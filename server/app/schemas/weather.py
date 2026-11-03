@@ -1,20 +1,33 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from server.app.schemas.category import CategoryResponse
 
 
+class HourlyWeatherItem(BaseModel):
+    hour: int = Field(..., ge=0, le=23, description="Khung giờ quan trắc trong ngày (0-23)")
+    temperature: float = Field(..., description="Nhiệt độ (°C)")
+    humidity: float = Field(..., description="Độ ẩm (%)")
+    precipitation: float = Field(0.0, description="Lượng mưa (mm)")
+    weather_code: int = Field(0, description="Mã điều kiện thời tiết số")
+    condition: str = Field(..., description="Điều kiện thời tiết (SUNNY, CLOUDY, RAIN...)")
+    icon: str = Field(..., description="Icon minh họa thời tiết")
+
+
 class WeatherBase(BaseModel):
-    code: str = Field(..., min_length=1, max_length=50, description="Mã trạng thái thời tiết (hot, cold, rainy, mild, SPRING_PATTERN_001...)")
-    name: str = Field(..., min_length=1, max_length=255, description="Tên thời tiết (Nắng nóng, Mưa rào, Trời lạnh...)")
+    code: str = Field(..., min_length=1, max_length=60, description="Mã trạng thái thời tiết (SPRING_PATTERN_0001_H00...)")
+    pattern_code: Optional[str] = Field(None, max_length=50, description="Mã nhóm mẫu thời tiết (SPRING_PATTERN_0001...)")
+    hour: Optional[int] = Field(None, ge=0, le=23, description="Khung giờ quan trắc trong ngày (0-23)")
+    name: str = Field(..., min_length=1, max_length=255, description="Tên thời tiết (Trời quang / Nắng đẹp...)")
     description: Optional[str] = Field(None, max_length=5000, description="Mô tả thời tiết")
-    min_temp: Optional[float] = Field(None, ge=-50.0, le=60.0, description="Nhiệt độ tối thiểu (°C)")
-    max_temp: Optional[float] = Field(None, ge=-50.0, le=60.0, description="Nhiệt độ tối đa (°C)")
-    min_humidity: Optional[int] = Field(None, ge=0, le=100, description="Độ ẩm tối thiểu (%)")
-    max_humidity: Optional[int] = Field(None, ge=0, le=100, description="Độ ẩm tối đa (%)")
+    temperature: Optional[float] = Field(None, ge=-50.0, le=60.0, description="Nhiệt độ mẫu (°C)")
+    humidity: Optional[float] = Field(None, ge=0.0, le=100.0, description="Độ ẩm mẫu (%)")
+    precipitation: Optional[float] = Field(0.0, description="Lượng mưa tại thời điểm (mm)")
+    weather_code: Optional[int] = Field(0, description="Mã số điều kiện thời tiết")
     condition: Optional[str] = Field(None, max_length=100, description="Điều kiện khí hậu")
     icon: Optional[str] = Field(None, max_length=100, description="Tên icon hoặc URL")
-    season: Optional[str] = Field(None, max_length=50, description="Mùa trong năm (spring, summer, autumn, winter, dry, rainy...)")
+    season: Optional[str] = Field(None, max_length=50, description="Mùa trong năm (spring, summer, autumn, winter)")
+    hourly: List[Dict[str, Any]] = Field(default_factory=list, description="Mảng chi tiết 24 giờ trong ngày (nếu có)")
     sort_order: int = Field(0, ge=0, description="Thứ tự hiển thị")
     is_active: bool = Field(True, description="Trạng thái kích hoạt")
 
@@ -40,15 +53,18 @@ class WeatherCreate(WeatherBase):
 
 
 class WeatherUpdate(BaseModel):
+    pattern_code: Optional[str] = Field(None, max_length=50)
+    hour: Optional[int] = Field(None, ge=0, le=23)
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=5000)
-    min_temp: Optional[float] = Field(None, ge=-50.0, le=60.0)
-    max_temp: Optional[float] = Field(None, ge=-50.0, le=60.0)
-    min_humidity: Optional[int] = Field(None, ge=0, le=100)
-    max_humidity: Optional[int] = Field(None, ge=0, le=100)
+    temperature: Optional[float] = Field(None, ge=-50.0, le=60.0)
+    humidity: Optional[float] = Field(None, ge=0.0, le=100.0)
+    precipitation: Optional[float] = None
+    weather_code: Optional[int] = None
     condition: Optional[str] = Field(None, max_length=100)
     icon: Optional[str] = Field(None, max_length=100)
     season: Optional[str] = Field(None, max_length=50)
+    hourly: Optional[List[Dict[str, Any]]] = None
     sort_order: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
 

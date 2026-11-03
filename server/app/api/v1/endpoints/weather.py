@@ -50,12 +50,23 @@ async def get_current_weather(
 )
 def list_weathers(
     active_only: bool = True,
+    pattern_code: Optional[str] = Query(None, description="Lọc theo mã mẫu (vd: SPRING_PATTERN_0001)"),
+    hour: Optional[int] = Query(None, ge=0, le=23, description="Lọc theo khung giờ (0-23)"),
+    limit: Optional[int] = Query(None, ge=1, le=100000, description="Giới hạn số lượng bản ghi"),
+    offset: int = Query(0, ge=0, description="Vị trí bắt đầu"),
     db: Session = Depends(get_db),
 ):
     # 1. Khởi tạo dữ liệu seed nếu chưa có
-    WeatherService.seed_default_weathers(db)
+    WeatherService.seed_weather_patterns(db)
     # 2. Lấy danh sách thời tiết từ database
-    return WeatherService.get_all_weathers(db, active_only=active_only)
+    return WeatherService.get_all_weathers(
+        db,
+        active_only=active_only,
+        pattern_code=pattern_code,
+        hour=hour,
+        limit=limit,
+        offset=offset,
+    )
 
 
 # [POSTMAN GUIDE]

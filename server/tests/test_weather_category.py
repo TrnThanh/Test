@@ -42,8 +42,8 @@ def sample_data(db_session: Session):
         weather_cold = Weather(
             code="cold",
             name="Trời rét buốt",
-            min_temp=5.0,
-            max_temp=15.0,
+            temperature=10.0,
+            humidity=80.0,
             condition="Cold",
         )
         db_session.add(weather_cold)
@@ -56,8 +56,8 @@ def sample_data(db_session: Session):
         weather_hot = Weather(
             code="hot",
             name="Nắng gắt",
-            min_temp=30.0,
-            max_temp=40.0,
+            temperature=35.0,
+            humidity=60.0,
             condition="Hot",
         )
         db_session.add(weather_hot)

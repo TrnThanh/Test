@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_language.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -184,6 +185,96 @@ class _AccountScreenState extends State<AccountScreen> {
             child: const Text('Đóng'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showLanguageSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.language_rounded, color: kPrimaryGreen),
+                    const SizedBox(width: 8),
+                    Text(
+                      tr('lang_choose'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppLanguage.instance.isVietnamese ? kLightGreen : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text('VI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kPrimaryGreen)),
+                ),
+                title: const Text('Tiếng Việt', style: TextStyle(fontWeight: FontWeight.w600)),
+                trailing: AppLanguage.instance.isVietnamese
+                    ? const Icon(Icons.check_circle, color: kPrimaryGreen)
+                    : null,
+                onTap: () {
+                  AppLanguage.instance.setLocale(const Locale('vi'));
+                  Navigator.pop(ctx);
+                  setState(() {});
+                },
+              ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: !AppLanguage.instance.isVietnamese ? kLightGreen : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text('EN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kPrimaryGreen)),
+                ),
+                title: const Text('English', style: TextStyle(fontWeight: FontWeight.w600)),
+                trailing: !AppLanguage.instance.isVietnamese
+                    ? const Icon(Icons.check_circle, color: kPrimaryGreen)
+                    : null,
+                onTap: () {
+                  AppLanguage.instance.setLocale(const Locale('en'));
+                  Navigator.pop(ctx);
+                  setState(() {});
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -621,16 +712,30 @@ class _AccountScreenState extends State<AccountScreen> {
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
+                      leading: const Icon(Icons.language_rounded, color: kPrimaryGreen),
+                      title: Text(tr('item_language'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(AppLanguage.instance.currentLanguageLabel, style: const TextStyle(fontSize: 13, color: kTextMuted)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.chevron_right, color: Colors.grey),
+                        ],
+                      ),
+                      onTap: _showLanguageSheet,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
                       leading: const Icon(Icons.privacy_tip_outlined, color: kPrimaryGreen),
-                      title: const Text('Điều khoản & Quyền riêng tư', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      title: Text(tr('item_privacy'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                       onTap: _showPrivacyInfo,
                     ),
                     const Divider(height: 1, indent: 56),
-                    const ListTile(
-                      leading: Icon(Icons.info_outline, color: kPrimaryGreen),
-                      title: Text('Phiên bản ứng dụng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      trailing: Text('v1.0.0 (PTC1)', style: TextStyle(color: kTextMuted, fontWeight: FontWeight.bold)),
+                    ListTile(
+                      leading: const Icon(Icons.info_outline, color: kPrimaryGreen),
+                      title: Text(tr('item_app_version'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      trailing: const Text('v1.0.0 (PTC1)', style: TextStyle(color: kTextMuted, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -647,7 +752,7 @@ class _AccountScreenState extends State<AccountScreen> {
     return Scaffold(
       backgroundColor: kScaffoldBg,
       appBar: AppBar(
-        title: const Text('Tài Khoản', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: kTextDark)),
+        title: Text(tr('account_title'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: kTextDark)),
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -679,14 +784,14 @@ class _AccountScreenState extends State<AccountScreen> {
                   child: const Icon(Icons.person_outline_rounded, size: 40, color: kPrimaryGreen),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Chào bạn!',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextDark),
+                Text(
+                  tr('greeting_guest'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextDark),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Bạn đang trải nghiệm với tư cách Khách',
-                  style: TextStyle(fontSize: 13, color: kTextMuted),
+                Text(
+                  tr('guest_experience'),
+                  style: const TextStyle(fontSize: 13, color: kTextMuted),
                 ),
                 const SizedBox(height: 18),
                 // 2. Hai nút: Đăng nhập & Tạo tài khoản miễn phí
@@ -701,7 +806,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () => _openAuthSheet(isRegister: false),
-                        child: const Text('Đăng nhập', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        child: Text(tr('btn_login'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -714,7 +819,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () => _openAuthSheet(isRegister: true),
-                        child: const Text('Tạo tài khoản miễn phí', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        child: Text(tr('btn_register_free'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       ),
                     ),
                   ],
@@ -735,33 +840,33 @@ class _AccountScreenState extends State<AccountScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.stars_rounded, color: kPrimaryGreen, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.stars_rounded, color: kPrimaryGreen, size: 20),
+                    const SizedBox(width: 8),
                     Text(
-                      'Lợi ích khi đăng nhập thành viên',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kTextDark),
+                      tr('member_benefits'),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kTextDark),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _buildBenefitRow(
                   icon: Icons.favorite_border_rounded,
-                  title: 'Lưu & đồng bộ món ăn yêu thích',
-                  desc: 'Thả tim các món ngon để xem lại nhanh chóng bất cứ khi nào bạn đói bụng.',
+                  title: tr('benefit_1_title'),
+                  desc: tr('benefit_1_desc'),
                 ),
                 const Divider(height: 22, color: Color(0xFFF1F5F9)),
                 _buildBenefitRow(
                   icon: Icons.psychology_outlined,
-                  title: 'Gợi ý món ăn thông minh theo khẩu vị',
-                  desc: 'Đề xuất bữa ăn chuẩn vóc dáng, thời tiết và sở thích ăn uống cá nhân của bạn.',
+                  title: tr('benefit_2_title'),
+                  desc: tr('benefit_2_desc'),
                 ),
                 const Divider(height: 22, color: Color(0xFFF1F5F9)),
                 _buildBenefitRow(
                   icon: Icons.storefront_outlined,
-                  title: 'Khám phá quán ngon & ưu đãi quanh bạn',
-                  desc: 'Cập nhật món ăn mới và bảng giá chuẩn xác nhất từ các quán lân cận.',
+                  title: tr('benefit_3_title'),
+                  desc: tr('benefit_3_desc'),
                 ),
               ],
             ),
@@ -786,8 +891,8 @@ class _AccountScreenState extends State<AccountScreen> {
                       decoration: BoxDecoration(color: kLightGreen, borderRadius: BorderRadius.circular(10)),
                       child: const Icon(Icons.location_on_outlined, color: kPrimaryGreen, size: 20),
                     ),
-                    title: const Text('Quyền truy cập vị trí', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    subtitle: const Text('Dùng GPS để định vị và gợi ý quán ăn gần nhất', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                    title: Text(tr('item_location_permission'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    subtitle: Text(tr('item_location_permission_sub'), style: const TextStyle(fontSize: 12, color: kTextMuted)),
                     trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                     onTap: _showLocationInfo,
                   ),
@@ -798,16 +903,16 @@ class _AccountScreenState extends State<AccountScreen> {
                       decoration: BoxDecoration(color: kLightGreen, borderRadius: BorderRadius.circular(10)),
                       child: const Icon(Icons.language_rounded, color: kPrimaryGreen, size: 20),
                     ),
-                    title: const Text('Ngôn ngữ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    trailing: const Row(
+                    title: Text(tr('item_language'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Tiếng Việt', style: TextStyle(fontSize: 13, color: kTextMuted)),
-                        SizedBox(width: 4),
-                        Icon(Icons.chevron_right, color: Colors.grey),
+                        Text(AppLanguage.instance.currentLanguageLabel, style: const TextStyle(fontSize: 13, color: kTextMuted)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.chevron_right, color: Colors.grey),
                       ],
                     ),
-                    onTap: () {},
+                    onTap: _showLanguageSheet,
                   ),
                   const Divider(height: 1, indent: 60, color: Color(0xFFF1F5F9)),
                   ListTile(
@@ -816,15 +921,15 @@ class _AccountScreenState extends State<AccountScreen> {
                       decoration: BoxDecoration(color: kLightGreen, borderRadius: BorderRadius.circular(10)),
                       child: const Icon(Icons.privacy_tip_outlined, color: kPrimaryGreen, size: 20),
                     ),
-                    title: const Text('Điều khoản & Quyền riêng tư', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    title: Text(tr('item_privacy'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                     trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                     onTap: _showPrivacyInfo,
                   ),
                   const Divider(height: 1, indent: 60, color: Color(0xFFF1F5F9)),
-                  const ListTile(
-                    leading: SizedBox(width: 20),
-                    title: Text('Phiên bản ứng dụng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    trailing: Text('v1.0.0 (PTC1)', style: TextStyle(fontSize: 13, color: kTextMuted, fontWeight: FontWeight.bold)),
+                  ListTile(
+                    leading: const SizedBox(width: 20),
+                    title: Text(tr('item_app_version'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    trailing: const Text('v1.0.0 (PTC1)', style: TextStyle(fontSize: 13, color: kTextMuted, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

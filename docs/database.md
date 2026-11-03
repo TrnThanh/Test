@@ -100,17 +100,22 @@ erDiagram
     }
 
     WEATHER {
-        int id PK "Khóa chính tự tăng"
-        string code UK "Mã thời tiết (Unique, Index)"
+        int id PK "Khóa chính tự tăng (1..96000)"
+        int weather_category_id FK "Khóa ngoại trỏ về WEATHER_CATEGORIES(id) (Nullable, Index)"
+        int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) (Nullable, Index)"
+        string code UK "Mã thời tiết (Unique, Index: SPRING_PATTERN_0001_H00...)"
+        string pattern_code "Mã nhóm mẫu gốc (Index: SPRING_PATTERN_0001...)"
+        int hour "Khung giờ quan trắc trong ngày (0..23, Index)"
         string name "Tên trạng thái thời tiết"
         string description "Mô tả thời tiết (Nullable)"
-        float min_temp "Nhiệt độ tối thiểu (Nullable)"
-        float max_temp "Nhiệt độ tối đa (Nullable)"
-        int min_humidity "Độ ẩm tối thiểu (%) (Nullable)"
-        int max_humidity "Độ ẩm tối đa (%) (Nullable)"
+        float temperature "Nhiệt độ quan trắc (°C) (Nullable)"
+        float humidity "Độ ẩm quan trắc (%) (Nullable)"
+        float precipitation "Lượng mưa tại thời điểm (mm)"
+        int weather_code "Mã phân loại thời tiết số WMO"
         string condition "Điều kiện khí hậu (Nullable)"
         string icon "Tên icon thời tiết (Nullable)"
-        string season "Mùa trong năm (spring, summer, autumn, winter...) (Nullable, Index)"
+        string season "Mùa trong năm (spring, summer, autumn, winter) (Index)"
+        jsonb hourly "Dữ liệu JSONB tương thích (Default: [])"
         int sort_order "Thứ tự sắp xếp (Default: 0)"
         boolean is_active "Trạng thái kích hoạt (Default: true)"
         timestamp created_at "Thời điểm tạo (UTC)"
@@ -140,7 +145,7 @@ erDiagram
     USERS ||--o{ OPTION_USERS : "configures (1-N, cascade delete)"
     CATEGORIES ||--o{ OPTION_USERS : "configured by (1-N, cascade delete)"
     WEATHER ||--o{ WEATHER_CATEGORIES : "associated with (1-N, cascade delete)"
-    CATEGORIES ||--o{ WEATHER_CATEGORIES : "associated with (1-N, cascade delete)"
+    CATEGORIES ||--o{ WEATHER : "suggests / categorizes (1-N, set null)"
     WEATHER_CATEGORIES {
         int id PK "Khóa chính tự tăng"
         int weather_id FK "Khóa ngoại trỏ về WEATHER(id) ON DELETE CASCADE (Index)"
@@ -308,23 +313,28 @@ Quan hệ: 1 Loại bữa ăn liên kết nhiều Món ăn (`meal_types ||--o{ d
 
 ---
 
-### 3.8. Bảng `weather` (Trạng thái Thời tiết - Chuẩn bị cho Recommendation)
+### 3.8. Bảng `weather` (Trạng thái Thời tiết - 96,000 Mẫu Quan Trắc Chi Tiết Không Date)
 Model ORM: `server/app/models/weather.py`.
-Bảng độc lập lưu trữ các điều kiện thời tiết chuẩn bị cho tính năng gợi ý món ăn theo thời tiết.
+Bảng độc lập lưu trữ 96,000 bản ghi điều kiện thời tiết phẳng theo từng giờ (24 giờ x 4,000 mẫu quan trắc 2000-2025, tuyệt đối không lưu trường date) phục vụ gợi ý món ăn và biểu đồ thời tiết.
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
 | :--- | :--- | :--- | :--- |
-| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng |
-| `code` | `VARCHAR(30)` | `NOT NULL`, `UNIQUE`, `INDEX` | Mã thời tiết (hot, cold, rainy, mild...) |
-| `name` | `VARCHAR(100)` | `NOT NULL` | Tên trạng thái (Nắng nóng, Trời mưa, Gió rét...) |
-| `description` | `VARCHAR(500)` | `NULLABLE`, Default: `NULL` | Mô tả thời tiết và gợi ý ẩm thực |
-| `min_temp` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL` | Nhiệt độ tối thiểu (°C) |
-| `max_temp` | `DOUBLE PRECISION` | `NULLABLE`, Default: `NULL` | Nhiệt độ tối đa (°C) |
-| `min_humidity` | `INTEGER` | `NULLABLE`, Default: `NULL` | Độ ẩm tối thiểu (%) (0-100) |
-| `max_humidity` | `INTEGER` | `NULLABLE`, Default: `NULL` | Độ ẩm tối đa (%) (0-100) |
-| `condition` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL` | Điều kiện khí hậu (sunny, rainy, cloudy, cold...) |
-| `icon` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tên icon hoặc URL hình ảnh đại diện |
-| `season` | `VARCHAR(50)` | `NULLABLE`, Default: `NULL`, `INDEX` | Mùa trong năm (spring, summer, autumn, winter, dry, rainy) |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng (1..96000) |
+| `weather_category_id` | `INTEGER` | `NULLABLE`, `FK(weather_categories.id ON DELETE SET NULL)`, `INDEX` | Khóa ngoại trỏ về bản ghi liên kết danh mục thời tiết (`weather_categories.id`) |
+| `category_id` | `INTEGER` | `NULLABLE`, `FK(categories.id ON DELETE SET NULL)`, `INDEX` | Khóa ngoại trỏ về danh mục món ăn gợi ý (`categories.id`) |
+| `code` | `VARCHAR(60)` | `NOT NULL`, `UNIQUE`, `INDEX` | Mã định danh thời tiết từng giờ (`SPRING_PATTERN_0001_H00`...) |
+| `pattern_code` | `VARCHAR(50)` | `NULLABLE`, `INDEX` | Mã nhóm mẫu gốc (`SPRING_PATTERN_0001` .. `WINTER_PATTERN_1000`) |
+| `hour` | `INTEGER` | `NULLABLE`, `INDEX`, CHECK `[0..23]` | Khung giờ quan trắc trong ngày (0 đến 23) |
+| `name` | `VARCHAR(255)` | `NOT NULL` | Tên hiển thị trạng thái thời tiết |
+| `description` | `TEXT` | `NULLABLE`, Default: `NULL` | Mô tả chi tiết khí tượng |
+| `temperature` | `DOUBLE PRECISION` | `NULLABLE`, CHECK `[-50..60]` | Nhiệt độ thời điểm (°C) |
+| `humidity` | `DOUBLE PRECISION` | `NULLABLE`, CHECK `[0..100]` | Độ ẩm thời điểm (%) |
+| `precipitation`| `DOUBLE PRECISION` | `NOT NULL`, Default: `0.0` | Lượng mưa tại thời điểm (mm) |
+| `weather_code` | `INTEGER` | `NOT NULL`, Default: `0` | Mã số điều kiện thời tiết theo WMO |
+| `condition` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tình trạng khí hậu (SUNNY, CLOUDY, RAIN...) |
+| `icon` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tên biểu tượng thời tiết (sunny.svg...) |
+| `season` | `VARCHAR(50)` | `NULLABLE`, `INDEX` | Mùa trong năm (`spring`, `summer`, `autumn`, `winter`) |
+| `hourly` | `JSONB` | `NOT NULL`, Default: `'[]'::jsonb` | Dữ liệu JSONB tương thích |
 | `sort_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự sắp xếp hiển thị |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo (UTC) |
@@ -348,7 +358,7 @@ Quan hệ:
 
 ### 3.9. Bảng `weather_categories` (Liên kết Thời tiết - Nhóm danh mục món ăn N-N)
 Model ORM: `server/app/models/weather_category.py`.
-Quan hệ: N-N giữa `weather` và `categories` (`weather ||--o{ weather_categories`, `categories ||--o{ weather_categories`), có khóa ngoại `weather_id` và `category_id` kèm `ON DELETE CASCADE`.
+Quan hệ: Trên sơ đồ ERD, quan hệ được thể hiện trực quan gồm `weather ||--o{ weather_categories` (1-N) và `weather ||--o{ categories` (1-N gợi ý danh mục món ăn). Ở tầng CSDL vật lý, bảng trung gian `weather_categories` lưu trữ các cặp khóa ngoại `weather_id` và `category_id` kèm `ON DELETE CASCADE`.
 
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
 | :--- | :--- | :--- | :--- |
@@ -505,29 +515,38 @@ CREATE TABLE IF NOT EXISTS meal_types (
 );
 CREATE INDEX IF NOT EXISTS ix_meal_types_code ON meal_types (code);
 
--- 7. Bảng weather (Trạng thái thời tiết chuẩn bị gợi ý món ăn)
+-- 7. Bảng weather (Trạng thái thời tiết mở rộng 96,000 mẫu quan trắc phẳng, không date)
 CREATE TABLE IF NOT EXISTS weather (
     id SERIAL PRIMARY KEY,
-    code VARCHAR(30) NOT NULL UNIQUE,
-    name VARCHAR(100) NOT NULL,
-    description VARCHAR(500) DEFAULT NULL,
-    min_temp DOUBLE PRECISION DEFAULT NULL,
-    max_temp DOUBLE PRECISION DEFAULT NULL,
-    min_humidity INTEGER DEFAULT NULL,
-    max_humidity INTEGER DEFAULT NULL,
-    condition VARCHAR(50) DEFAULT NULL,
+    weather_category_id INTEGER DEFAULT NULL,
+    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+    code VARCHAR(60) NOT NULL UNIQUE,
+    pattern_code VARCHAR(50) DEFAULT NULL,
+    hour INTEGER DEFAULT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT DEFAULT NULL,
+    temperature DOUBLE PRECISION DEFAULT NULL,
+    humidity DOUBLE PRECISION DEFAULT NULL,
+    precipitation DOUBLE PRECISION DEFAULT 0.0,
+    weather_code INTEGER DEFAULT 0,
+    hourly JSONB NOT NULL DEFAULT '[]'::jsonb,
+    condition VARCHAR(100) DEFAULT NULL,
     icon VARCHAR(100) DEFAULT NULL,
+    season VARCHAR(50) DEFAULT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT ck_weather_temp_range CHECK (min_temp IS NULL OR max_temp IS NULL OR min_temp <= max_temp),
-    CONSTRAINT ck_weather_humidity_range CHECK (min_humidity IS NULL OR max_humidity IS NULL OR min_humidity <= max_humidity),
-    CONSTRAINT ck_weather_humidity_valid CHECK (
-        (min_humidity IS NULL OR (min_humidity >= 0 AND min_humidity <= 100)) AND
-        (max_humidity IS NULL OR (max_humidity >= 0 AND max_humidity <= 100))
-    )
+    CONSTRAINT ck_weather_temperature_valid CHECK (temperature IS NULL OR (temperature >= -50.0 AND temperature <= 60.0)),
+    CONSTRAINT ck_weather_humidity_valid CHECK (humidity IS NULL OR (humidity >= 0.0 AND humidity <= 100.0)),
+    CONSTRAINT ck_weather_hour_valid CHECK (hour IS NULL OR (hour >= 0 AND hour <= 23))
 );
 CREATE INDEX IF NOT EXISTS ix_weather_code ON weather (code);
+CREATE INDEX IF NOT EXISTS ix_weather_weather_category_id ON weather (weather_category_id);
+CREATE INDEX IF NOT EXISTS ix_weather_category_id ON weather (category_id);
+CREATE INDEX IF NOT EXISTS ix_weather_pattern_code ON weather (pattern_code);
+CREATE INDEX IF NOT EXISTS ix_weather_hour ON weather (hour);
+CREATE INDEX IF NOT EXISTS ix_weather_pattern_hour ON weather (pattern_code, hour);
+CREATE INDEX IF NOT EXISTS ix_weather_season_temp ON weather (season, temperature);
 
 -- 8. Bảng dishes (Món ăn thuộc quán ăn - Quan hệ 1-N)
 CREATE TABLE IF NOT EXISTS dishes (

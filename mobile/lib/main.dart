@@ -3,6 +3,8 @@ import 'app.dart';
 
 // Tái xuất (re-export) toàn bộ module để đảm bảo tương thích ngược 100%
 export 'app.dart';
+export 'l10n/app_language.dart';
+export 'l10n/app_strings.dart';
 export 'painters/golden_moon.dart';
 export 'painters/leaves_painter.dart';
 export 'painters/spark_painter.dart';

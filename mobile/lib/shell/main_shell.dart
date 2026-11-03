@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_language.dart';
 import '../models/models.dart';
 import '../screens/account_screen.dart';
 import '../screens/explore_screen.dart';
@@ -46,7 +47,6 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-
   void _onLogout() {
     setState(() {
       _currentUser = null;
@@ -74,8 +74,6 @@ class _MainShellState extends State<MainShell> {
       ),
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -154,26 +152,26 @@ class _MainShellState extends State<MainShell> {
           unselectedItemColor: const Color(0xFF6E7A73),
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-          items: const [
+          items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Trang chủ',
+              icon: const Icon(Icons.home_outlined),
+              activeIcon: const Icon(Icons.home),
+              label: tr('tab_home'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.map_outlined),
-              activeIcon: Icon(Icons.map),
-              label: 'Khám phá',
+              icon: const Icon(Icons.map_outlined),
+              activeIcon: const Icon(Icons.map),
+              label: tr('tab_explore'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.favorite_outline),
-              activeIcon: Icon(Icons.favorite),
-              label: 'Yêu thích',
+              icon: const Icon(Icons.favorite_outline),
+              activeIcon: const Icon(Icons.favorite),
+              label: tr('tab_favourites'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Tài khoản',
+              icon: const Icon(Icons.person_outline),
+              activeIcon: const Icon(Icons.person),
+              label: tr('tab_account'),
             ),
           ],
         ),
@@ -181,4 +179,3 @@ class _MainShellState extends State<MainShell> {
     );
   }
 }
-

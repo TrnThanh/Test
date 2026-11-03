@@ -45,27 +45,30 @@ def apply_schema_patches(conn) -> None:
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_restaurants_service_licenses_gin ON restaurants USING gin (service_licenses);"))
     conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS season VARCHAR(50) DEFAULT NULL;"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_weather_season ON weather (season);"))
-    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS min_humidity INTEGER DEFAULT NULL;"))
-    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS max_humidity INTEGER DEFAULT NULL;"))
+
+    # TASK-121 & TASK-141: Chuẩn hóa cột humidity (Float), temperature (Float), hourly (JSONB) và mở rộng 96,000 bản ghi phẳng (bỏ date, chỉ lấy hour)
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS temperature DOUBLE PRECISION DEFAULT NULL;"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS humidity DOUBLE PRECISION DEFAULT NULL;"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS hourly JSONB NOT NULL DEFAULT '[]'::jsonb;"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ALTER COLUMN code TYPE VARCHAR(60);"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS pattern_code VARCHAR(50);"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS hour INTEGER DEFAULT NULL;"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS precipitation DOUBLE PRECISION DEFAULT 0.0;"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS weather_code INTEGER DEFAULT 0;"))
+    conn.execute(text("ALTER TABLE IF EXISTS weather DROP COLUMN IF EXISTS date CASCADE;"))
     conn.execute(text("""
         DO $$
         BEGIN
-            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='weather' AND column_name='humidity') THEN
-                UPDATE weather SET min_humidity = humidity, max_humidity = humidity WHERE humidity IS NOT NULL AND min_humidity IS NULL;
-                ALTER TABLE weather DROP CONSTRAINT IF EXISTS ck_weather_humidity_range;
-                ALTER TABLE weather DROP COLUMN IF EXISTS humidity CASCADE;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_weather_humidity_range') THEN
-                ALTER TABLE weather ADD CONSTRAINT ck_weather_humidity_range CHECK (min_humidity IS NULL OR max_humidity IS NULL OR min_humidity <= max_humidity);
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_weather_humidity_valid') THEN
-                ALTER TABLE weather ADD CONSTRAINT ck_weather_humidity_valid CHECK (
-                    (min_humidity IS NULL OR (min_humidity >= 0 AND min_humidity <= 100)) AND
-                    (max_humidity IS NULL OR (max_humidity >= 0 AND max_humidity <= 100))
-                );
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_weather_hour_valid') THEN
+                ALTER TABLE weather ADD CONSTRAINT ck_weather_hour_valid CHECK (hour IS NULL OR (hour >= 0 AND hour <= 23));
             END IF;
         END $$;
     """))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_weather_pattern_code ON weather (pattern_code);"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_weather_hour ON weather (hour);"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_weather_pattern_hour ON weather (pattern_code, hour);"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_weather_season_temp ON weather (season, temperature);"))
+
     conn.execute(text("ALTER TABLE IF EXISTS dishes ADD COLUMN IF NOT EXISTS calories INTEGER DEFAULT NULL;"))
     conn.execute(text("""
         DO $$
@@ -171,12 +174,61 @@ def apply_schema_patches(conn) -> None:
         DO $$
         BEGIN
             IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='weather') THEN
-                ALTER TABLE weather ALTER COLUMN code TYPE VARCHAR(50);
+                ALTER TABLE weather ALTER COLUMN code TYPE VARCHAR(60);
                 ALTER TABLE weather ALTER COLUMN name TYPE VARCHAR(255);
                 ALTER TABLE weather ALTER COLUMN description TYPE TEXT;
                 ALTER TABLE weather ALTER COLUMN condition TYPE VARCHAR(100);
-                -- Tự động dọn sạch các bản ghi weather cũ (hot, rainy, cold, mild hoặc không thuộc 400 mẫu) khi khởi chạy trên bất kỳ máy nào
-                DELETE FROM weather WHERE code IN ('hot', 'rainy', 'cold', 'mild') OR code NOT LIKE '%_PATTERN_%';
+
+                -- Cột mới: temperature, humidity, hourly, pattern_code, hour, precipitation, weather_code
+                ALTER TABLE weather ADD COLUMN IF NOT EXISTS temperature DOUBLE PRECISION DEFAULT NULL;
+                ALTER TABLE weather ADD COLUMN IF NOT EXISTS humidity DOUBLE PRECISION DEFAULT NULL;
+                ALTER TABLE weather ADD COLUMN IF NOT EXISTS hourly JSONB NOT NULL DEFAULT '[]'::jsonb;
+                ALTER TABLE weather ADD COLUMN IF NOT EXISTS pattern_code VARCHAR(50);
+                ALTER TABLE weather ADD COLUMN IF NOT EXISTS hour INTEGER DEFAULT NULL;
+                ALTER TABLE weather ADD COLUMN IF NOT EXISTS precipitation DOUBLE PRECISION DEFAULT 0.0;
+                ALTER TABLE weather ADD COLUMN IF NOT EXISTS weather_code INTEGER DEFAULT 0;
+                ALTER TABLE weather DROP COLUMN IF EXISTS date CASCADE;
+
+                -- Backfill từ cột cũ nếu còn tồn tại
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='weather' AND column_name='min_temp') THEN
+                    UPDATE weather SET
+                        temperature = COALESCE(temperature, (COALESCE(min_temp, 0) + COALESCE(max_temp, 0)) / 2.0)
+                    WHERE temperature IS NULL AND (min_temp IS NOT NULL OR max_temp IS NOT NULL);
+                END IF;
+
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='weather' AND column_name='min_humidity') THEN
+                    UPDATE weather SET
+                        humidity = COALESCE(humidity, (COALESCE(min_humidity, 0) + COALESCE(max_humidity, 0)) / 2.0)
+                    WHERE humidity IS NULL AND (min_humidity IS NOT NULL OR max_humidity IS NOT NULL);
+                END IF;
+
+                -- Xóa các check constraints cũ
+                ALTER TABLE weather DROP CONSTRAINT IF EXISTS ck_weather_temp_range;
+                ALTER TABLE weather DROP CONSTRAINT IF EXISTS ck_weather_humidity_range;
+                ALTER TABLE weather DROP CONSTRAINT IF EXISTS ck_weather_humidity_valid;
+                ALTER TABLE weather DROP CONSTRAINT IF EXISTS ck_weather_temperature_valid;
+                ALTER TABLE weather DROP CONSTRAINT IF EXISTS ck_weather_hour_valid;
+
+                -- Thêm lại constraints mới chuẩn hóa
+                ALTER TABLE weather ADD CONSTRAINT ck_weather_temperature_valid
+                    CHECK (temperature IS NULL OR (temperature >= -50.0 AND temperature <= 60.0));
+                ALTER TABLE weather ADD CONSTRAINT ck_weather_humidity_valid
+                    CHECK (humidity IS NULL OR (humidity >= 0.0 AND humidity <= 100.0));
+                ALTER TABLE weather ADD CONSTRAINT ck_weather_hour_valid
+                    CHECK (hour IS NULL OR (hour >= 0 AND hour <= 23));
+
+                -- Xóa các cột cũ không còn trong bảng
+                ALTER TABLE weather DROP COLUMN IF EXISTS min_temp;
+                ALTER TABLE weather DROP COLUMN IF EXISTS max_temp;
+                ALTER TABLE weather DROP COLUMN IF EXISTS min_humidity;
+                ALTER TABLE weather DROP COLUMN IF EXISTS max_humidity;
+                ALTER TABLE weather DROP COLUMN IF EXISTS avg_temp;
+                ALTER TABLE weather DROP COLUMN IF EXISTS avg_humidity;
+                ALTER TABLE weather DROP COLUMN IF EXISTS apparent_temp;
+                ALTER TABLE weather DROP COLUMN IF EXISTS weather_label;
+
+                -- Dọn sạch các mã mẫu cũ không đúng chuẩn
+                DELETE FROM weather WHERE code IN ('hot', 'rainy', 'cold', 'mild');
             END IF;
         END $$;
     """))
@@ -194,7 +246,7 @@ def init_database() -> None:
         AdminService.seed_default_admin(db)
         UserService.seed_default_user(db)
         MealTypeService.seed_default_meal_types(db)
-        WeatherService.seed_4000_weather_patterns(db)
+        WeatherService.seed_weather_patterns(db)
         CategoryService.seed_default_categories(db)
         if getattr(settings, "AUTO_SEED_INITIAL_DATA", True):
             from server.app.services.initial_seed_service import InitialSeedService

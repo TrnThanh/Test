@@ -217,6 +217,10 @@ class FakeApiService extends ApiService {
 }
 
 void main() {
+  tearDown(() {
+    AppLanguage.instance.setLocale(const Locale('vi'));
+  });
+
   testWidgets('Kiểm thử khởi chạy Ptc1App và chuyển đổi 4 tab NavigationBar', (WidgetTester tester) async {
     final fakeApi = FakeApiService();
 
@@ -743,4 +747,84 @@ void main() {
     expect(find.byIcon(Icons.star), findsWidgets);
   });
 
+
+  test('Kiểm thử đơn vị AppLanguage và AppStrings từ điển song ngữ', () {
+    // 1. Kiểm tra trạng thái mặc định Tiếng Việt
+    expect(AppLanguage.instance.isVietnamese, isTrue);
+    expect(AppLanguage.instance.currentLanguageLabel, 'Tiếng Việt');
+    expect(tr('tab_home'), 'Trang chủ');
+    expect(tr('tab_explore'), 'Khám phá');
+    expect(tr('item_language'), 'Ngôn ngữ');
+
+    // 2. Chuyển sang Tiếng Anh (English)
+    AppLanguage.instance.setLocale(const Locale('en'));
+    expect(AppLanguage.instance.isVietnamese, isFalse);
+    expect(AppLanguage.instance.currentLanguageLabel, 'English');
+    expect(tr('tab_home'), 'Home');
+    expect(tr('tab_explore'), 'Explore');
+    expect(tr('item_language'), 'Language');
+    expect(tr('btn_login'), 'Log in');
+
+    // 3. Fallback khi key không tồn tại
+    expect(AppStrings.get('en', 'non_existing_key_xyz'), 'non_existing_key_xyz');
+
+    // 4. Reset lại Tiếng Việt
+    AppLanguage.instance.setLocale(const Locale('vi'));
+    expect(AppLanguage.instance.isVietnamese, isTrue);
+  });
+
+  testWidgets('Kiểm thử chuyển đổi ngôn ngữ Vi <-> En qua BottomSheet tại AccountScreen và cập nhật UI tức thì', (WidgetTester tester) async {
+    final fakeApi = FakeApiService();
+
+    await tester.pumpWidget(Ptc1App(apiService: fakeApi));
+    await tester.pumpAndSettle();
+
+    // 1. Mặc định 4 tab thanh điều hướng là Tiếng Việt
+    expect(find.text('Trang chủ'), findsOneWidget);
+    expect(find.text('Khám phá'), findsOneWidget);
+    expect(find.text('Yêu thích'), findsOneWidget);
+    expect(find.text('Tài khoản'), findsOneWidget);
+
+    // 2. Di chuyển sang tab Tài khoản
+    await tester.tap(find.text('Tài khoản'));
+    await tester.pumpAndSettle();
+
+    // 3. Cuộn xuống tìm mục Ngôn ngữ và kiểm tra nhãn Tiếng Việt
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(find.text('Ngôn ngữ'), findsOneWidget);
+    expect(find.text('Tiếng Việt'), findsWidgets);
+
+    // 4. Chạm vào mục Ngôn ngữ mở BottomSheet
+    await tester.tap(find.text('Ngôn ngữ'));
+    await tester.pumpAndSettle();
+
+    // 5. Kiểm tra BottomSheet hiển thị tiêu đề và 2 tùy chọn
+    expect(find.text('Chọn ngôn ngữ'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+
+    // 6. Chọn English
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    // 7. Xác nhận giao diện đã chuyển sang English tức thì
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('English'), findsWidgets);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Explore'), findsOneWidget);
+    expect(find.text('Favourites'), findsOneWidget);
+    expect(find.text('Account'), findsWidgets);
+
+    // 8. Chạm lại vào Language để đổi ngược lại Tiếng Việt
+    await tester.tap(find.text('Language'));
+    await tester.pumpAndSettle();
+    expect(find.text('Select Language'), findsOneWidget);
+    await tester.tap(find.text('Tiếng Việt'));
+    await tester.pumpAndSettle();
+
+    // 9. Xác nhận giao diện hồi phục về Tiếng Việt
+    expect(find.text('Ngôn ngữ'), findsOneWidget);
+    expect(find.text('Trang chủ'), findsOneWidget);
+    expect(find.text('Tài khoản'), findsOneWidget);
+  });
 }

@@ -98,7 +98,9 @@ def render_diagrams():
             # Chụp ảnh PNG chất lượng cao
             png_path = os.path.join(docs_dir, png_name)
             svg_element = page.locator("#render-container svg")
-            svg_element.screenshot(path=png_path)
+            png_bytes = svg_element.screenshot()
+            with open(png_path, "wb") as f:
+                f.write(png_bytes)
             print(f"  ✓ Đã lưu PNG: {png_path} ({os.path.getsize(png_path)} bytes)")
 
         browser.close()

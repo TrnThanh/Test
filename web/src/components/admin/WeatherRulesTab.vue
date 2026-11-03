@@ -102,7 +102,7 @@ const filteredWeathers = computed(() => {
     }
     if (!q) return true;
     const textTarget = normalizeText(
-      `${w.name} ${w.code} ${getSeasonLabel(w.season)} ${w.description || ''} ${w.min_temp ?? ''} ${w.max_temp ?? ''}`
+      `${w.name} ${w.code} ${getSeasonLabel(w.season)} ${w.description || ''} ${w.temperature ?? ''} ${w.humidity ?? ''} ${w.min_temp ?? ''} ${w.max_temp ?? ''}`
     );
     return textTarget.includes(q);
   });
@@ -295,10 +295,8 @@ async function handleCreateWeatherSubmit() {
       name: newWeatherName.value.trim(),
       code: newWeatherCode.value.trim().toLowerCase(),
       season: newWeatherSeason.value || null,
-      min_temp: newWeatherMinTemp.value != null ? Number(newWeatherMinTemp.value) : null,
-      max_temp: newWeatherMaxTemp.value != null ? Number(newWeatherMaxTemp.value) : null,
-      min_humidity: newWeatherMinHumidity.value != null ? Number(newWeatherMinHumidity.value) : null,
-      max_humidity: newWeatherMaxHumidity.value != null ? Number(newWeatherMaxHumidity.value) : null,
+      temperature: newWeatherMinTemp.value != null ? Number(newWeatherMinTemp.value) : null,
+      humidity: newWeatherMinHumidity.value != null ? Number(newWeatherMinHumidity.value) : null,
       description: newWeatherDesc.value.trim() || null,
       is_active: true,
       condition: 'clear',
@@ -341,9 +339,9 @@ function openEditWeatherModal(w: Weather) {
   editingWeather.value = w;
   editWeatherName.value = w.name;
   editWeatherSeason.value = w.season || 'summer';
-  editWeatherMinTemp.value = w.min_temp ?? null;
+  editWeatherMinTemp.value = w.temperature ?? w.min_temp ?? null;
   editWeatherMaxTemp.value = w.max_temp ?? null;
-  editWeatherMinHumidity.value = w.min_humidity ?? null;
+  editWeatherMinHumidity.value = w.humidity ?? w.min_humidity ?? null;
   editWeatherMaxHumidity.value = w.max_humidity ?? null;
   editWeatherDesc.value = w.description || '';
   editWeatherIsActive.value = w.is_active ?? true;
@@ -388,10 +386,8 @@ async function handleEditWeatherSubmit() {
     const payload: Partial<Weather> = {
       name: editWeatherName.value.trim(),
       season: editWeatherSeason.value || null,
-      min_temp: editWeatherMinTemp.value != null ? Number(editWeatherMinTemp.value) : null,
-      max_temp: editWeatherMaxTemp.value != null ? Number(editWeatherMaxTemp.value) : null,
-      min_humidity: editWeatherMinHumidity.value != null ? Number(editWeatherMinHumidity.value) : null,
-      max_humidity: editWeatherMaxHumidity.value != null ? Number(editWeatherMaxHumidity.value) : null,
+      temperature: editWeatherMinTemp.value != null ? Number(editWeatherMinTemp.value) : null,
+      humidity: editWeatherMinHumidity.value != null ? Number(editWeatherMinHumidity.value) : null,
       description: editWeatherDesc.value.trim() || null,
       is_active: editWeatherIsActive.value,
     };
@@ -650,10 +646,16 @@ async function handleCreateCatSubmit() {
               </div>
               <small>
                 {{ getSeasonLabel(w.season) }}
-                <span v-if="w.min_temp != null && w.max_temp != null">
+                <span v-if="w.temperature != null">
+                  · {{ w.temperature }}°C
+                </span>
+                <span v-else-if="w.min_temp != null && w.max_temp != null">
                   · {{ w.min_temp }}–{{ w.max_temp }}°C
                 </span>
-                <span v-if="w.min_humidity != null && w.max_humidity != null">
+                <span v-if="w.humidity != null">
+                  · {{ w.humidity }}%
+                </span>
+                <span v-else-if="w.min_humidity != null && w.max_humidity != null">
                   · {{ w.min_humidity }}–{{ w.max_humidity }}%
                 </span>
                 <span v-else-if="w.min_humidity != null">
@@ -782,11 +784,18 @@ async function handleCreateCatSubmit() {
               <span class="meta-item">
                 Mùa: <b>{{ getSeasonLabel(selectedWeather.season) }}</b>
               </span>
-              <span v-if="selectedWeather.min_temp != null && selectedWeather.max_temp != null" class="meta-item">
+              <span v-if="selectedWeather.temperature != null" class="meta-item">
+                <Thermometer class="inline-icon" />
+                Nhiệt độ: <b>{{ selectedWeather.temperature }}°C</b>
+              </span>
+              <span v-else-if="selectedWeather.min_temp != null && selectedWeather.max_temp != null" class="meta-item">
                 <Thermometer class="inline-icon" />
                 Nhiệt độ: <b>{{ selectedWeather.min_temp }}°C – {{ selectedWeather.max_temp }}°C</b>
               </span>
-              <span v-if="selectedWeather.min_humidity != null && selectedWeather.max_humidity != null" class="meta-item">
+              <span v-if="selectedWeather.humidity != null" class="meta-item">
+                Độ ẩm: <b>{{ selectedWeather.humidity }}%</b>
+              </span>
+              <span v-else-if="selectedWeather.min_humidity != null && selectedWeather.max_humidity != null" class="meta-item">
                 Độ ẩm: <b>{{ selectedWeather.min_humidity }}% – {{ selectedWeather.max_humidity }}%</b>
               </span>
               <span v-else-if="selectedWeather.min_humidity != null" class="meta-item">
