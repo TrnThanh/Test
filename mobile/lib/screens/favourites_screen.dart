@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_language.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -76,16 +77,16 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
       _loadFavourites();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã bỏ món ăn khỏi danh sách yêu thích.'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(tr('dish_removed_fav')),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: ${formatErrorMessage(e)}')),
+          SnackBar(content: Text('Error: ${formatErrorMessage(e)}')),
         );
       }
     }
@@ -96,7 +97,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
     if (widget.currentUser == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Món Ăn Yêu Thích', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(tr('favourites_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
         body: Center(
           child: Padding(
@@ -113,15 +114,15 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                   child: const Icon(Icons.favorite_rounded, size: 64, color: kPrimaryGreen),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Lưu Giữ Món Ăn Bạn Yêu Thích',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextDark),
+                Text(
+                  tr('favourites_guest_title'),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextDark),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Đăng nhập tài khoản Thực khách để thả tim lưu trữ các món ngon và nhận gợi ý ẩm thực chuẩn khẩu vị nhất!',
-                  style: TextStyle(color: kTextMuted, fontSize: 14),
+                Text(
+                  tr('favourites_guest_desc'),
+                  style: const TextStyle(color: kTextMuted, fontSize: 14),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -133,7 +134,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   icon: const Icon(Icons.login),
-                  label: const Text('Đăng nhập ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: Text(tr('btn_login_now'), style: const TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: widget.onRequireLogin,
                 ),
               ],
@@ -146,13 +147,13 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _favourites.isNotEmpty ? 'Món Ăn Yêu Thích (${_favourites.length})' : 'Món Ăn Yêu Thích',
+          _favourites.isNotEmpty ? '${tr('favourites_title')} (${_favourites.length})' : tr('favourites_title'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Tải lại',
+            tooltip: tr('tooltip_refresh'),
             onPressed: _loadFavourites,
           ),
         ],
@@ -172,7 +173,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                           const SizedBox(height: 12),
                           Text(_error!, textAlign: TextAlign.center),
                           const SizedBox(height: 16),
-                          OutlinedButton(onPressed: _loadFavourites, child: const Text('Thử lại')),
+                          OutlinedButton(onPressed: _loadFavourites, child: Text(tr('retry'))),
                         ],
                       ),
                     ),
@@ -195,14 +196,14 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                     child: const Icon(Icons.restaurant_menu_rounded, size: 64, color: kPrimaryGreen),
                                   ),
                                   const SizedBox(height: 20),
-                                  const Text(
-                                    'Chưa có món ăn yêu thích nào',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
+                                  Text(
+                                    tr('empty_favourites'),
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
                                   ),
                                   const SizedBox(height: 8),
-                                  const Text(
-                                    'Khám phá thực đơn các quán ăn hấp dẫn tại Gia Lâm và nhấn biểu tượng trái tim để lưu lại bạn nhé!',
-                                    style: TextStyle(color: kTextMuted, fontSize: 14),
+                                  Text(
+                                    tr('empty_favourites_desc'),
+                                    style: const TextStyle(color: kTextMuted, fontSize: 14),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 24),
@@ -214,7 +215,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
                                     icon: const Icon(Icons.explore),
-                                    label: const Text('Khám phá món ngon ngay', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    label: Text(tr('btn_explore_now'), style: const TextStyle(fontWeight: FontWeight.bold)),
                                     onPressed: widget.onExplore,
                                   ),
                                 ],
@@ -254,7 +255,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          dish?.name ?? 'Món ăn #${fav.dishId}',
+                                          dish?.name ?? 'Dish #${fav.dishId}',
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                         ),
                                         const SizedBox(height: 4),
@@ -302,7 +303,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.favorite, color: Colors.red, size: 26),
-                                    tooltip: 'Bỏ thích',
+                                    tooltip: tr('tooltip_remove_fav'),
                                     onPressed: () => _removeFavourite(fav.id),
                                   ),
                                 ],
@@ -315,7 +316,3 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
     );
   }
 }
-
-// ==========================================
-// TAB 4: TÀI KHOẢN (USER AUTH & HỒ SƠ THỰC KHÁCH)
-// ==========================================

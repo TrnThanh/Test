@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_language.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import '../models/models.dart';
@@ -175,6 +176,25 @@ class _MapScreenState extends State<MapScreen> {
     {'name': 'Cà phê & Thức uống giải khát', 'icon': Icons.local_cafe},
     {'name': 'Ẩm thực Chay & Thực dưỡng', 'icon': Icons.eco},
   ];
+
+  String _getCategoryLabel(String cat) {
+    const map = {
+      'Tất cả': 'cat_all',
+      'Phở, Bún & Món nước': 'cat_noodles',
+      'Cơm & Xôi': 'cat_rice',
+      'Bánh mì': 'cat_banhmi',
+      'Bánh truyền thống & Món cuốn': 'cat_traditional',
+      'Lẩu & Nướng': 'cat_bbq',
+      'Ốc & Quán lai rai': 'cat_seafood',
+      'Đồ ăn vặt': 'cat_snacks',
+      'Chè & Tráng miệng': 'cat_desserts',
+      'Cà phê & Thức uống giải khát': 'cat_coffee',
+      'Ẩm thực Chay & Thực dưỡng': 'cat_vegetarian',
+    };
+    final k = map[cat];
+    if (k != null) return tr(k);
+    return cat;
+  }
 
   bool _restaurantMatchesCategory(Restaurant r, String cat) {
     if (cat == 'Tất cả') return true;
@@ -1006,7 +1026,7 @@ class _MapScreenState extends State<MapScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Chọn Bán Kính Tìm Quán', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(tr('radius_filter'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   Text('${_radiusKm.toStringAsFixed(0)} km', style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 16)),
                 ],
               ),
@@ -1042,7 +1062,7 @@ class _MapScreenState extends State<MapScreen> {
                       _loadNearby(_pinnedLocation!.latitude, _pinnedLocation!.longitude);
                     }
                   },
-                  child: const Text('Áp dụng'),
+                  child: Text(tr('btn_apply')),
                 ),
               ),
             ],
@@ -1056,7 +1076,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bản Đồ & Quán Ăn Gia Lâm', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(tr('map_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             tooltip: 'Chọn bán kính quét',
@@ -1387,10 +1407,10 @@ class _MapScreenState extends State<MapScreen> {
                       Expanded(
                         child: TextField(
                           controller: _searchCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Tìm kiếm địa điểm tại Gia Lâm (VD: Trâu Quỳ, Ocean Park)...',
+                          decoration: InputDecoration(
+                            hintText: tr('map_search_hint'),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           onSubmitted: (_) => _search(),
                         ),
@@ -1422,7 +1442,7 @@ class _MapScreenState extends State<MapScreen> {
                                 height: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
-                            : const Text('Tìm', style: TextStyle(fontWeight: FontWeight.bold)),
+                            : Text(tr('btn_search'), style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -1443,7 +1463,7 @@ class _MapScreenState extends State<MapScreen> {
                             size: 16,
                             color: isSelected ? Colors.white : kPrimaryGreen,
                           ),
-                          label: Text(name),
+                          label: Text(_getCategoryLabel(name)),
                           selected: isSelected,
                           selectedColor: kPrimaryGreen,
                           backgroundColor: Colors.white,
@@ -1759,9 +1779,9 @@ class _MapScreenState extends State<MapScreen> {
                   shape: const StadiumBorder(),
                 ),
                 icon: const Icon(Icons.navigation, size: 18),
-                label: const Text(
-                  'Bắt đầu',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                label: Text(
+                  AppLanguage.instance.isVietnamese ? 'Bắt đầu' : 'Start',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1783,9 +1803,9 @@ class _MapScreenState extends State<MapScreen> {
                   shape: const StadiumBorder(),
                 ),
                 icon: const Icon(Icons.restaurant_menu, size: 18),
-                label: const Text(
-                  'Thực đơn',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                label: Text(
+                  AppLanguage.instance.isVietnamese ? 'Thực đơn' : 'Menu',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
               ),
@@ -1799,9 +1819,9 @@ class _MapScreenState extends State<MapScreen> {
                   shape: const StadiumBorder(),
                 ),
                 icon: const Icon(Icons.info_outline, size: 18),
-                label: const Text(
-                  'Chi tiết quán',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                label: Text(
+                  AppLanguage.instance.isVietnamese ? 'Chi tiết quán' : 'Details',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 onPressed: _clearRoute,
               ),
@@ -1850,9 +1870,9 @@ class _MapScreenState extends State<MapScreen> {
             InkWell(
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đã lưu quán vào mục yêu thích'),
-                    duration: Duration(seconds: 1),
+                  SnackBar(
+                    content: Text(tr('saved_restaurant_fav')),
+                    duration: const Duration(seconds: 1),
                   ),
                 );
               },

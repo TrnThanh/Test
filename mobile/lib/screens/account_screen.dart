@@ -61,36 +61,44 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   String _formatBmiCategory(String? cat, double? bmi) {
-    if (cat == 'underweight' || (bmi != null && bmi < 18.5)) return 'Hơi gầy';
-    if (cat == 'normal' || (bmi != null && bmi < 23.0)) return 'Chuẩn dáng';
-    if (cat == 'overweight' || (bmi != null && bmi < 25.0)) return 'Thừa cân';
-    if (cat == 'obese' || (bmi != null && bmi >= 25.0)) return 'Thừa cân';
-    return 'Chuẩn dáng';
+    if (cat == 'underweight' || (bmi != null && bmi < 18.5)) return tr('bmi_underweight');
+    if (cat == 'normal' || (bmi != null && bmi < 23.0)) return tr('bmi_normal');
+    if (cat == 'overweight' || (bmi != null && bmi < 25.0)) return tr('bmi_overweight');
+    if (cat == 'obese' || (bmi != null && bmi >= 25.0)) return tr('bmi_overweight');
+    return tr('bmi_normal');
+  }
+
+  String _formatGoal(String? goal) {
+    if (goal == 'lose_weight') return tr('goal_lose_weight');
+    if (goal == 'gain_muscle') return tr('goal_gain_muscle');
+    if (goal == 'eat_healthy') return tr('goal_healthy');
+    return tr('goal_maintain');
   }
 
   String _formatDietaryLabel(String tag) {
     final key = tag.trim().toLowerCase();
-    const map = {
-      'clean_eating': 'Ăn sạch',
-      'eat_clean': 'Ăn sạch',
-      'eat clean': 'Ăn sạch',
-      'healthy': 'Ăn lành mạnh',
-      'eat_healthy': 'Ăn lành mạnh',
-      'low_carb': 'Ít tinh bột',
-      'low-carb': 'Ít tinh bột',
+    final isVi = AppLanguage.instance.isVietnamese;
+    final map = {
+      'clean_eating': isVi ? 'Ăn sạch' : 'Clean Eating',
+      'eat_clean': isVi ? 'Ăn sạch' : 'Clean Eating',
+      'eat clean': isVi ? 'Ăn sạch' : 'Clean Eating',
+      'healthy': isVi ? 'Ăn lành mạnh' : 'Healthy',
+      'eat_healthy': isVi ? 'Ăn lành mạnh' : 'Healthy',
+      'low_carb': isVi ? 'Ít tinh bột' : 'Low-carb',
+      'low-carb': isVi ? 'Ít tinh bột' : 'Low-carb',
       'keto': 'Keto',
-      'vegetarian': 'Ăn chay',
-      'vegan': 'Thuần chay',
-      'high_protein': 'Nhiều đạm',
-      'nhiều protein': 'Nhiều đạm',
-      'less_oil': 'Ít dầu mỡ',
-      'ít dầu mỡ': 'Ít dầu mỡ',
-      'low_fat': 'Ít chất béo',
-      'light': 'Ăn thanh đạm',
-      'ăn thanh đạm': 'Ăn thanh đạm',
-      'gluten_free': 'Không gluten',
-      'dairy_free': 'Không chứa sữa',
-      'organic': 'Hữu cơ',
+      'vegetarian': isVi ? 'Ăn chay' : 'Vegetarian',
+      'vegan': isVi ? 'Thuần chay' : 'Vegan',
+      'high_protein': isVi ? 'Nhiều đạm' : 'High Protein',
+      'nhiều protein': isVi ? 'Nhiều đạm' : 'High Protein',
+      'less_oil': isVi ? 'Ít dầu mỡ' : 'Less Oil',
+      'ít dầu mỡ': isVi ? 'Ít dầu mỡ' : 'Less Oil',
+      'low_fat': isVi ? 'Ít chất béo' : 'Low Fat',
+      'light': isVi ? 'Ăn thanh đạm' : 'Light Food',
+      'ăn thanh đạm': isVi ? 'Ăn thanh đạm' : 'Light Food',
+      'gluten_free': isVi ? 'Không gluten' : 'Gluten-free',
+      'dairy_free': isVi ? 'Không chứa sữa' : 'Dairy-free',
+      'organic': isVi ? 'Hữu cơ' : 'Organic',
       'halal': 'Halal',
       'kosher': 'Kosher',
     };
@@ -99,18 +107,19 @@ class _AccountScreenState extends State<AccountScreen> {
 
   String _formatAllergyLabel(String alg) {
     final key = alg.trim().toLowerCase();
-    const map = {
-      'seafood': 'Hải sản',
-      'peanut': 'Đậu phộng',
-      'peanuts': 'Đậu phộng',
-      'egg': 'Trứng',
-      'eggs': 'Trứng',
-      'milk': 'Sữa bò',
-      'dairy': 'Chế phẩm sữa',
+    final isVi = AppLanguage.instance.isVietnamese;
+    final map = {
+      'seafood': isVi ? 'Hải sản' : 'Seafood',
+      'peanut': isVi ? 'Đậu phộng' : 'Peanuts',
+      'peanuts': isVi ? 'Đậu phộng' : 'Peanuts',
+      'egg': isVi ? 'Trứng' : 'Eggs',
+      'eggs': isVi ? 'Trứng' : 'Eggs',
+      'milk': isVi ? 'Sữa bò' : 'Milk',
+      'dairy': isVi ? 'Chế phẩm sữa' : 'Dairy',
       'gluten': 'Gluten',
-      'wheat': 'Lúa mì',
-      'soy': 'Đậu nành',
-      'soybean': 'Đậu nành',
+      'wheat': isVi ? 'Lúa mì' : 'Wheat',
+      'soy': isVi ? 'Đậu nành' : 'Soy',
+      'soybean': isVi ? 'Đậu nành' : 'Soybeans',
     };
     return map[key] ?? alg.replaceAll('_', ' ');
   }
@@ -140,22 +149,29 @@ class _AccountScreenState extends State<AccountScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.location_on, color: kPrimaryGreen),
-            SizedBox(width: 8),
-            Text('Quyền vị trí GPS', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            const Icon(Icons.location_on, color: kPrimaryGreen),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr('item_location_permission'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
-        content: const Text(
-          'PTC1 sử dụng toạ độ vị trí thời gian thực từ thiết bị để gợi ý quán ăn lân cận và hiển thị thời tiết chính xác nhất. Vị trí của bạn hoàn toàn được bảo mật và không lưu trữ trên máy chủ.',
-          style: TextStyle(fontSize: 14),
+        content: Text(
+          AppLanguage.instance.isVietnamese
+              ? 'PTC1 sử dụng toạ độ vị trí thời gian thực từ thiết bị để gợi ý quán ăn lân cận và hiển thị thời tiết chính xác nhất. Vị trí của bạn hoàn toàn được bảo mật và không lưu trữ trên máy chủ.'
+              : 'PTC1 uses real-time device location to suggest nearby restaurants and show accurate weather. Your location is completely private and never stored on the server.',
+          style: const TextStyle(fontSize: 14),
         ),
         actions: [
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đã hiểu'),
+            child: Text(AppLanguage.instance.isVietnamese ? 'Đã hiểu' : 'Got it'),
           ),
         ],
       ),
@@ -167,22 +183,29 @@ class _AccountScreenState extends State<AccountScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.privacy_tip_outlined, color: kPrimaryGreen),
-            SizedBox(width: 8),
-            Text('Điều khoản & Quyền riêng tư', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            const Icon(Icons.privacy_tip_outlined, color: kPrimaryGreen),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr('item_privacy'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
-        content: const Text(
-          'PTC1 cam kết tôn trọng quyền riêng tư của khách hàng. Bạn có thể tự do tìm kiếm quán ăn và tra cứu thực đơn mà không cần cung cấp bất kỳ thông tin cá nhân nào khi ở chế độ Khách.',
-          style: TextStyle(fontSize: 14),
+        content: Text(
+          AppLanguage.instance.isVietnamese
+              ? 'PTC1 cam kết tôn trọng quyền riêng tư của khách hàng. Bạn có thể tự do tìm kiếm quán ăn và tra cứu thực đơn mà không cần cung cấp bất kỳ thông tin cá nhân nào khi ở chế độ Khách.'
+              : 'PTC1 is committed to respecting your privacy. You can freely search for restaurants and menus without providing any personal information in Guest mode.',
+          style: const TextStyle(fontSize: 14),
         ),
         actions: [
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kPrimaryGreen),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng'),
+            child: Text(tr('close')),
           ),
         ],
       ),
@@ -317,30 +340,30 @@ class _AccountScreenState extends State<AccountScreen> {
       return Scaffold(
         backgroundColor: kScaffoldBg,
         appBar: AppBar(
-          title: const Text('Tài Khoản Thực Khách', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          title: Text(tr('account_title_member'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           backgroundColor: Colors.white,
           elevation: 0,
           surfaceTintColor: Colors.transparent,
           actions: [
             IconButton(
               icon: const Icon(Icons.logout, color: Color(0xFFDC2626)),
-              tooltip: 'Đăng xuất',
+              tooltip: tr('btn_logout'),
               onPressed: () {
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    title: const Text('Xác nhận đăng xuất', style: TextStyle(fontWeight: FontWeight.bold)),
-                    content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản không?'),
+                    title: Text(tr('confirm_logout_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    content: Text(tr('confirm_logout_desc')),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Huỷ', style: TextStyle(color: Colors.grey))),
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('cancel'), style: const TextStyle(color: Colors.grey))),
                       FilledButton(
                         style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
                         onPressed: () {
                           Navigator.pop(ctx);
                           widget.onLogout();
                         },
-                        child: const Text('Đăng xuất'),
+                        child: Text(tr('btn_logout')),
                       ),
                     ],
                   ),
@@ -376,7 +399,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
-                      user.fullName?.isNotEmpty == true ? user.fullName! : 'Thực khách',
+                      user.fullName?.isNotEmpty == true ? user.fullName! : tr('diner_badge'),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
                     ),
                   ),
@@ -399,15 +422,15 @@ class _AccountScreenState extends State<AccountScreen> {
                   children: [
                     const Icon(Icons.eco_outlined, color: kPrimaryGreen, size: 24),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Chưa thiết lập sở thích ẩm thực',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kPrimaryGreen)),
-                          SizedBox(height: 2),
-                          Text('Khảo sát ngay để nhận gợi ý món ăn chuẩn vóc dáng & khẩu vị!',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF166534))),
+                          Text(tr('survey_banner_title'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kPrimaryGreen)),
+                          const SizedBox(height: 2),
+                          Text(tr('survey_banner_desc'),
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF166534))),
                         ],
                       ),
                     ),
@@ -428,7 +451,7 @@ class _AccountScreenState extends State<AccountScreen> {
                           ),
                         );
                       },
-                      child: const Text('Khảo sát', style: TextStyle(fontSize: 12)),
+                      child: Text(tr('btn_survey'), style: const TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -448,17 +471,17 @@ class _AccountScreenState extends State<AccountScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.health_and_safety_outlined, color: kPrimaryGreen),
-                          SizedBox(width: 8),
-                          Text('Hồ Sơ Sức Khỏe & Sở Thích',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kTextDark)),
+                          const Icon(Icons.health_and_safety_outlined, color: kPrimaryGreen),
+                          const SizedBox(width: 8),
+                          Text(tr('health_profile_title'),
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kTextDark)),
                         ],
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit_note, color: kPrimaryGreen),
-                        tooltip: 'Chỉnh sửa sở thích & thể chất',
+                        tooltip: tr('health_profile_title'),
                         onPressed: () {
                           showDialog(
                             context: context,
@@ -483,7 +506,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Column(
                           children: [
-                            const Text('Chưa có thông tin hồ sơ sức khỏe & khẩu vị.', style: TextStyle(color: kTextMuted, fontSize: 13)),
+                            Text(tr('no_profile_info'), style: const TextStyle(color: kTextMuted, fontSize: 13)),
                             const SizedBox(height: 10),
                             FilledButton.icon(
                               style: FilledButton.styleFrom(
@@ -503,7 +526,7 @@ class _AccountScreenState extends State<AccountScreen> {
                                 );
                               },
                               icon: const Icon(Icons.add_task_rounded, size: 16),
-                              label: const Text('Thiết lập ngay', style: TextStyle(fontSize: 13)),
+                              label: Text(tr('btn_setup_now'), style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         ),
@@ -522,7 +545,7 @@ class _AccountScreenState extends State<AccountScreen> {
                             ),
                             child: Column(
                               children: [
-                                const Text('Chiều cao', style: TextStyle(fontSize: 11, color: kTextMuted)),
+                                Text(tr('label_height'), style: const TextStyle(fontSize: 11, color: kTextMuted)),
                                 const SizedBox(height: 2),
                                 Text(
                                   _profile!.heightCm != null ? '${_profile!.heightCm!.toStringAsFixed(0)} cm' : '--',
@@ -543,7 +566,7 @@ class _AccountScreenState extends State<AccountScreen> {
                             ),
                             child: Column(
                               children: [
-                                const Text('Cân nặng', style: TextStyle(fontSize: 11, color: kTextMuted)),
+                                Text(tr('label_weight'), style: const TextStyle(fontSize: 11, color: kTextMuted)),
                                 const SizedBox(height: 2),
                                 Text(
                                   _profile!.weightKg != null ? '${_profile!.weightKg!.toStringAsFixed(1)} kg' : '--',
@@ -579,7 +602,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        const Text('Thể trạng: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                        Text('${tr('label_body_status')}: ', style: const TextStyle(fontSize: 12, color: kTextMuted)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -592,13 +615,9 @@ class _AccountScreenState extends State<AccountScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text('• Mục tiêu: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                        Text('• ${tr('label_goal')}: ', style: const TextStyle(fontSize: 12, color: kTextMuted)),
                         Text(
-                          _profile!.targetGoal == 'lose_weight'
-                              ? 'Giảm cân'
-                              : (_profile!.targetGoal == 'gain_muscle'
-                                  ? 'Tăng cơ'
-                                  : (_profile!.targetGoal == 'eat_healthy' ? 'Ăn healthy' : 'Duy trì vóc dáng')),
+                          _formatGoal(_profile!.targetGoal),
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -609,7 +628,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Chế độ ăn: ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+                          Text('${tr('label_diet')}: ', style: const TextStyle(fontSize: 12, color: kTextMuted)),
                           Expanded(
                             child: Wrap(
                               spacing: 6,
@@ -636,7 +655,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Dị ứng: ', style: TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+                          Text('${tr('label_allergy')}: ', style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
                           Expanded(
                             child: Wrap(
                               spacing: 6,
@@ -706,7 +725,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.location_on_outlined, color: kPrimaryGreen),
-                      title: const Text('Quyền vị trí GPS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      title: Text(tr('item_location_permission'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                       onTap: _showLocationInfo,
                     ),

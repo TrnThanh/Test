@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_language.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -96,21 +97,23 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.lock_outline_rounded, color: kPrimaryGreen),
-              SizedBox(width: 8),
-              Text('Yêu Cầu Đăng Nhập', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Icon(Icons.lock_outline_rounded, color: kPrimaryGreen),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr('login_required'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ),
             ],
           ),
-          content: const Text(
-            'Bạn cần đăng nhập tài khoản Thực khách để lưu món ăn này vào danh sách yêu thích.',
-            style: TextStyle(fontSize: 14, height: 1.4),
+          content: Text(
+            tr('login_required_desc'),
+            style: const TextStyle(fontSize: 14, height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Để sau', style: TextStyle(color: Colors.grey)),
+              child: Text(tr('maybe_later'), style: const TextStyle(color: Colors.grey)),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -119,10 +122,10 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
               ),
               onPressed: () {
                 Navigator.pop(ctx);
-                Navigator.pop(context); // Đóng menu sheet
-                widget.onRequireLogin(); // Điều hướng sang Tab Tài khoản
+                Navigator.pop(context);
+                widget.onRequireLogin();
               },
-              child: const Text('Đăng nhập ngay'),
+              child: Text(tr('btn_login_now')),
             ),
           ],
         ),
@@ -138,7 +141,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
         setState(() => _favouriteDishIds.remove(dish.id));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Đã bỏ thích món "${dish.name}"'),
+            content: Text(tr('dish_removed_fav')),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -149,7 +152,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
         setState(() => _favouriteDishIds.add(dish.id));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Đã thêm "${dish.name}" vào món ăn yêu thích!'),
+            content: Text(tr('dish_added_fav')),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -747,7 +750,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
                   onChanged: (val) => setState(() => _searchQuery = val),
                   style: const TextStyle(fontSize: 13.5),
                   decoration: InputDecoration(
-                    hintText: 'Tìm món ăn trong thực đơn...',
+                    hintText: tr('menu_search_hint'),
                     hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                     prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF64748B)),
                     suffixIcon: _searchQuery.isNotEmpty
@@ -778,7 +781,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilterChip(
-                        label: Text('Tất cả (${_dishes.length})'),
+                        label: Text('${tr('all_menu')} (${_dishes.length})'),
                         selected: _selectedCategoryId == null,
                         showCheckmark: false,
                         selectedColor: kPrimaryGreen,
@@ -838,7 +841,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
                               OutlinedButton.icon(
                                 onPressed: _loadMenu,
                                 icon: const Icon(Icons.refresh),
-                                label: const Text('Thử lại'),
+                                label: Text(tr('retry')),
                               ),
                             ],
                           ),
@@ -872,7 +875,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
                                         FocusScope.of(context).unfocus();
                                         setState(() => _searchQuery = '');
                                       },
-                                      child: const Text('Xóa tìm kiếm', style: TextStyle(color: kPrimaryGreen)),
+                                      child: Text(tr('clear_search'), style: const TextStyle(color: kPrimaryGreen)),
                                     ),
                                   ],
                                 ],

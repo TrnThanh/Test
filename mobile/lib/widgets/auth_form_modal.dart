@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_language.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -32,7 +33,14 @@ class _AuthFormModalState extends State<AuthFormModal> {
   final _confirmPasswordCtrl = TextEditingController();
 
   bool _loading = false;
-  String? _error;
+  String? _generalError;
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+  String? _phoneError;
+
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void initState() {
@@ -40,48 +48,71 @@ class _AuthFormModalState extends State<AuthFormModal> {
     _isRegister = widget.initialRegister;
   }
 
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit() async {
     final email = _emailCtrl.text.trim();
     final pwd = _passwordCtrl.text;
-    if (email.isEmpty || pwd.isEmpty) {
-      setState(() => _error = 'Vui lòng nhập đầy đủ Email và Mật khẩu');
-      return;
+
+    String? emailErr;
+    String? pwdErr;
+    String? confirmPwdErr;
+    String? phoneErr;
+
+    if (email.isEmpty) {
+      emailErr = tr('err_email_empty');
+    } else {
+      final emailRegex = RegExp(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$');
+      if (!emailRegex.hasMatch(email)) {
+        emailErr = tr('err_email_invalid');
+      }
     }
 
-    final emailRegex = RegExp(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$');
-    if (!emailRegex.hasMatch(email)) {
-      setState(() => _error = 'Địa chỉ email không đúng định dạng');
-      return;
-    }
-
-    if (pwd.length < 6) {
-      setState(() => _error = 'Mật khẩu phải có tối thiểu 6 ký tự');
-      return;
+    if (pwd.isEmpty) {
+      pwdErr = tr('err_pwd_empty');
+    } else if (pwd.length < 6) {
+      pwdErr = tr('err_pwd_min');
     }
 
     if (_isRegister) {
       final confirmPwd = _confirmPasswordCtrl.text;
       if (confirmPwd.isEmpty) {
-        setState(() => _error = 'Vui lòng xác nhận lại mật khẩu');
-        return;
+        confirmPwdErr = tr('err_confirm_pwd_empty');
+      } else if (confirmPwd != pwd) {
+        confirmPwdErr = tr('err_confirm_pwd_mismatch');
       }
-      if (confirmPwd != pwd) {
-        setState(() => _error = 'Mật khẩu xác nhận không trùng khớp');
-        return;
-      }
+
       final phone = _phoneCtrl.text.trim();
       if (phone.isNotEmpty) {
         final phoneRegex = RegExp(r'^(0|\+84)(3|5|7|8|9)[0-9]{8}$');
         if (!phoneRegex.hasMatch(phone)) {
-          setState(() => _error = 'Số điện thoại không hợp lệ (gồm 10 số, đầu 03, 05, 07, 08, 09)');
-          return;
+          phoneErr = tr('err_phone_invalid');
         }
       }
     }
 
     setState(() {
+      _emailError = emailErr;
+      _passwordError = pwdErr;
+      _confirmPasswordError = confirmPwdErr;
+      _phoneError = phoneErr;
+      _generalError = null;
+    });
+
+    if (emailErr != null || pwdErr != null || confirmPwdErr != null || phoneErr != null) {
+      return;
+    }
+
+    setState(() {
       _loading = true;
-      _error = null;
     });
 
     try {
@@ -101,7 +132,7 @@ class _AuthFormModalState extends State<AuthFormModal> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = formatErrorMessage(e);
+          _generalError = formatErrorMessage(e);
         });
       }
     } finally {
@@ -117,127 +148,170 @@ class _AuthFormModalState extends State<AuthFormModal> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _isRegister ? 'Tạo Tài Khoản Khách Hàng' : 'Đăng Nhập Khách Hàng',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.grey),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          SegmentedButton<bool>(
-            style: SegmentedButton.styleFrom(
-              selectedBackgroundColor: kPrimaryGreen,
-              selectedForegroundColor: Colors.white,
-              backgroundColor: Colors.white,
-              foregroundColor: kTextDark,
-              side: const BorderSide(color: kBorderColor),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            segments: const [
-              ButtonSegment(value: false, label: Text('Đăng nhập', style: TextStyle(fontWeight: FontWeight.bold))),
-              ButtonSegment(value: true, label: Text('Đăng ký', style: TextStyle(fontWeight: FontWeight.bold))),
-            ],
-            selected: {_isRegister},
-            onSelectionChanged: (set) {
-              setState(() {
-                _isRegister = set.first;
-                _error = null;
-              });
-            },
-          ),
-
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text('⚠️ $_error', style: TextStyle(color: Colors.red.shade800, fontSize: 13)),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _isRegister ? tr('modal_register_title') : tr('modal_login_title'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
             ),
-          ],
+            const SizedBox(height: 8),
 
-          const SizedBox(height: 14),
-
-          TextField(
-            controller: _emailCtrl,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email *'),
-          ),
-          const SizedBox(height: 12),
-
-          TextField(
-            controller: _passwordCtrl,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Mật khẩu *'),
-          ),
-
-          if (_isRegister) ...[
-            const SizedBox(height: 12),
-            TextField(
-              controller: _confirmPasswordCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Xác nhận lại mật khẩu *'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Họ và tên'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _phoneCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Số điện thoại', hintText: '0987...'),
-            ),
-          ],
-
-          const SizedBox(height: 20),
-
-          SizedBox(
-            height: 48,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: kPrimaryGreen,
-                foregroundColor: Colors.white,
+            SegmentedButton<bool>(
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: kPrimaryGreen,
+                selectedForegroundColor: Colors.white,
+                backgroundColor: Colors.white,
+                foregroundColor: kTextDark,
+                side: const BorderSide(color: kBorderColor),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _loading ? null : _submit,
-              child: _loading
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(_isRegister ? 'Đăng ký ngay' : 'Đăng nhập', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              segments: [
+                ButtonSegment(value: false, label: Text(tr('tab_btn_login'), style: const TextStyle(fontWeight: FontWeight.bold))),
+                ButtonSegment(value: true, label: Text(tr('tab_btn_register'), style: const TextStyle(fontWeight: FontWeight.bold))),
+              ],
+              selected: {_isRegister},
+              onSelectionChanged: (set) {
+                setState(() {
+                  _isRegister = set.first;
+                  _generalError = null;
+                  _emailError = null;
+                  _passwordError = null;
+                  _confirmPasswordError = null;
+                  _phoneError = null;
+                });
+              },
             ),
-          ),
-        ],
+
+            if (_generalError != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('⚠️ $_generalError', style: TextStyle(color: Colors.red.shade800, fontSize: 13)),
+              ),
+            ],
+
+            const SizedBox(height: 14),
+
+            TextField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (val) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
+              decoration: InputDecoration(
+                labelText: tr('label_email'),
+                errorText: _emailError,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _passwordCtrl,
+              obscureText: _obscurePassword,
+              onChanged: (val) {
+                if (_passwordError != null) setState(() => _passwordError = null);
+              },
+              decoration: InputDecoration(
+                labelText: tr('label_password'),
+                errorText: _passwordError,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+            ),
+
+            if (_isRegister) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _confirmPasswordCtrl,
+                obscureText: _obscureConfirmPassword,
+                onChanged: (val) {
+                  if (_confirmPasswordError != null) setState(() => _confirmPasswordError = null);
+                },
+                decoration: InputDecoration(
+                  labelText: tr('label_confirm_password'),
+                  errorText: _confirmPasswordError,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _nameCtrl,
+                decoration: InputDecoration(labelText: tr('label_fullname')),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                onChanged: (val) {
+                  if (_phoneError != null) setState(() => _phoneError = null);
+                },
+                decoration: InputDecoration(
+                  labelText: tr('label_phone'),
+                  hintText: '0987...',
+                  errorText: _phoneError,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              height: 48,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: kPrimaryGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: _loading ? null : _submit,
+                child: _loading
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(_isRegister ? tr('btn_submit_register') : tr('btn_submit_login'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

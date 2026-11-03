@@ -41,7 +41,7 @@ class _MainShellState extends State<MainShell> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Chào mừng ${user.fullName ?? user.email}!'),
+        content: Text('${tr('welcome_back')} ${user.fullName ?? user.email}!'),
         backgroundColor: Colors.black,
       ),
     );
@@ -52,7 +52,7 @@ class _MainShellState extends State<MainShell> {
       _currentUser = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã đăng xuất tài khoản.')),
+      SnackBar(content: Text(tr('logged_out'))),
     );
   }
 
@@ -161,7 +161,7 @@ class _MainShellState extends State<MainShell> {
             BottomNavigationBarItem(
               icon: const Icon(Icons.map_outlined),
               activeIcon: const Icon(Icons.map),
-              label: tr('tab_explore'),
+              label: tr('tab_map'),
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.favorite_outline),

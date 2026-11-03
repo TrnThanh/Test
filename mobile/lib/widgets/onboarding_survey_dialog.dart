@@ -39,6 +39,9 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
 
   bool _saving = false;
   String? _error;
+  String? _heightError;
+  String? _weightError;
+  String? _birthYearError;
 
   static final List<Category> _defaultCategories = [
     Category(id: 1, name: 'Phở & Bún', displayOrder: 1, isActive: true),
@@ -141,15 +144,15 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
       final weightText = _weightCtrl.text.trim();
       final birthYearText = _birthYearCtrl.text.trim();
 
+      String? heightErr;
+      String? weightErr;
+      String? birthYearErr;
+
       double? h;
       if (heightText.isNotEmpty) {
         h = double.tryParse(heightText);
         if (h == null || h < 50 || h > 260) {
-          setState(() {
-            _saving = false;
-            _error = 'Chiều cao phải là số từ 50 đến 260 cm.';
-          });
-          return;
+          heightErr = 'Từ 50 - 260 cm';
         }
       }
 
@@ -157,11 +160,7 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
       if (weightText.isNotEmpty) {
         w = double.tryParse(weightText);
         if (w == null || w < 10 || w > 300) {
-          setState(() {
-            _saving = false;
-            _error = 'Cân nặng phải là số từ 10 đến 300 kg.';
-          });
-          return;
+          weightErr = 'Từ 10 - 300 kg';
         }
       }
 
@@ -170,12 +169,20 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
         by = int.tryParse(birthYearText);
         final currentYear = DateTime.now().year;
         if (by == null || by < 1920 || by > currentYear) {
-          setState(() {
-            _saving = false;
-            _error = 'Năm sinh phải từ 1920 đến $currentYear.';
-          });
-          return;
+          birthYearErr = 'Từ 1920 - $currentYear';
         }
+      }
+
+      setState(() {
+        _heightError = heightErr;
+        _weightError = weightErr;
+        _birthYearError = birthYearErr;
+      });
+
+      if (heightErr != null || weightErr != null || birthYearErr != null) {
+        setState(() => _saving = false);
+        _tabController.animateTo(1);
+        return;
       }
 
       final payload = <String, dynamic>{
@@ -352,16 +359,21 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 12),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: TextField(
                               controller: _heightCtrl,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
+                              onChanged: (val) {
+                                if (_heightError != null) setState(() => _heightError = null);
+                              },
+                              decoration: InputDecoration(
                                 labelText: 'Chiều cao (cm)',
                                 hintText: '170',
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                                 suffixText: 'cm',
+                                errorText: _heightError,
                               ),
                             ),
                           ),
@@ -370,11 +382,15 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
                             child: TextField(
                               controller: _weightCtrl,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
+                              onChanged: (val) {
+                                if (_weightError != null) setState(() => _weightError = null);
+                              },
+                              decoration: InputDecoration(
                                 labelText: 'Cân nặng (kg)',
                                 hintText: '65',
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                                 suffixText: 'kg',
+                                errorText: _weightError,
                               ),
                             ),
                           ),
@@ -382,15 +398,20 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
                       ),
                       const SizedBox(height: 16),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: TextField(
                               controller: _birthYearCtrl,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
+                              onChanged: (val) {
+                                if (_birthYearError != null) setState(() => _birthYearError = null);
+                              },
+                              decoration: InputDecoration(
                                 labelText: 'Năm sinh',
                                 hintText: '2000',
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
+                                errorText: _birthYearError,
                               ),
                             ),
                           ),

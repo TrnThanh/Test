@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_language.dart';
 import '../models/models.dart';
 import '../painters/golden_moon.dart';
 import '../painters/leaves_painter.dart';
@@ -256,38 +257,57 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
+  String _getCategoryLabel(String cat) {
+    const map = {
+      'Tất cả': 'cat_all',
+      'Phở, Bún & Món nước': 'cat_noodles',
+      'Cơm & Xôi': 'cat_rice',
+      'Bánh mì': 'cat_banhmi',
+      'Bánh truyền thống & Món cuốn': 'cat_traditional',
+      'Lẩu & Nướng': 'cat_bbq',
+      'Ốc & Quán lai rai': 'cat_seafood',
+      'Đồ ăn vặt': 'cat_snacks',
+      'Chè & Tráng miệng': 'cat_desserts',
+      'Cà phê & Thức uống giải khát': 'cat_coffee',
+      'Ẩm thực Chay & Thực dưỡng': 'cat_vegetarian',
+    };
+    final k = map[cat];
+    if (k != null) return tr(k);
+    return cat;
+  }
+
   String _getMealGreeting() {
     final hour = DateTime.now().hour;
     if (hour >= 4 && hour < 11) {
-      return 'Sáng nay ăn gì nhỉ?';
+      return tr('greeting_morning');
     } else if (hour >= 11 && hour < 14) {
-      return 'Trưa nay ăn gì nhỉ?';
+      return tr('greeting_noon');
     } else if (hour >= 14 && hour < 18) {
-      return 'Chiều nay ăn gì nhỉ?';
+      return tr('greeting_afternoon');
     } else {
-      return 'Tối nay ăn gì nhỉ?';
+      return tr('greeting_evening');
     }
   }
 
   String _getWeatherShortStatus(CurrentWeather? weather) {
     final isNight = _isNightTime(weather);
-    if (weather == null) return isNight ? 'Đêm mát mẻ' : 'Thời tiết mát mẻ';
+    if (weather == null) return isNight ? tr('weather_night_cool') : tr('weather_day_cool');
     String desc = weather.description.trim();
     final lower = desc.toLowerCase();
     if (lower.contains(' tại ')) {
       desc = desc.substring(0, lower.indexOf(' tại ')).trim();
     }
     if (lower.contains('mát mẻ')) {
-      return isNight ? 'Đêm mát mẻ' : 'Thời tiết mát mẻ';
+      return isNight ? tr('weather_night_cool') : tr('weather_day_cool');
     }
-    if (desc.isNotEmpty) {
+    if (AppLanguage.instance.isVietnamese && desc.isNotEmpty) {
       return desc[0].toUpperCase() + desc.substring(1);
     }
     final temp = weather.temperature;
-    if (temp < 20) return isNight ? 'Đêm se lạnh' : 'Trời se lạnh';
-    if (temp < 26) return isNight ? 'Đêm mát mẻ' : 'Thời tiết mát mẻ';
-    if (temp < 32) return isNight ? 'Trời dịu mát' : 'Trời nắng nhẹ';
-    return isNight ? 'Đêm oi ả' : 'Trời oi nóng';
+    if (temp < 20) return isNight ? tr('weather_chilly') : tr('weather_chilly');
+    if (temp < 26) return isNight ? tr('weather_night_cool') : tr('weather_day_cool');
+    if (temp < 32) return isNight ? tr('weather_mild') : tr('weather_sunny');
+    return isNight ? tr('weather_hot') : tr('weather_hot');
   }
 
 
@@ -524,7 +544,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: Text(
                       (hero.recommendation != null && hero.recommendation!.badges.isNotEmpty)
                           ? hero.recommendation!.badges.first
-                          : '🌿 Hợp gu của bạn',
+                          : tr('match_taste'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -707,18 +727,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               elevation: 0,
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Khám phá ngay',
-                                  style: TextStyle(
+                                  tr('explore_now'),
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_rounded, size: 14),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.arrow_forward_rounded, size: 14),
                               ],
                             ),
                           ),
@@ -1096,16 +1116,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                         border: Border.all(color: const Color(0xFFE8E6DF), width: 1.2),
                                       ),
                                       child: TextField(
-                                        decoration: const InputDecoration(
-                                          hintText: 'Thêm món gì? Tìm quán, món ăn...',
-                                          hintStyle: TextStyle(
+                                        decoration: InputDecoration(
+                                          hintText: tr('search_explore_hint'),
+                                          hintStyle: const TextStyle(
                                             fontSize: 13,
                                             color: Color(0xFF8E9892),
                                             fontWeight: FontWeight.w500,
                                           ),
-                                          prefixIcon: Icon(Icons.search, color: Color(0xFF5A655F), size: 22),
+                                          prefixIcon: const Icon(Icons.search, color: Color(0xFF5A655F), size: 22),
                                           border: InputBorder.none,
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         ),
                                         onChanged: (val) {
                                           setState(() {
@@ -1176,7 +1196,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                                   ),
                                                   const SizedBox(width: 6),
                                                   Text(
-                                                    cat,
+                                                    _getCategoryLabel(cat),
                                                     style: TextStyle(
                                                       fontSize: 13,
                                                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -1216,13 +1236,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Row(
+                                        Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Flexible(
                                               child: Text(
-                                                'Đói rồi, khám phá thôi!',
-                                                style: TextStyle(
+                                                tr('hungry_explore'),
+                                                style: const TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w900,
                                                   color: Color(0xFF112319),
@@ -1231,8 +1251,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            SizedBox(width: 4),
-                                            SparkBurst(width: 14, height: 12),
+                                            const SizedBox(width: 4),
+                                            const SparkBurst(width: 14, height: 12),
                                           ],
                                         ),
                                         const SizedBox(height: 2),
@@ -1384,10 +1404,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Expanded(
+                                  Expanded(
                                     child: Text(
-                                      'Khám phá quán ngon',
-                                      style: TextStyle(
+                                      tr('explore_restaurants'),
+                                      style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w900,
                                         color: Color(0xFF112319),
@@ -1403,19 +1423,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                         _searchQuery = '';
                                       });
                                     },
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          'Xem tất cả',
-                                          style: TextStyle(
+                                          tr('see_all'),
+                                          style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
                                             color: Color(0xFF1B3B2B),
                                           ),
                                         ),
-                                        SizedBox(width: 2),
-                                        Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF1B3B2B)),
+                                        const SizedBox(width: 2),
+                                        const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF1B3B2B)),
                                       ],
                                     ),
                                   ),
@@ -1440,12 +1460,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('Lỗi kết nối: $_error', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                          Text('${tr('connection_error')}: $_error', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
                           const SizedBox(height: 12),
                           ElevatedButton(
                             onPressed: _loadData,
                             style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
-                            child: const Text('Thử lại', style: TextStyle(color: Colors.white)),
+                            child: Text(tr('retry'), style: const TextStyle(color: Colors.white)),
                           ),
                         ],
                       ),
@@ -1461,7 +1481,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       children: [
                         Icon(Icons.restaurant, size: 54, color: Colors.grey[400]),
                         const SizedBox(height: 12),
-                        Text('Không tìm thấy quán ăn nào phù hợp', style: TextStyle(color: Colors.grey[600])),
+                        Text(tr('no_restaurant_found'), style: TextStyle(color: Colors.grey[600])),
                       ],
                     ),
                   ),
@@ -1654,9 +1674,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   });
                                 },
                                 icon: const Icon(Icons.expand_less_rounded, size: 20, color: Color(0xFF6E7A73)),
-                                label: const Text(
-                                  'Thu gọn danh sách',
-                                  style: TextStyle(
+                                label: Text(
+                                  tr('collapse_list'),
+                                  style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                     color: Color(0xFF6E7A73),
@@ -1676,7 +1696,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 ),
                                 icon: const Icon(Icons.expand_more_rounded, size: 20, color: Color(0xFF1B3B2B)),
                                 label: Text(
-                                  'Xem thêm ${listItems.length - _kDefaultNearbyLimit} quán khác',
+                                  '${tr('see_more')} ${listItems.length - _kDefaultNearbyLimit} ${tr('other_restaurants')}',
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
