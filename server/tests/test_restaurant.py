@@ -344,7 +344,7 @@ def test_create_restaurant_invalid_rating_negative(client: TestClient):
         "rating": -0.5,
     }
     response = client.post("/api/v1/restaurants", json=payload)
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_create_restaurant_invalid_rating_exceeds_five(client: TestClient):
@@ -357,7 +357,7 @@ def test_create_restaurant_invalid_rating_exceeds_five(client: TestClient):
         "rating": 5.5,
     }
     response = client.post("/api/v1/restaurants", json=payload)
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_update_restaurant_rating(client: TestClient):
@@ -487,7 +487,7 @@ def test_create_restaurant_invalid_admin_rating_bounds(client: TestClient):
             "admin_rating": 5.5,
         },
     )
-    assert resp_over.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_over.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # 2. Âm (< 0.0)
     resp_neg = client.post(
@@ -500,7 +500,7 @@ def test_create_restaurant_invalid_admin_rating_bounds(client: TestClient):
             "admin_rating": -0.5,
         },
     )
-    assert resp_neg.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp_neg.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_update_restaurant_admin_rating(client: TestClient):

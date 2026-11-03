@@ -374,6 +374,7 @@ onMounted(() => {
     :current-tab="currentTab"
     :admin="admin"
     :restaurant-count="stats?.total_restaurants ?? restaurants.length"
+    :dish-count="stats?.total_dishes"
     :user-count="stats?.total_users ?? users.length"
     :weather-count="weathers.length"
     @update:current-tab="handleTabChange($event as TabKey)"

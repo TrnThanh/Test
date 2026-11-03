@@ -150,7 +150,6 @@ class _MapScreenState extends State<MapScreen> {
 
   LatLng _currentCenter = const LatLng(21.0046, 105.9387); // Mặc định HVNN Gia Lâm
   LatLng? _pinnedLocation;
-  String? _pinnedAddress;
   double _radiusKm = 5.0;
 
   LatLng? _userLocation;
@@ -575,9 +574,6 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  String _formatWalkingDistanceAndTime() {
-    return '${_formatWalkingDistanceOnly()} • ${_formatWalkingTimeOnly()} đi bộ';
-  }
 
   void _clearRoute() {
     _routeRequestId++;
@@ -710,24 +706,6 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  String _getRestaurantDistance(Restaurant r) {
-    // Luôn ưu tiên tính khoảng cách theo vị trí thực tế của người dùng nếu có GPS
-    final origin = _userLocation ?? _pinnedLocation ?? _currentCenter;
-    if (r.latitude != 0 && r.longitude != 0) {
-      final distMeters = const Distance().as(
-        LengthUnit.Meter,
-        origin,
-        LatLng(r.latitude, r.longitude),
-      );
-      return distMeters < 1000 ? '${distMeters.round()}m' : '${(distMeters / 1000).toStringAsFixed(1)} km';
-    }
-    if (r.distanceKm != null && r.distanceKm! > 0) {
-      return r.distanceKm! < 1.0
-          ? '${(r.distanceKm! * 1000).round()}m'
-          : '${r.distanceKm!.toStringAsFixed(1)} km';
-    }
-    return '';
-  }
 
   @override
   void dispose() {
@@ -780,7 +758,6 @@ class _MapScreenState extends State<MapScreen> {
             if (inGiaLam && moveToUser) {
               _currentCenter = targetPos;
               _pinnedLocation = targetPos;
-              _pinnedAddress = name;
               _searchCtrl.text = name!;
               _selectedRestaurant = null;
             }
@@ -810,7 +787,6 @@ class _MapScreenState extends State<MapScreen> {
             setState(() {
               _userLocationName = addr;
               if (_pinnedLocation == targetPos) {
-                _pinnedAddress = addr;
                 _searchCtrl.text = addr;
               }
             });
@@ -940,24 +916,18 @@ class _MapScreenState extends State<MapScreen> {
       _pinnedLocation = point;
       _selectedRestaurant = null;
       _showSearchResults = false;
-      _pinnedAddress = 'Đang tra cứu toạ độ...';
     });
 
     _loadNearby(point.latitude, point.longitude);
 
     try {
       final addr = await widget.api.reverseMap(point.latitude, point.longitude);
-      if (mounted) {
+      if (mounted && addr.isNotEmpty) {
         setState(() {
-          _pinnedAddress = addr;
+          _searchCtrl.text = addr;
         });
       }
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _pinnedAddress = 'Toạ độ: ${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)}';
-        });
-      }
     }
   }
 
@@ -976,7 +946,6 @@ class _MapScreenState extends State<MapScreen> {
     }
     setState(() {
       _pinnedLocation = pos;
-      _pinnedAddress = p.displayName;
       _showSearchResults = false;
       _searchCtrl.text = p.displayName;
     });
@@ -984,18 +953,6 @@ class _MapScreenState extends State<MapScreen> {
     _loadNearby(p.latitude, p.longitude);
   }
 
-  void _jumpTo(double lat, double lon, String name) {
-    final pos = LatLng(lat, lon);
-    setState(() {
-      _pinnedLocation = pos;
-      _pinnedAddress = name;
-      _showSearchResults = false;
-      _searchCtrl.text = name;
-      _selectedRestaurant = null;
-    });
-    _mapController.move(pos, 14.5);
-    _loadNearby(lat, lon);
-  }
 
   void _showMenuBottomSheet(Restaurant r) {
     showModalBottomSheet(
@@ -1090,150 +1047,6 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showNearbyListBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.65,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        builder: (_, scrollCtrl) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Quán Ăn Lân Cận (${_nearbyRestaurants.length})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  ActionChip(
-                    avatar: const Icon(Icons.tune, size: 14, color: kPrimaryGreen),
-                    label: Text('${_radiusKm.toStringAsFixed(0)} km'),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _showRadiusPicker();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: _nearbyRestaurants.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.storefront_outlined, size: 48, color: Colors.grey[400]),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Không tìm thấy quán ăn nào trong bán kính ${_radiusKm.toStringAsFixed(0)} km quanh vị trí này.',
-                              style: TextStyle(color: Colors.grey[600]),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (!isPointInGiaLam(_pinnedLocation ?? _currentCenter)) ...[
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.explore, size: 16),
-                                label: const Text('Xem các quán đối tác tại Gia Lâm'),
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  _mapController.fitCamera(CameraFit.bounds(bounds: giaLamBounds, padding: const EdgeInsets.all(24)));
-                                  _jumpTo(21.0046, 105.9387, 'Khu vực ẩm thực Gia Lâm');
-                                },
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      controller: scrollCtrl,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _nearbyRestaurants.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (ctx, index) {
-                        final r = _nearbyRestaurants[index];
-                        final open = isOpenNow(r.openTime, r.closeTime);
-                        return Card(
-                          color: Colors.white,
-                          elevation: 1.5,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.deepOrange.shade50,
-                              child: const Icon(Icons.restaurant, color: kPrimaryGreen, size: 20),
-                            ),
-                            title: Text(r.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (r.address != null)
-                                  Text(r.address!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    if (r.rating != null && r.rating! > 0) ...[
-                                      const Icon(Icons.star, size: 12, color: Colors.amber),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        '${r.rating!.toStringAsFixed(1)}  •  ',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1E293B)),
-                                      ),
-                                    ],
-                                    if (r.distanceKm != null)
-                                      Text('${r.distanceKm!.toStringAsFixed(1)} km  •  ', style: const TextStyle(fontWeight: FontWeight.bold, color: kPrimaryGreen, fontSize: 11)),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: open ? Colors.green.shade50 : Colors.red.shade50,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(open ? 'Đang mở' : 'Đã đóng', style: TextStyle(color: open ? Colors.green.shade800 : Colors.red.shade800, fontSize: 10, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            trailing: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                _showMenuBottomSheet(r);
-                              },
-                              child: const Text('Thực đơn'),
-                            ),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              setState(() {
-                                _selectedRestaurant = r;
-                              });
-                              _mapController.move(LatLng(r.latitude, r.longitude), 15.5);
-                            },
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
         ),
       ),
     );

@@ -60,7 +60,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       }
       return '${parts.join(".")}đ';
     }
-    return '${intPrice}đ';
+    return '$intPriceđ';
   }
 
 
@@ -290,26 +290,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return isNight ? 'Đêm oi ả' : 'Trời oi nóng';
   }
 
-  String _getWeatherRecommendation(CurrentWeather? weather) {
-    if (weather == null) {
-      return 'Trời mát, cực hợp làm bát Phở nóng hổi!';
-    }
-    final temp = weather.temperature;
-    final cond = weather.condition.toLowerCase();
-    final desc = weather.description.toLowerCase();
-
-    if (cond.contains('rain') || desc.contains('mưa')) {
-      return 'Trời mưa mát mẻ, xì xụp bát Phở nóng hoặc Lẩu thơm!';
-    } else if (temp < 22) {
-      return 'Trời se lạnh, cực hợp làm bát Phở nóng hổi!';
-    } else if (temp >= 22 && temp < 28) {
-      return 'Trời mát, cực hợp làm bát Phở nóng hổi!';
-    } else if (temp >= 28 && temp < 33) {
-      return 'Thời tiết ấm áp, thích hợp thưởng thức Bún chả & Trà đá!';
-    } else {
-      return 'Trời oi nóng, giải nhiệt với Bún ốc hoặc Chè mát lạnh!';
-    }
-  }
 
   Future<void> _loadWeatherAndLocation({double? forcedLat, double? forcedLon, String? forcedCity}) async {
     setState(() {
@@ -1146,16 +1126,27 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   children: _categories.map((cat) {
                                     final isSelected = (_currentCategory ?? 'Tất cả') == cat;
                                     IconData iconData = Icons.restaurant;
-                                    if (cat == 'Phở, Bún & Món nước' || cat == 'Phở' || cat == 'Bún') iconData = Icons.ramen_dining_outlined;
-                                    else if (cat == 'Cơm & Xôi' || cat == 'Cơm') iconData = Icons.rice_bowl_outlined;
-                                    else if (cat == 'Bánh mì') iconData = Icons.bakery_dining_outlined;
-                                    else if (cat == 'Bánh truyền thống & Món cuốn') iconData = Icons.lunch_dining_outlined;
-                                    else if (cat == 'Lẩu & Nướng') iconData = Icons.outdoor_grill_outlined;
-                                    else if (cat == 'Ốc & Quán lai rai') iconData = Icons.sports_bar_outlined;
-                                    else if (cat == 'Đồ ăn vặt' || cat == 'Ăn vặt') iconData = Icons.fastfood_outlined;
-                                    else if (cat == 'Chè & Tráng miệng') iconData = Icons.icecream_outlined;
-                                    else if (cat == 'Cà phê & Thức uống giải khát' || cat == 'Đồ uống') iconData = Icons.local_cafe_outlined;
-                                    else if (cat == 'Ẩm thực Chay & Thực dưỡng') iconData = Icons.eco_outlined;
+                                    if (cat == 'Phở, Bún & Món nước' || cat == 'Phở' || cat == 'Bún') {
+                                      iconData = Icons.ramen_dining_outlined;
+                                    } else if (cat == 'Cơm & Xôi' || cat == 'Cơm') {
+                                      iconData = Icons.rice_bowl_outlined;
+                                    } else if (cat == 'Bánh mì') {
+                                      iconData = Icons.bakery_dining_outlined;
+                                    } else if (cat == 'Bánh truyền thống & Món cuốn') {
+                                      iconData = Icons.lunch_dining_outlined;
+                                    } else if (cat == 'Lẩu & Nướng') {
+                                      iconData = Icons.outdoor_grill_outlined;
+                                    } else if (cat == 'Ốc & Quán lai rai') {
+                                      iconData = Icons.sports_bar_outlined;
+                                    } else if (cat == 'Đồ ăn vặt' || cat == 'Ăn vặt') {
+                                      iconData = Icons.fastfood_outlined;
+                                    } else if (cat == 'Chè & Tráng miệng') {
+                                      iconData = Icons.icecream_outlined;
+                                    } else if (cat == 'Cà phê & Thức uống giải khát' || cat == 'Đồ uống') {
+                                      iconData = Icons.local_cafe_outlined;
+                                    } else if (cat == 'Ẩm thực Chay & Thực dưỡng') {
+                                      iconData = Icons.eco_outlined;
+                                    }
 
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 10),
