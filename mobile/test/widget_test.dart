@@ -827,4 +827,10 @@ void main() {
     expect(find.text('Trang chủ'), findsOneWidget);
     expect(find.text('Tài khoản'), findsOneWidget);
   });
+
+  testWidgets('Kiểm thử cấu hình ThemeData sử dụng font chữ BeVietnamPro', (WidgetTester tester) async {
+    await tester.pumpWidget(const Ptc1App());
+    final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, 'BeVietnamPro');
+  });
 }

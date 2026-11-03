@@ -124,7 +124,7 @@ class AuroraTheme {
       useMaterial3: true,
       colorScheme: cs,
       scaffoldBackgroundColor: GZColors.bg,
-      fontFamily: 'Roboto',
+      fontFamily: 'BeVietnamPro',
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,

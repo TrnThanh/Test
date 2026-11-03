@@ -5,6 +5,7 @@ from server.app.models.admin import Admin
 from server.app.models.restaurant import Restaurant
 from server.app.models.category import Category
 from server.app.models.dish import Dish
+from server.app.models.ingredient import Ingredient, DishIngredient
 from server.app.models.favourite_dish import FavouriteDish
 from server.app.models.meal_type import MealType
 from server.app.models.weather import Weather
@@ -19,6 +20,8 @@ __all__ = [
     "Restaurant",
     "Category",
     "Dish",
+    "Ingredient",
+    "DishIngredient",
     "FavouriteDish",
     "MealType",
     "Weather",

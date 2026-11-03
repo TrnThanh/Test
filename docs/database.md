@@ -131,6 +131,8 @@ erDiagram
     }
 
     DISHES ||--o{ FAVOURITE_DISHES : "referenced by (1-N, cascade delete)"
+    DISHES ||--o{ DISH_INGREDIENTS : "contains (1-N, cascade delete)"
+    INGREDIENTS ||--o{ DISH_INGREDIENTS : "used in (1-N, cascade delete)"
     DISHES {
         int id PK "Khóa chính tự tăng"
         int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id) ON DELETE CASCADE"
@@ -645,6 +647,26 @@ CREATE TABLE IF NOT EXISTS weather_categories (
 
 CREATE INDEX IF NOT EXISTS ix_weather_categories_weather_id ON weather_categories (weather_id);
 CREATE INDEX IF NOT EXISTS ix_weather_categories_category_id ON weather_categories (category_id);
+-- 13. Bảng ingredients (Danh mục nguyên liệu toàn cục)
+CREATE TABLE IF NOT EXISTS ingredients (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT DEFAULT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ingredients_name ON ingredients (name);
+
+-- 14. Bảng dish_ingredients (Liên kết Nhiều-Nhiều Món ăn - Nguyên liệu)
+CREATE TABLE IF NOT EXISTS dish_ingredients (
+    id SERIAL PRIMARY KEY,
+    dish_id INTEGER NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_dish_ingredient UNIQUE (dish_id, ingredient_id)
+);
+CREATE INDEX IF NOT EXISTS ix_dish_ingredients_dish_id ON dish_ingredients (dish_id);
+CREATE INDEX IF NOT EXISTS ix_dish_ingredients_ingredient_id ON dish_ingredients (ingredient_id);
 ```
 
 

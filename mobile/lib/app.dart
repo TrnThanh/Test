@@ -55,7 +55,7 @@ class Ptc1App extends StatelessWidget {
               primary: kPrimaryGreen,
               surface: Colors.white,
             ),
-            fontFamily: 'Roboto',
+            fontFamily: 'BeVietnamPro',
             appBarTheme: const AppBarTheme(
               centerTitle: false,
               elevation: 0,

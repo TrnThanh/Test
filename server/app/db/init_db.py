@@ -278,6 +278,57 @@ def apply_schema_patches(conn) -> None:
     """))
 
 
+    # --- TASK-146: Tách nguyên liệu món ăn thành bảng ingredients và dish_ingredients ---
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS ingredients (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            description TEXT DEFAULT NULL,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+    """))
+    conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_ingredients_name ON ingredients (name);"))
+
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS dish_ingredients (
+            id SERIAL PRIMARY KEY,
+            dish_id INTEGER NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
+            ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT uq_dish_ingredient UNIQUE (dish_id, ingredient_id)
+        );
+    """))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_dish_ingredients_dish_id ON dish_ingredients (dish_id);"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_dish_ingredients_ingredient_id ON dish_ingredients (ingredient_id);"))
+
+    conn.execute(text("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='dishes' AND column_name='ingredients') THEN
+                ALTER TABLE ingredients ALTER COLUMN is_active SET DEFAULT TRUE;
+
+                INSERT INTO ingredients (name, is_active)
+                SELECT DISTINCT ON (lower(n)) n, TRUE
+                FROM (
+                    SELECT left(btrim(regexp_replace(x, '\\s+', ' ', 'g')), 100) AS n
+                    FROM dishes, unnest(ingredients) AS x
+                ) t
+                WHERE n <> ''
+                ORDER BY lower(n), n
+                ON CONFLICT (name) DO NOTHING;
+
+                INSERT INTO dish_ingredients (dish_id, ingredient_id)
+                SELECT DISTINCT d.id, i.id
+                FROM dishes d
+                CROSS JOIN LATERAL unnest(d.ingredients) AS x
+                JOIN ingredients i ON lower(i.name) = lower(btrim(regexp_replace(x, '\\s+', ' ', 'g')))
+                ON CONFLICT (dish_id, ingredient_id) DO NOTHING;
+            END IF;
+        END $$;
+    """))
+
+
 def init_database() -> None:
     """Tự động cập nhật schema PostgreSQL, tạo bảng và seed dữ liệu mặc định."""
     with engine.begin() as conn:

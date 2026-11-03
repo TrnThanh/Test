@@ -1,7 +1,8 @@
 from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy import select, distinct
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy import func, delete
 
 from server.app.models.user import User
 from server.app.models.restaurant import Restaurant
@@ -13,10 +14,52 @@ from server.app.schemas.dish import DishCreate, DishUpdate, DishResponse
 
 class DishService:
     @staticmethod
+    def _sync_dish_ingredients(db: Session, dish: Dish, ingredient_names: Optional[List[str]]) -> None:
+        """Đồng bộ danh sách nguyên liệu của món ăn vào bảng ingredients và dish_ingredients."""
+        from server.app.models.ingredient import Ingredient, DishIngredient
+
+        if ingredient_names is None:
+            return
+
+        cleaned_names = []
+        seen = set()
+        for raw in ingredient_names:
+            name = " ".join(raw.split()) if isinstance(raw, str) else ""
+            if name and name.lower() not in seen:
+                seen.add(name.lower())
+                cleaned_names.append(name)
+
+        # 1. Tìm hoặc tạo các Ingredient
+        ingredient_objs = []
+        for name in cleaned_names:
+            ing = db.scalar(select(Ingredient).where(func.lower(Ingredient.name) == name.lower()))
+            if not ing:
+                ing = Ingredient(name=name)
+                db.add(ing)
+                db.flush()
+            ingredient_objs.append(ing)
+
+        # 2. Xóa các liên kết cũ của món này trong dish_ingredients
+        db.execute(delete(DishIngredient).where(DishIngredient.dish_id == dish.id))
+
+        # 3. Tạo các liên kết mới
+        for ing in ingredient_objs:
+            link = DishIngredient(dish_id=dish.id, ingredient_id=ing.id)
+            db.add(link)
+
+        # 4. Giữ đồng bộ mảng text dish.ingredients
+        dish.ingredients = [ing.name for ing in ingredient_objs]
+        db.flush()
+
+    @staticmethod
     def to_dish_response(dish: Dish) -> DishResponse:
         cat_name = dish.parent_category.name if dish.parent_category else dish.category
         res = DishResponse.model_validate(dish)
         res.category_name = cat_name
+        if dish.ingredient_items:
+            res.ingredients = [i.name for i in dish.ingredient_items]
+        else:
+            res.ingredients = dish.ingredients or []
         meal_types = [m for m in dish.meal_types if m] if dish.meal_types else ["all_day"]
         res.meal_types = meal_types
         label_map = {
@@ -76,6 +119,8 @@ class DishService:
             is_available=data.is_available,
         )
         db.add(dish)
+        db.flush()
+        DishService._sync_dish_ingredients(db, dish, cleaned_ingredients)
         db.commit()
         db.refresh(dish)
         return DishService.get_dish_by_id(db, dish.id)
@@ -105,7 +150,7 @@ class DishService:
 
         stmt = (
             select(Dish)
-            .options(joinedload(Dish.parent_category))
+            .options(joinedload(Dish.parent_category), selectinload(Dish.ingredient_items))
             .where(Dish.restaurant_id == restaurant_id)
         )
         if available_only:
@@ -124,7 +169,12 @@ class DishService:
             # Loại trừ món có chứa dị ứng này
             stmt = stmt.where(~Dish.allergens.contains([allergen.strip()]))
         if ingredient:
-            stmt = stmt.where(Dish.ingredients.contains([ingredient.strip()]))
+            from server.app.models.ingredient import DishIngredient, Ingredient
+            stmt = (
+                stmt.join(DishIngredient, Dish.id == DishIngredient.dish_id)
+                .join(Ingredient, DishIngredient.ingredient_id == Ingredient.id)
+                .where(func.lower(Ingredient.name) == ingredient.strip().lower())
+            )
 
         stmt = stmt.order_by(Dish.category.asc().nulls_last(), Dish.id.asc()).offset(skip).limit(limit)
         return list(db.scalars(stmt).all())
@@ -134,7 +184,7 @@ class DishService:
         """Lấy chi tiết một món ăn theo ID."""
         stmt = (
             select(Dish)
-            .options(joinedload(Dish.parent_category))
+            .options(joinedload(Dish.parent_category), selectinload(Dish.ingredient_items))
             .where(Dish.id == dish_id)
         )
         dish = db.scalar(stmt)
@@ -185,8 +235,11 @@ class DishService:
             else:
                 dish.meal_types = ["all_day"]
 
+        if "ingredients" in update_data:
+            DishService._sync_dish_ingredients(db, dish, update_data["ingredients"])
+
         for key, value in update_data.items():
-            if key in ["category_id", "meal_types"]:
+            if key in ["category_id", "meal_types", "ingredients"]:
                 continue
             if isinstance(value, str):
                 value = value.strip()

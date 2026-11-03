@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from server.app.models.restaurant import Restaurant
     from server.app.models.favourite_dish import FavouriteDish
     from server.app.models.category import Category
+    from server.app.models.ingredient import DishIngredient, Ingredient
 
 
 # Model món ăn thuộc quán ăn
@@ -79,4 +80,15 @@ class Dish(Base, table=True):
     favourite_users: List["FavouriteDish"] = Relationship(
         back_populates="dish",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+    # Danh sách liên kết nguyên liệu (Bảng trung gian dish_ingredients)
+    dish_ingredients: List["DishIngredient"] = Relationship(
+        back_populates="dish",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "passive_deletes": True},
+    )
+
+    # Danh sách các nguyên liệu của món ăn (đọc qua secondary, chỉ xem)
+    ingredient_items: List["Ingredient"] = Relationship(
+        sa_relationship_kwargs={"secondary": "dish_ingredients", "viewonly": True},
     )
