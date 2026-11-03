@@ -71,8 +71,19 @@ export interface MealTypeEntity {
   created_at: string;
 }
 
+export interface Season {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface HourlyWeatherItem {
   hour: number;
+  hour_display?: string | null;
   temperature: number;
   humidity: number;
   precipitation: number;
@@ -86,6 +97,7 @@ export interface Weather {
   code: string;
   pattern_code?: string | null;
   hour?: number | null;
+  hour_display?: string | null;
   name: string;
   description?: string | null;
   temperature?: number | null;
@@ -98,8 +110,9 @@ export interface Weather {
   max_humidity?: number | null;
   condition?: string | null;
   icon?: string | null;
+  season_id?: number | null;
   season?: string | null;
-  hourly?: HourlyWeatherItem[];
+  season_name?: string | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;

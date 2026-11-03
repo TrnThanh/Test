@@ -110,22 +110,18 @@ def test_weather_humidity_out_of_range_values(client: TestClient):
     assert resp_over.status_code == 422
 
 
-def test_weather_create_with_hourly_data(client: TestClient):
-    """Kiểm tra tạo thời tiết kèm dữ liệu 24 giờ hourly JSON array."""
-    hourly_sample = [
-        {"hour": h, "temperature": 20.0 + h * 0.2, "humidity": 70.0, "precipitation": 0.0, "weather_code": 0, "condition": "SUNNY", "icon": "sunny.svg"}
-        for h in range(24)
-    ]
+def test_weather_create_with_hour_display_no_hourly_column(client: TestClient):
+    """Kiểm tra tạo thời tiết chuẩn phẳng với khung giờ hour và xác nhận không còn trường legacy hourly."""
     payload = {
-        "code": "weather_with_hourly",
-        "name": "Thời tiết đủ 24 giờ",
+        "code": "weather_test_hourly_dropped",
+        "name": "Thời tiết kiểm thử bỏ hourly",
         "temperature": 22.0,
         "humidity": 70.0,
-        "hourly": hourly_sample,
+        "hour": 7,
     }
     resp = client.post("/api/v1/weather", json=payload)
     assert resp.status_code == 201, resp.text
     data = resp.json()
-    assert len(data["hourly"]) == 24
-    assert data["hourly"][0]["hour"] == 0
-    assert data["hourly"][23]["hour"] == 23
+    assert data["hour"] == 7
+    assert data["hour_display"] == "7:00 AM"
+    assert "hourly" not in data

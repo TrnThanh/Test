@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, computed_field
 from server.app.schemas.category import CategoryResponse
 
 
@@ -12,6 +12,13 @@ class HourlyWeatherItem(BaseModel):
     weather_code: int = Field(0, description="Mã điều kiện thời tiết số")
     condition: str = Field(..., description="Điều kiện thời tiết (SUNNY, CLOUDY, RAIN...)")
     icon: str = Field(..., description="Icon minh họa thời tiết")
+
+    @computed_field
+    @property
+    def hour_display(self) -> str:
+        """Định dạng khung giờ 12-hour AM/PM (vd: 7:00 AM)."""
+        from server.app.core.time_utils import format_hour_12h
+        return format_hour_12h(self.hour) or ""
 
 
 class WeatherBase(BaseModel):
@@ -26,8 +33,8 @@ class WeatherBase(BaseModel):
     weather_code: Optional[int] = Field(0, description="Mã số điều kiện thời tiết")
     condition: Optional[str] = Field(None, max_length=100, description="Điều kiện khí hậu")
     icon: Optional[str] = Field(None, max_length=100, description="Tên icon hoặc URL")
+    season_id: Optional[int] = Field(None, ge=1, le=4, description="ID mùa trong năm (1: Xuân, 2: Hạ, 3: Thu, 4: Đông)")
     season: Optional[str] = Field(None, max_length=50, description="Mùa trong năm (spring, summer, autumn, winter)")
-    hourly: List[Dict[str, Any]] = Field(default_factory=list, description="Mảng chi tiết 24 giờ trong ngày (nếu có)")
     sort_order: int = Field(0, ge=0, description="Thứ tự hiển thị")
     is_active: bool = Field(True, description="Trạng thái kích hoạt")
 
@@ -63,8 +70,8 @@ class WeatherUpdate(BaseModel):
     weather_code: Optional[int] = None
     condition: Optional[str] = Field(None, max_length=100)
     icon: Optional[str] = Field(None, max_length=100)
+    season_id: Optional[int] = Field(None, ge=1, le=4)
     season: Optional[str] = Field(None, max_length=50)
-    hourly: Optional[List[Dict[str, Any]]] = None
     sort_order: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
 
@@ -82,6 +89,25 @@ class WeatherUpdate(BaseModel):
 class WeatherResponse(WeatherBase):
     id: int
     created_at: datetime
+
+    @computed_field
+    @property
+    def hour_display(self) -> Optional[str]:
+        """Khung giờ định dạng trực quan 12-hour AM/PM (vd: 7:00 AM, 12:00 PM)."""
+        from server.app.core.time_utils import format_hour_12h
+        return format_hour_12h(self.hour)
+
+    @computed_field
+    @property
+    def season_name(self) -> Optional[str]:
+        """Tên tiếng Việt của mùa (Xuân, Hạ, Thu, Đông)."""
+        mapping = {1: "Xuân", 2: "Hạ", 3: "Thu", 4: "Đông"}
+        if self.season_id in mapping:
+            return mapping[self.season_id]
+        if self.season:
+            code_mapping = {"spring": "Xuân", "summer": "Hạ", "autumn": "Thu", "winter": "Đông"}
+            return code_mapping.get(self.season.lower())
+        return None
 
     model_config = ConfigDict(from_attributes=True)
 

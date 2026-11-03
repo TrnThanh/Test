@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
-from sqlalchemy import String, Boolean, DateTime, Float, CheckConstraint, Integer, Text, func, Column, JSON, Index
+from sqlalchemy import String, Boolean, DateTime, Float, CheckConstraint, Integer, Text, func, Column, JSON, Index, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship
 from server.app.db.base import Base
@@ -8,6 +8,7 @@ from server.app.db.base import Base
 if TYPE_CHECKING:
     from server.app.models.weather_category import WeatherCategory
     from server.app.models.category import Category
+    from server.app.models.season import Season
 
 
 # Model điều kiện thời tiết mở rộng hỗ trợ 96,000 bản ghi chi tiết từng giờ (2000-2025)
@@ -43,15 +44,11 @@ class Weather(Base, table=True):
     weather_code: Optional[int] = Field(default=0, sa_type=Integer, nullable=True)
     condition: Optional[str] = Field(default=None, sa_type=String(100), nullable=True)
     icon: Optional[str] = Field(default=None, sa_type=String(100), nullable=True)
-    season: Optional[str] = Field(default=None, sa_type=String(50), nullable=True, index=True)
-    hourly: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        sa_column=Column(
-            JSON().with_variant(JSONB, "postgresql"),
-            nullable=False,
-            server_default="[]",
-        ),
+    season_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(ForeignKey("seasons.id", ondelete="SET NULL"), nullable=True, index=True),
     )
+    season: Optional[str] = Field(default=None, sa_type=String(50), nullable=True, index=True)
     sort_order: int = Field(default=0, sa_column=Column(Integer, nullable=False, default=0, server_default="0"))
     is_active: bool = Field(default=True, sa_column=Column(Boolean, nullable=False, default=True, server_default="true"))
     created_at: datetime = Field(
@@ -69,4 +66,10 @@ class Weather(Base, table=True):
     # Danh sách các danh mục món ăn gợi ý theo thời tiết này (Đọc trực tiếp qua secondary, chỉ xem - viewonly)
     categories: List["Category"] = Relationship(
         sa_relationship_kwargs={"secondary": "weather_categories", "viewonly": True},
+    )
+
+    # Quan hệ N-1 với bảng Season chuẩn hóa 4 mùa
+    season_ref: Optional["Season"] = Relationship(
+        back_populates="weathers",
+        sa_relationship_kwargs={"passive_deletes": True},
     )

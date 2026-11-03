@@ -12,6 +12,7 @@ from server.app.services.admin_service import AdminService
 from server.app.services.meal_type_service import MealTypeService
 from server.app.services.weather_service import WeatherService
 from server.app.services.category_service import CategoryService
+from server.app.services.season_service import SeasonService
 
 test_engine = create_engine(
     settings.TEST_DATABASE_URL,
@@ -38,6 +39,7 @@ def setup_test_db():
         AdminService.seed_default_admin(session)
         MealTypeService.seed_default_meal_types(session)
         CategoryService.seed_default_categories(session)
+        SeasonService.seed_default_seasons(session)
         WeatherService.seed_weather_patterns(session)
     yield
     Base.metadata.drop_all(bind=test_engine)

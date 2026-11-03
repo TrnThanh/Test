@@ -132,6 +132,9 @@ class WeatherService:
             return 0
 
         # Nạp theo lô 2000 bản ghi bằng Bulk Upsert PostgreSQL ON CONFLICT (code) DO UPDATE (tránh quá 65535 params)
+        from server.app.services.season_service import SeasonService
+        SeasonService.seed_default_seasons(db)
+
         upserted_count = 0
         batch_size = 2000
         for i in range(0, len(patterns), batch_size):
@@ -171,9 +174,9 @@ class WeatherService:
                     "weather_code": int(item.get("weather_code") or 0),
                     "condition": item.get("condition"),
                     "icon": item.get("icon"),
+                    "season_id": {"spring": 1, "summer": 2, "autumn": 3, "winter": 4}.get((item.get("season") or "").lower(), 1),
                     "season": item.get("season"),
-                    "hourly": item.get("hourly") or [],
-                    "sort_order": item.get("sort_order", 0),
+                                        "sort_order": item.get("sort_order", 0),
                     "is_active": item.get("is_active", True),
                     "created_at": c_at,
                 })
@@ -192,9 +195,9 @@ class WeatherService:
                     "weather_code": stmt.excluded.weather_code,
                     "condition": stmt.excluded.condition,
                     "icon": stmt.excluded.icon,
+                    "season_id": stmt.excluded.season_id,
                     "season": stmt.excluded.season,
-                    "hourly": stmt.excluded.hourly,
-                    "sort_order": stmt.excluded.sort_order,
+                                        "sort_order": stmt.excluded.sort_order,
                     "is_active": stmt.excluded.is_active,
                 },
             )
@@ -211,33 +214,75 @@ class WeatherService:
             logger.debug("[WeatherSeed] Không cần cập nhật sequence hoặc DB không hỗ trợ: %s", seq_err)
 
         # Tự động nạp liên kết weather_categories nếu chưa có
-        WeatherService.seed_weather_categories_if_needed(db)
+        WeatherService.seed_weather_categories_if_needed(db, force=force)
 
         db.commit()
         logger.info("[WeatherSeed] Đã tự động nạp và ghi đè thành công %s mẫu thời tiết chuẩn vào database (không dùng cột date).", upserted_count)
         return upserted_count
 
     @staticmethod
-    def seed_weather_categories_if_needed(db: Session) -> int:
-        """Đồng bộ liên kết danh mục món ăn gợi ý theo mùa cho bảng weather_categories."""
-        count = db.scalar(select(func.count()).select_from(text("weather_categories"))) or 0
-        if count > 0:
-            return 0
-        sql = """
-        INSERT INTO weather_categories (weather_id, category_id, created_at)
-        SELECT w.id, c.id, NOW()
-        FROM weather w
-        JOIN categories c ON (
-            (w.season = 'winter' AND c.name IN ('Lẩu & Nướng', 'Phở, Bún & Món nước', 'Cơm & Xôi')) OR
-            (w.season = 'summer' AND c.name IN ('Cà phê & Thức uống giải khát', 'Đồ ăn vặt', 'Ẩm thực Chay & Thực dưỡng')) OR
-            (w.season = 'autumn' AND c.name IN ('Cà phê & Thức uống giải khát', 'Phở, Bún & Món nước', 'Bánh mì')) OR
-            (w.season = 'spring' AND c.name IN ('Bánh mì', 'Phở, Bún & Món nước', 'Cơm & Xôi'))
+    def seed_weather_categories_if_needed(db: Session, force: bool = False) -> int:
+        """Đồng bộ liên kết danh mục món ăn theo ma trận Rule Engine (Nhiệt độ, Mưa, Khung giờ, Mùa) cho bảng weather_categories."""
+        from server.app.core.weather_food_rules import (
+            classify_food_categories,
+            get_weather_category_cache_key,
         )
-        ON CONFLICT (weather_id, category_id) DO NOTHING;
-        """
-        res = db.execute(text(sql))
+        from server.app.models.weather_category import WeatherCategory
+        from server.app.services.category_service import CategoryService
+
+        # Đảm bảo 10 danh mục Master Categories luôn sẵn sàng
+        CategoryService.seed_default_categories(db)
+
+        count = db.scalar(select(func.count()).select_from(text("weather_categories"))) or 0
+        if not force and count > 0:
+            return 0
+
+        if force:
+            db.execute(text("TRUNCATE TABLE weather_categories RESTART IDENTITY CASCADE;"))
+
+        # Lấy toàn bộ bản ghi thời tiết cần phân loại
+        rows = db.execute(
+            text("SELECT id, temperature, precipitation, condition, season, hour FROM weather ORDER BY id;")
+        ).fetchall()
+        if not rows:
+            return 0
+
+        # Áp dụng Memoization Cache theo tổ hợp đặc trưng để tối ưu tốc độ xử lý hàng trăm ngàn bản ghi
+        rule_cache = {}
+        links_batch = []
+        batch_size = 5000
+        total_inserted = 0
+
+        for r in rows:
+            wid, temp, precip, cond, season, hour = r[0], r[1], r[2], r[3], r[4], r[5]
+            ckey = get_weather_category_cache_key(temp, hour, precip, cond, season)
+            if ckey not in rule_cache:
+                rule_cache[ckey] = classify_food_categories(temp, hour, precip, cond, season)
+            cat_ids = rule_cache[ckey]
+
+            for cid in cat_ids:
+                links_batch.append({"weather_id": wid, "category_id": cid})
+                if len(links_batch) >= batch_size:
+                    stmt = pg_insert(WeatherCategory).values(links_batch).on_conflict_do_nothing(
+                        index_elements=["weather_id", "category_id"]
+                    )
+                    db.execute(stmt)
+                    total_inserted += len(links_batch)
+                    links_batch = []
+
+        if links_batch:
+            stmt = pg_insert(WeatherCategory).values(links_batch).on_conflict_do_nothing(
+                index_elements=["weather_id", "category_id"]
+            )
+            db.execute(stmt)
+            total_inserted += len(links_batch)
+
         db.commit()
-        return res.rowcount
+        logger.info(
+            "[WeatherCategorySeed] Đã phân loại và liên kết thành công %s bản ghi weather_categories.",
+            total_inserted,
+        )
+        return total_inserted
 
     @staticmethod
     def seed_4000_weather_patterns(db: Session, force: bool = False) -> int:
@@ -335,9 +380,9 @@ class WeatherService:
             weather_code=data.weather_code if data.weather_code is not None else 0,
             condition=data.condition.strip() if data.condition else None,
             icon=data.icon.strip() if data.icon else None,
+            season_id=data.season_id if data.season_id else ({"spring": 1, "summer": 2, "autumn": 3, "winter": 4}.get((data.season or "").lower()) if data.season else None),
             season=data.season.strip() if data.season else None,
-            hourly=data.hourly if data.hourly else [],
-            sort_order=data.sort_order,
+                        sort_order=data.sort_order,
             is_active=data.is_active,
         )
         db.add(w)

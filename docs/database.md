@@ -99,10 +99,20 @@ erDiagram
         timestamp created_at "Thời điểm tạo (UTC)"
     }
 
+    SEASONS ||--o{ WEATHER : "categorizes (1-N, set null)"
+    SEASONS {
+        int id PK "Khóa chính 4 mùa cố định (1..4)"
+        string code UK "Mã mùa duy nhất (spring, summer, autumn, winter)"
+        string name "Tên mùa hiển thị (Xuân, Hạ, Thu, Đông)"
+        string description "Mô tả đặc trưng mùa (Nullable)"
+        int sort_order "Thứ tự sắp xếp (1..4)"
+        boolean is_active "Trạng thái kích hoạt (Default: true)"
+        timestamp created_at "Thời điểm tạo (UTC)"
+    }
+
     WEATHER {
         int id PK "Khóa chính tự tăng (1..96000)"
-        int weather_category_id FK "Khóa ngoại trỏ về WEATHER_CATEGORIES(id) (Nullable, Index)"
-        int category_id FK "Khóa ngoại trỏ về CATEGORIES(id) (Nullable, Index)"
+        int season_id FK "Khóa ngoại trỏ về SEASONS(id) (1:Xuân, 2:Hạ, 3:Thu, 4:Đông) (Nullable, Index)"
         string code UK "Mã thời tiết (Unique, Index: SPRING_PATTERN_0001_H00...)"
         string pattern_code "Mã nhóm mẫu gốc (Index: SPRING_PATTERN_0001...)"
         int hour "Khung giờ quan trắc trong ngày (0..23, Index)"
@@ -115,8 +125,7 @@ erDiagram
         string condition "Điều kiện khí hậu (Nullable)"
         string icon "Tên icon thời tiết (Nullable)"
         string season "Mùa trong năm (spring, summer, autumn, winter) (Index)"
-        jsonb hourly "Dữ liệu JSONB tương thích (Default: [])"
-        int sort_order "Thứ tự sắp xếp (Default: 0)"
+                int sort_order "Thứ tự sắp xếp (Default: 0)"
         boolean is_active "Trạng thái kích hoạt (Default: true)"
         timestamp created_at "Thời điểm tạo (UTC)"
     }
@@ -320,8 +329,7 @@ Bảng độc lập lưu trữ 96,000 bản ghi điều kiện thời tiết ph�
 | Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa |
 | :--- | :--- | :--- | :--- |
 | `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng (1..96000) |
-| `weather_category_id` | `INTEGER` | `NULLABLE`, `FK(weather_categories.id ON DELETE SET NULL)`, `INDEX` | Khóa ngoại trỏ về bản ghi liên kết danh mục thời tiết (`weather_categories.id`) |
-| `category_id` | `INTEGER` | `NULLABLE`, `FK(categories.id ON DELETE SET NULL)`, `INDEX` | Khóa ngoại trỏ về danh mục món ăn gợi ý (`categories.id`) |
+| `season_id` | `INTEGER` | `NULLABLE`, `FK(seasons.id ON DELETE SET NULL)`, `INDEX` | Khóa ngoại trỏ về 4 mùa chuẩn hóa (`seasons.id`: 1: Xuân, 2: Hạ, 3: Thu, 4: Đông) |
 | `code` | `VARCHAR(60)` | `NOT NULL`, `UNIQUE`, `INDEX` | Mã định danh thời tiết từng giờ (`SPRING_PATTERN_0001_H00`...) |
 | `pattern_code` | `VARCHAR(50)` | `NULLABLE`, `INDEX` | Mã nhóm mẫu gốc (`SPRING_PATTERN_0001` .. `WINTER_PATTERN_1000`) |
 | `hour` | `INTEGER` | `NULLABLE`, `INDEX`, CHECK `[0..23]` | Khung giờ quan trắc trong ngày (0 đến 23) |
@@ -334,7 +342,6 @@ Bảng độc lập lưu trữ 96,000 bản ghi điều kiện thời tiết ph�
 | `condition` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tình trạng khí hậu (SUNNY, CLOUDY, RAIN...) |
 | `icon` | `VARCHAR(100)` | `NULLABLE`, Default: `NULL` | Tên biểu tượng thời tiết (sunny.svg...) |
 | `season` | `VARCHAR(50)` | `NULLABLE`, `INDEX` | Mùa trong năm (`spring`, `summer`, `autumn`, `winter`) |
-| `hourly` | `JSONB` | `NOT NULL`, Default: `'[]'::jsonb` | Dữ liệu JSONB tương thích |
 | `sort_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự sắp xếp hiển thị |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời gian tạo (UTC) |
@@ -368,6 +375,25 @@ Quan hệ: Trên sơ đồ ERD, quan hệ được thể hiện trực quan gồ
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm thiết lập liên kết (UTC) |
 
 - **Ràng buộc duy nhất:** `UNIQUE (weather_id, category_id)` ngăn ngừa trùng lặp liên kết.
+
+
+---
+
+### 3.10. Bảng `seasons` (4 Mùa chuẩn hóa Xuân - Hạ - Thu - Đông)
+Model ORM: `server/app/models/season.py`.
+Bảng chuẩn hóa 4 mùa cố định (1..4) làm nguồn sự thật (Single Source of Truth) phân loại thời tiết cho 96,000 bản ghi:
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
+| :--- | :--- | :--- | :--- |
+| `id` | `INTEGER` | `PRIMARY KEY`, CHECK `[1..4]` | Khóa chính cố định 4 mùa (1: Xuân, 2: Hạ, 3: Thu, 4: Đông) |
+| `code` | `VARCHAR(20)` | `NOT NULL`, `UNIQUE`, `INDEX` | Mã định danh duy nhất (`spring`, `summer`, `autumn`, `winter`) |
+| `name` | `VARCHAR(50)` | `NOT NULL` | Tên hiển thị tiếng Việt (`Xuân`, `Hạ`, `Thu`, `Đông`) |
+| `description` | `VARCHAR(255)` | `NULLABLE`, Default: `NULL` | Mô tả đặc trưng khí hậu của mùa |
+| `sort_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự sắp xếp hiển thị (1..4) |
+| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm tạo bản ghi (UTC) |
+
+---
 
 ---
 
@@ -515,11 +541,23 @@ CREATE TABLE IF NOT EXISTS meal_types (
 );
 CREATE INDEX IF NOT EXISTS ix_meal_types_code ON meal_types (code);
 
+-- 6b. Bảng seasons (4 Mùa chuẩn hóa)
+CREATE TABLE IF NOT EXISTS seasons (
+    id INTEGER PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    name VARCHAR(50) NOT NULL,
+    description VARCHAR(255) DEFAULT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_seasons_id CHECK (id >= 1 AND id <= 4)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_seasons_code ON seasons (code);
+
 -- 7. Bảng weather (Trạng thái thời tiết mở rộng 96,000 mẫu quan trắc phẳng, không date)
 CREATE TABLE IF NOT EXISTS weather (
     id SERIAL PRIMARY KEY,
-    weather_category_id INTEGER DEFAULT NULL,
-    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+    season_id INTEGER REFERENCES seasons(id) ON DELETE SET NULL,
     code VARCHAR(60) NOT NULL UNIQUE,
     pattern_code VARCHAR(50) DEFAULT NULL,
     hour INTEGER DEFAULT NULL,
@@ -529,7 +567,6 @@ CREATE TABLE IF NOT EXISTS weather (
     humidity DOUBLE PRECISION DEFAULT NULL,
     precipitation DOUBLE PRECISION DEFAULT 0.0,
     weather_code INTEGER DEFAULT 0,
-    hourly JSONB NOT NULL DEFAULT '[]'::jsonb,
     condition VARCHAR(100) DEFAULT NULL,
     icon VARCHAR(100) DEFAULT NULL,
     season VARCHAR(50) DEFAULT NULL,
@@ -541,8 +578,7 @@ CREATE TABLE IF NOT EXISTS weather (
     CONSTRAINT ck_weather_hour_valid CHECK (hour IS NULL OR (hour >= 0 AND hour <= 23))
 );
 CREATE INDEX IF NOT EXISTS ix_weather_code ON weather (code);
-CREATE INDEX IF NOT EXISTS ix_weather_weather_category_id ON weather (weather_category_id);
-CREATE INDEX IF NOT EXISTS ix_weather_category_id ON weather (category_id);
+CREATE INDEX IF NOT EXISTS ix_weather_season_id ON weather (season_id);
 CREATE INDEX IF NOT EXISTS ix_weather_pattern_code ON weather (pattern_code);
 CREATE INDEX IF NOT EXISTS ix_weather_hour ON weather (hour);
 CREATE INDEX IF NOT EXISTS ix_weather_pattern_hour ON weather (pattern_code, hour);

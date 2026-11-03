@@ -18,6 +18,7 @@ import {
   CloudSun,
   Thermometer,
   Layers,
+  Clock,
 } from 'lucide-vue-next';
 
 const props = withDefaults(
@@ -77,6 +78,13 @@ function getSeasonLabel(season?: string | null): string {
   return map[key] || season;
 }
 
+function formatHour12h(hour?: number | null): string {
+  if (hour == null || isNaN(hour)) return '';
+  const suffix = hour < 12 ? 'AM' : 'PM';
+  const h12 = hour % 12 || 12;
+  return `${h12}:00 ${suffix}`;
+}
+
 // Master list search & season filter state (left pane)
 const weatherSearchQuery = ref('');
 const weatherSeasonFilter = ref('all');
@@ -102,7 +110,7 @@ const filteredWeathers = computed(() => {
     }
     if (!q) return true;
     const textTarget = normalizeText(
-      `${w.name} ${w.code} ${getSeasonLabel(w.season)} ${w.description || ''} ${w.temperature ?? ''} ${w.humidity ?? ''} ${w.min_temp ?? ''} ${w.max_temp ?? ''}`
+      `${w.name} ${w.code} ${w.hour_display || formatHour12h(w.hour)} ${getSeasonLabel(w.season)} ${w.description || ''} ${w.temperature ?? ''} ${w.humidity ?? ''} ${w.min_temp ?? ''} ${w.max_temp ?? ''}`
     );
     return textTarget.includes(q);
   });
@@ -642,6 +650,9 @@ async function handleCreateCatSubmit() {
             <div class="master-li-info">
               <div class="w-title-row">
                 <b>{{ w.name }}</b>
+                <span v-if="w.hour_display || w.hour != null" class="hour-badge">
+                  {{ w.hour_display || formatHour12h(w.hour) }}
+                </span>
                 <span v-if="!w.is_active" class="inactive-badge">Tạm ẩn</span>
               </div>
               <small>
@@ -780,6 +791,10 @@ async function handleCreateCatSubmit() {
             <div class="meta-row">
               <span class="meta-item">
                 Mã: <b>{{ selectedWeather.code }}</b>
+              </span>
+              <span v-if="selectedWeather.hour_display || selectedWeather.hour != null" class="meta-item">
+                <Clock class="inline-icon" />
+                Khung giờ: <b>{{ selectedWeather.hour_display || formatHour12h(selectedWeather.hour) }}</b>
               </span>
               <span class="meta-item">
                 Mùa: <b>{{ getSeasonLabel(selectedWeather.season) }}</b>
@@ -1594,6 +1609,18 @@ async function handleCreateCatSubmit() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.hour-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0284c7;
+  background: #f0f9ff;
+  padding: 1.5px 7px;
+  border-radius: 999px;
+  border: 1px solid #bae6fd;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 
 .inactive-badge {
