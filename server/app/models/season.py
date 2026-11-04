@@ -13,12 +13,27 @@ class Season(Base, table=True):
     __tablename__ = "seasons"
     __table_args__ = (
         CheckConstraint("id >= 1 AND id <= 4", name="ck_seasons_id"),
+        CheckConstraint(
+            "(start_date IS NULL OR length(start_date) = 5) AND "
+            "(end_date IS NULL OR length(end_date) = 5)",
+            name="ck_seasons_date_length",
+        ),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     code: str = Field(sa_type=String(20), unique=True, index=True, nullable=False)
     name: str = Field(sa_type=String(50), nullable=False)
     description: Optional[str] = Field(default=None, sa_type=String(255), nullable=True)
+    start_date: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(5), nullable=True),
+        description="Ngày bắt đầu chu kỳ mùa theo định dạng MM-DD (ví dụ: 02-01)",
+    )
+    end_date: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(5), nullable=True),
+        description="Ngày kết thúc chu kỳ mùa theo định dạng MM-DD (ví dụ: 04-30)",
+    )
     sort_order: int = Field(default=0, sa_column=Column(Integer, nullable=False, default=0, server_default="0"))
     is_active: bool = Field(default=True, sa_column=Column(Boolean, nullable=False, default=True, server_default="true"))
     created_at: datetime = Field(

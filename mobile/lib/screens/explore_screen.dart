@@ -460,6 +460,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   List<Restaurant> get _filteredList {
     var list = _restaurants;
+    if (widget.currentUser == null) {
+      list = list.where((r) => r.isSponsor).toList();
+    }
     if (_currentCategory != null && _currentCategory != 'Tất cả') {
       final cat = _currentCategory!.toLowerCase();
       list = list.where((r) {
@@ -899,14 +902,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
         if (_contextualRec!.heroRestaurant != null) _contextualRec!.heroRestaurant!,
         ..._contextualRec!.recommendedRestaurants,
       ];
-      final validRecs = allRecs.take(5).toList();
+      final filteredRecs = widget.currentUser == null
+          ? allRecs.where((r) => r.isSponsor).toList()
+          : allRecs;
+      final validRecs = filteredRecs.take(5).toList();
       if (validRecs.isNotEmpty) {
         heroItems = validRecs;
       } else {
-        heroItems = _restaurants.isNotEmpty ? _restaurants.take(5).toList() : [];
+        final fallback = widget.currentUser == null
+            ? _restaurants.where((r) => r.isSponsor).toList()
+            : _restaurants;
+        heroItems = fallback.isNotEmpty ? fallback.take(5).toList() : [];
       }
     } else {
-      heroItems = _restaurants.isNotEmpty ? _restaurants.take(5).toList() : [];
+      final fallback = widget.currentUser == null
+          ? _restaurants.where((r) => r.isSponsor).toList()
+          : _restaurants;
+      heroItems = fallback.isNotEmpty ? fallback.take(5).toList() : [];
     }
 
     // 2. Phần quán ăn gần đây (Quán ngon quanh đây - THAY ĐỔI theo tag lọc và search)

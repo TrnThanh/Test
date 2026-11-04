@@ -105,6 +105,8 @@ erDiagram
         string code UK "Mã mùa duy nhất (spring, summer, autumn, winter)"
         string name "Tên mùa hiển thị (Xuân, Hạ, Thu, Đông)"
         string description "Mô tả đặc trưng mùa (Nullable)"
+        string start_date "Ngày bắt đầu chu kỳ MM-DD (Nullable)"
+        string end_date "Ngày kết thúc chu kỳ MM-DD (Nullable)"
         int sort_order "Thứ tự sắp xếp (1..4)"
         boolean is_active "Trạng thái kích hoạt (Default: true)"
         timestamp created_at "Thời điểm tạo (UTC)"
@@ -391,6 +393,8 @@ Bảng chuẩn hóa 4 mùa cố định (1..4) làm nguồn sự thật (Single 
 | `code` | `VARCHAR(20)` | `NOT NULL`, `UNIQUE`, `INDEX` | Mã định danh duy nhất (`spring`, `summer`, `autumn`, `winter`) |
 | `name` | `VARCHAR(50)` | `NOT NULL` | Tên hiển thị tiếng Việt (`Xuân`, `Hạ`, `Thu`, `Đông`) |
 | `description` | `VARCHAR(255)` | `NULLABLE`, Default: `NULL` | Mô tả đặc trưng khí hậu của mùa |
+| `start_date` | `VARCHAR(5)` | `NULLABLE`, CHECK `MM-DD` | Ngày bắt đầu chu kỳ mùa lặp hàng năm (02-01, 05-01, 09-01, 12-01) |
+| `end_date` | `VARCHAR(5)` | `NULLABLE`, CHECK `MM-DD` | Ngày kết thúc chu kỳ mùa lặp hàng năm (04-30, 08-31, 11-30, 01-31) |
 | `sort_order` | `INTEGER` | `NOT NULL`, Default: `0` | Thứ tự sắp xếp hiển thị (1..4) |
 | `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm tạo bản ghi (UTC) |
@@ -549,6 +553,8 @@ CREATE TABLE IF NOT EXISTS seasons (
     code VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(255) DEFAULT NULL,
+    start_date VARCHAR(5) DEFAULT NULL,
+    end_date VARCHAR(5) DEFAULT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

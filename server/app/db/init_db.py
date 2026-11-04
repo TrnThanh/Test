@@ -241,6 +241,8 @@ def apply_schema_patches(conn) -> None:
             code VARCHAR(20) NOT NULL UNIQUE,
             name VARCHAR(50) NOT NULL,
             description VARCHAR(255) DEFAULT NULL,
+            start_date VARCHAR(5) DEFAULT NULL,
+            end_date VARCHAR(5) DEFAULT NULL,
             sort_order INTEGER NOT NULL DEFAULT 0,
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -249,17 +251,33 @@ def apply_schema_patches(conn) -> None:
     """))
     conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_seasons_code ON seasons (code);"))
 
+    conn.execute(text("ALTER TABLE IF EXISTS seasons ADD COLUMN IF NOT EXISTS start_date VARCHAR(5);"))
+    conn.execute(text("ALTER TABLE IF EXISTS seasons ADD COLUMN IF NOT EXISTS end_date VARCHAR(5);"))
+
     conn.execute(text("""
-        INSERT INTO seasons (id, code, name, description, sort_order, is_active) VALUES
-            (1, 'spring', 'Xuân', 'Mùa xuân ấm áp', 1, TRUE),
-            (2, 'summer', 'Hạ', 'Mùa hè nắng nóng', 2, TRUE),
-            (3, 'autumn', 'Thu', 'Mùa thu mát mẻ', 3, TRUE),
-            (4, 'winter', 'Đông', 'Mùa đông lạnh giá', 4, TRUE)
+        INSERT INTO seasons (id, code, name, description, start_date, end_date, sort_order, is_active) VALUES
+            (1, 'spring', 'Xuân', 'Mùa xuân ấm áp', '02-01', '04-30', 1, TRUE),
+            (2, 'summer', 'Hạ', 'Mùa hè nắng nóng', '05-01', '08-31', 2, TRUE),
+            (3, 'autumn', 'Thu', 'Mùa thu mát mẻ', '09-01', '11-30', 3, TRUE),
+            (4, 'winter', 'Đông', 'Mùa đông lạnh giá', '12-01', '01-31', 4, TRUE)
         ON CONFLICT (id) DO UPDATE SET
             code = EXCLUDED.code,
             name = EXCLUDED.name,
             description = EXCLUDED.description,
+            start_date = COALESCE(seasons.start_date, EXCLUDED.start_date),
+            end_date = COALESCE(seasons.end_date, EXCLUDED.end_date),
             sort_order = EXCLUDED.sort_order;
+    """))
+
+    conn.execute(text("""
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_seasons_date_format') THEN
+            ALTER TABLE seasons ADD CONSTRAINT ck_seasons_date_format CHECK (
+              (start_date IS NULL OR start_date ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$') AND
+              (end_date   IS NULL OR end_date   ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+            );
+          END IF;
+        END $$;
     """))
 
     conn.execute(text("ALTER TABLE IF EXISTS weather ADD COLUMN IF NOT EXISTS season_id INTEGER REFERENCES seasons(id) ON DELETE SET NULL;"))

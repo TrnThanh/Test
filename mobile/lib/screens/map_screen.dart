@@ -277,7 +277,11 @@ class _MapScreenState extends State<MapScreen> {
       return [];
     }
 
-    final rawList = (_allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants)
+    final sourceList = _allRestaurants.isNotEmpty ? _allRestaurants : _nearbyRestaurants;
+    final availableList = widget.currentUser == null
+        ? sourceList.where((r) => r.isSponsor).toList()
+        : sourceList;
+    final rawList = availableList
         .where((r) => _restaurantMatchesCategory(r, _selectedCategory));
 
     final inViewSponsors = <Restaurant>[];
@@ -742,7 +746,9 @@ class _MapScreenState extends State<MapScreen> {
     if (widget.initialLat != null && widget.initialLon != null) {
       _currentCenter = LatLng(widget.initialLat!, widget.initialLon!);
       if (widget.initialRestaurant != null) {
-        _selectedRestaurant = widget.initialRestaurant;
+        if (widget.currentUser != null || widget.initialRestaurant!.isSponsor) {
+          _selectedRestaurant = widget.initialRestaurant;
+        }
       }
       _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
       _detectUserLocation(moveToUser: false);
@@ -836,6 +842,15 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void didUpdateWidget(covariant MapScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.currentUser?.id != oldWidget.currentUser?.id) {
+      if (widget.currentUser == null && _selectedRestaurant != null && !_selectedRestaurant!.isSponsor) {
+        setState(() {
+          _selectedRestaurant = null;
+        });
+      }
+      _loadAllRestaurants();
+      _loadNearby(_currentCenter.latitude, _currentCenter.longitude);
+    }
     if (widget.initialLat != null &&
         widget.initialLon != null &&
         (widget.initialLat != oldWidget.initialLat ||
