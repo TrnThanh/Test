@@ -1,5 +1,6 @@
 import re
 import random
+import math
 import unicodedata
 from datetime import datetime, time, timezone
 from typing import List, Optional, Tuple, Dict, Any, Set
@@ -125,6 +126,22 @@ def format_distance(dist_km: float) -> str:
     return f"{dist_km:.1f} km"
 
 
+def compute_overall_rating(admin_rating: Optional[float], rating: Optional[float]) -> Optional[float]:
+    """
+    Tính điểm tổng hợp (overall_rating) kết hợp giữa admin_rating và rating:
+    - Trọng số 60% Thẩm định Admin + 40% Đánh giá cộng đồng khi có cả hai.
+    - Khi chỉ có 1 trong 2: Lấy điểm của nguồn có sẵn.
+    - Khi không có điểm nào: Trả về None.
+    """
+    if admin_rating is not None and rating is not None:
+        return round(0.6 * float(admin_rating) + 0.4 * float(rating), 1)
+    if admin_rating is not None:
+        return round(float(admin_rating), 1)
+    if rating is not None:
+        return round(float(rating), 1)
+    return None
+
+
 class RecommendationService:
     @staticmethod
     def get_contextual_recommendations(
@@ -248,7 +265,7 @@ class RecommendationService:
         sql_query = text("""
         WITH nearby_restaurants AS (
             SELECT r.id, r.name, r.address, r.phone, r.latitude, r.longitude,
-                   r.open_time, r.close_time, r.is_sponsor, r.service_licenses, r.rating,
+                   r.open_time, r.close_time, r.is_sponsor, r.service_licenses, r.rating, r.admin_rating,
                    ST_Distance(r.location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) / 1000.0 AS distance_km
             FROM restaurants r
             WHERE r.is_active = TRUE
@@ -284,7 +301,7 @@ class RecommendationService:
             LIMIT 80
         )
         SELECT nr.id, nr.name, nr.address, nr.phone, nr.latitude, nr.longitude,
-               nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.rating, nr.distance_km,
+               nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.rating, nr.admin_rating, nr.distance_km,
                d.id as dish_id, d.name as dish_name, d.price as dish_price,
                d.calories as dish_calories, d.spicy_level as dish_spicy_level,
                d.allergens as dish_allergens, d.dietary_tags as dish_dietary_tags,
@@ -326,7 +343,7 @@ class RecommendationService:
             sql_fallback = text("""
             WITH nearby_restaurants AS (
                 SELECT r.id, r.name, r.address, r.phone, r.latitude, r.longitude,
-                       r.open_time, r.close_time, r.is_sponsor, r.service_licenses, r.rating,
+                       r.open_time, r.close_time, r.is_sponsor, r.service_licenses, r.rating, r.admin_rating,
                        ST_Distance(r.location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) / 1000.0 AS distance_km
                 FROM restaurants r
                 WHERE r.is_active = TRUE
@@ -352,7 +369,7 @@ class RecommendationService:
                 LIMIT 80
             )
             SELECT nr.id, nr.name, nr.address, nr.phone, nr.latitude, nr.longitude,
-                   nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.rating, nr.distance_km,
+                   nr.open_time, nr.close_time, nr.is_sponsor, nr.service_licenses, nr.rating, nr.admin_rating, nr.distance_km,
                    d.id as dish_id, d.name as dish_name, d.price as dish_price,
                    d.calories as dish_calories, d.spicy_level as dish_spicy_level,
                    d.allergens as dish_allergens, d.dietary_tags as dish_dietary_tags,
@@ -415,6 +432,10 @@ class RecommendationService:
 
             r_id = row.id
             if r_id not in restaurant_dishes_map:
+                admin_rating_val = getattr(row, "admin_rating", None)
+                rating_val = getattr(row, "rating", None)
+                overall_rating_val = compute_overall_rating(admin_rating_val, rating_val)
+
                 restaurant_dishes_map[r_id] = {
                     "info": {
                         "id": row.id,
@@ -426,7 +447,9 @@ class RecommendationService:
                         "open_time": row.open_time,
                         "close_time": row.close_time,
                         "is_sponsor": row.is_sponsor,
-                        "rating": getattr(row, "rating", None),
+                        "rating": overall_rating_val,
+                        "overall_rating": overall_rating_val,
+                        "admin_rating": admin_rating_val,
                         "service_licenses": row.service_licenses or [],
                         "distance_km": float(row.distance_km),
                         "distance_display": format_distance(float(row.distance_km)),
@@ -457,18 +480,40 @@ class RecommendationService:
 
         match_code = period_info["match_code"]
 
+        # Kiểm tra dữ liệu cá nhân hóa (Cold Start check)
+        has_personal_data = bool(
+            favourite_dish_ids
+            or explicit_category_ids
+            or implicit_category_ids
+            or user_dietary
+        )
+
+        # Trọng số thích ứng: nếu khách vãng lai hoặc chưa có tương tác, tái phân bổ 20% cá nhân hóa
+        if has_personal_data:
+            w_time, w_nutrition, w_distance, w_personal, w_weather = 0.25, 0.25, 0.20, 0.20, 0.10
+        else:
+            w_time, w_nutrition, w_distance, w_personal, w_weather = 0.30, 0.25, 0.30, 0.00, 0.15
+
         for r_id, r_data in restaurant_dishes_map.items():
             r_info = r_data["info"]
             dishes = r_data["dishes"]
             if not dishes:
                 continue
 
+            # Tính trước điểm khoảng cách phi tuyến ở cấp độ quán ăn (tránh tính lại cho từng món)
+            dist_km = r_info["distance_km"]
+            if dist_km >= 15.0:
+                s_distance = 0.0
+            else:
+                s_distance = 100.0 * ((1.0 - (dist_km / 15.0)) ** 1.8)
+
             best_dish = None
             best_dish_score = -1.0
             best_badges: List[str] = []
+            all_dish_scores: List[float] = []
 
             for d in dishes:
-                # 1. S_time (25%)
+                # 1. S_time (Khớp bữa ăn)
                 d_meal_types = [m.lower() for m in d["meal_types"]]
                 if match_code in d_meal_types:
                     s_time = 100.0
@@ -477,9 +522,10 @@ class RecommendationService:
                 else:
                     s_time = 20.0
 
-                # 2. S_nutrition (25%)
+                # 2. S_nutrition (Calo & Dinh dưỡng)
                 if d["calories"] is None:
-                    s_nutrition = 35.0
+                    # Mức điểm hòa vốn trung tính thay vì phạt nặng 35.0
+                    s_nutrition = 55.0 if effective_goal in ("lose_weight", "gain_muscle") else 70.0
                 else:
                     cal = float(d["calories"])
                     delta = (cal - target_meal_cal) / target_meal_cal
@@ -490,11 +536,9 @@ class RecommendationService:
                     else:  # maintain
                         s_nutrition = clamp(100.0 - 120.0 * abs(delta))
 
-                # 3. S_distance (20%)
-                dist_km = r_info["distance_km"]
-                s_distance = 100.0 * max(0.0, 1.0 - (dist_km / 15.0))
+                # 3. S_distance đã được tính trước ở ngoài vòng lặp món
 
-                # 4. S_personal (20%)
+                # 4. S_personal (Sở thích cá nhân hóa)
                 s_personal_raw = 0.0
                 if d["id"] in favourite_dish_ids:
                     s_personal_raw += 40.0
@@ -512,19 +556,19 @@ class RecommendationService:
                             break
                 s_personal = min(100.0, s_personal_raw)
 
-                # 5. S_weather (10%)
+                # 5. S_weather (Khớp danh mục theo thời tiết)
                 if d["category_id"] in weather_category_ids:
                     s_weather = 100.0
                 else:
                     s_weather = 40.0
 
-                # Điểm món thô
+                # Điểm món thô theo trọng số thích ứng
                 raw_dish_score = (
-                    0.25 * s_time
-                    + 0.25 * s_nutrition
-                    + 0.20 * s_distance
-                    + 0.20 * s_personal
-                    + 0.10 * s_weather
+                    w_time * s_time
+                    + w_nutrition * s_nutrition
+                    + w_distance * s_distance
+                    + w_personal * s_personal
+                    + w_weather * s_weather
                 )
 
                 # Hệ số ngân sách liên tục
@@ -537,6 +581,7 @@ class RecommendationService:
                         budget_multiplier = max(0.40, 1.0 - 0.60 * ((price - budget_ceiling) / budget_ceiling))
 
                 final_dish_score = clamp(raw_dish_score * budget_multiplier, 0.0, 100.0)
+                all_dish_scores.append(final_dish_score)
 
                 if final_dish_score > best_dish_score:
                     best_dish_score = final_dish_score
@@ -549,10 +594,18 @@ class RecommendationService:
                     badges.append(f"Cách {r_info['distance_display']}")
                     if "ATTP" in r_info["service_licenses"]:
                         badges.append("Chuẩn ATTP")
+                    overall_score = r_info.get("overall_rating")
+                    if overall_score is not None and overall_score >= 4.5:
+                        badges.append(f"⭐ Đánh giá cao ({overall_score})")
                     best_badges = badges
 
             if not best_dish:
                 continue
+
+            # Đánh giá chiều sâu thực đơn quán: kết hợp món tốt nhất (75%) và trung bình Top 3 món (25%)
+            top_dish_scores = sorted(all_dish_scores, reverse=True)[:3]
+            menu_depth_score = sum(top_dish_scores) / len(top_dish_scores)
+            restaurant_core_score = 0.75 * best_dish_score + 0.25 * menu_depth_score
 
             # Trust Boost
             trust_boost = 0.0
@@ -561,7 +614,15 @@ class RecommendationService:
             if r_info["is_sponsor"]:
                 trust_boost += 3.0
 
-            final_restaurant_score = min(100.0, best_dish_score + trust_boost)
+            # Điều chỉnh điểm gợi ý theo điểm chất lượng tổng hợp (overall_rating)
+            overall_score = r_info.get("overall_rating")
+            if overall_score is not None:
+                if overall_score >= 4.5:
+                    trust_boost += 4.0
+                elif overall_score < 3.0:
+                    trust_boost -= 5.0
+
+            final_restaurant_score = clamp(restaurant_core_score + trust_boost, 0.0, 100.0)
 
             explanation = (
                 f"{best_dish['name']} phù hợp khẩu vị và mục tiêu {period_info['name']} của bạn, "
@@ -608,12 +669,12 @@ class RecommendationService:
 
             if len(top_pool) == 1:
                 hero_item = top_pool[0]
-            elif len(top_pool) == 2:
-                weights = [70.6, 29.4]
-                hero_item = rng.choices(top_pool, weights=weights, k=1)[0]
             else:
-                weights = [60.0, 25.0, 15.0]
-                hero_item = rng.choices(top_pool, weights=weights, k=1)[0]
+                # Softmax linh hoạt theo độ chênh lệch điểm thực tế của Top pool
+                scores = [it["score"] for it in top_pool]
+                max_score = max(scores)
+                exp_weights = [math.exp((s - max_score) / 12.0) for s in scores]
+                hero_item = rng.choices(top_pool, weights=exp_weights, k=1)[0]
 
             # LOẠI TRỪ HERO HOÀN TOÀN KHỎI DANH SÁCH DƯỚI
             remaining_restaurants.remove(hero_item)
@@ -653,6 +714,8 @@ class RecommendationService:
                 close_time=r["close_time"],
                 is_sponsor=r["is_sponsor"],
                 rating=r.get("rating"),
+                overall_rating=r.get("overall_rating"),
+                admin_rating=r.get("admin_rating"),
                 service_licenses=r["service_licenses"],
                 distance_km=r["distance_km"],
                 distance_display=r["distance_display"],

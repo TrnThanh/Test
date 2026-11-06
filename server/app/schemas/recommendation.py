@@ -41,6 +41,8 @@ class RecommendedRestaurant(BaseModel):
     close_time: Optional[HHMMTime] = None
     is_sponsor: bool = False
     rating: Optional[float] = None
+    overall_rating: Optional[float] = None
+    admin_rating: Optional[float] = None
     service_licenses: List[str] = Field(default_factory=list)
     distance_km: float = Field(..., description="Khoảng cách tính theo km")
     distance_display: str = Field(..., description="Khoảng cách hiển thị thân thiện (850m hoặc 1.2 km)")
