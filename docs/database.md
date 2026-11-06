@@ -135,6 +135,7 @@ erDiagram
     DISHES ||--o{ FAVOURITE_DISHES : "referenced by (1-N, cascade delete)"
     DISHES ||--o{ DISH_INGREDIENTS : "contains (1-N, cascade delete)"
     INGREDIENTS ||--o{ DISH_INGREDIENTS : "used in (1-N, cascade delete)"
+    INGREDIENT_GROUPS |o--o{ INGREDIENTS : "categorizes (1-N, set null)"
     DISHES {
         int id PK "Khóa chính tự tăng"
         int restaurant_id FK "Khóa ngoại trỏ về RESTAURANTS(id) ON DELETE CASCADE"
@@ -152,6 +153,32 @@ erDiagram
         string ingredients "Mảng nguyên liệu món ăn ARRAY(Text)"
         boolean is_available "Trạng thái còn món (Default: true)"
         timestamp created_at "Thời điểm tạo món (UTC)"
+    }
+
+    INGREDIENT_GROUPS {
+        int id PK "Khóa chính tự tăng"
+        string name UK "Tên nhóm nguyên liệu (Unique, Index)"
+        string description "Mô tả nhóm nguyên liệu (Nullable)"
+        int display_order "Thứ tự hiển thị (Default: 0)"
+        boolean is_active "Trạng thái kích hoạt (Default: true)"
+        timestamp created_at "Thời điểm tạo (UTC)"
+    }
+
+    INGREDIENTS {
+        int id PK "Khóa chính tự tăng"
+        int group_id FK "Khóa ngoại trỏ về INGREDIENT_GROUPS(id) ON DELETE SET NULL (Nullable, Index)"
+        string name UK "Tên nguyên liệu duy nhất (Unique, Index)"
+        string description "Mô tả nguyên liệu (Nullable)"
+        string allergen_group "Nhóm dị ứng thực phẩm (Nullable, Index)"
+        boolean is_active "Trạng thái kích hoạt (Default: true)"
+        timestamp created_at "Thời điểm tạo (UTC)"
+    }
+
+    DISH_INGREDIENTS {
+        int id PK "Khóa chính tự tăng"
+        int dish_id FK "Khóa ngoại trỏ về DISHES(id) ON DELETE CASCADE (Index)"
+        int ingredient_id FK "Khóa ngoại trỏ về INGREDIENTS(id) ON DELETE CASCADE (Index)"
+        timestamp created_at "Thời điểm tạo liên kết (UTC)"
     }
 
     USERS ||--o{ FAVOURITE_DISHES : "favourites (1-N, cascade delete)"
@@ -403,6 +430,60 @@ Bảng chuẩn hóa 4 mùa cố định (1..4) làm nguồn sự thật (Single 
 
 ---
 
+### 3.11. Bảng `ingredient_groups` (Nhóm Danh mục Nguyên liệu F&B)
+Model ORM: `server/app/models/ingredient_group.py`.
+Bảng chuẩn hóa 10 nhóm nguyên liệu thực phẩm (Hải sản, Thịt gia súc, Thịt gia cầm, Rau củ & Nấm, Sữa & Chế phẩm, Tinh bột & Ngũ cốc, Trứng, Gia vị & Thảo mộc, Đồ uống & Tráng miệng, Khác):
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng |
+| `name` | `VARCHAR(100)` | `NOT NULL`, `UNIQUE`, `INDEX` | Tên nhóm nguyên liệu duy nhất |
+| `description` | `TEXT` | `NULLABLE`, Default: `NULL` | Mô tả chi tiết nhóm nguyên liệu |
+| `display_order` | `INTEGER` | `NOT NULL`, Default: `0`, `INDEX` | Thứ tự hiển thị ưu tiên |
+| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt nhóm |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm tạo bản ghi (UTC) |
+
+- **Ràng buộc duy nhất:** `uq_ingredient_groups_name`: `UNIQUE (name)`.
+- **Quan hệ:** 1 Nhóm nguyên liệu liên kết 0..N Nguyên liệu (`ingredient_groups |o--o{ ingredients`, 1-N).
+
+---
+
+### 3.12. Bảng `ingredients` (Nguyên liệu Thực phẩm Toàn cục - Master Ingredients)
+Model ORM: `server/app/models/ingredient.py`.
+Bảng danh mục nguyên liệu thực phẩm toàn cục (hơn 190 nguyên liệu thực tế) phục vụ phân tích dị ứng, gợi ý và chuẩn hóa thực đơn:
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính tự tăng |
+| `name` | `VARCHAR(100)` | `NOT NULL`, `UNIQUE`, `INDEX` | Tên nguyên liệu thực phẩm duy nhất |
+| `description` | `TEXT` | `NULLABLE`, Default: `NULL` | Mô tả, ghi chú dinh dưỡng hoặc nguồn gốc |
+| `group_id` | `INTEGER` | `NULLABLE`, `FK(ingredient_groups.id ON DELETE SET NULL)`, `INDEX` | Khóa ngoại trỏ về `ingredient_groups.id`. Khi nhóm bị xóa, nguyên liệu chuyển về NULL. |
+| `allergen_group` | `VARCHAR(100)` | `NULLABLE`, `INDEX` | Nhóm dị ứng thực phẩm (Hải sản, Sữa bò, Đậu phộng, Trứng, Gluten...) |
+| `is_active` | `BOOLEAN` | `NOT NULL`, Default: `TRUE` | Trạng thái kích hoạt |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm tạo bản ghi (UTC) |
+
+- **Ràng buộc duy nhất:** `uq_ingredients_name`: `UNIQUE (name)`.
+- **Chỉ mục:** `ix_ingredients_group_id`, `ix_ingredients_allergen_group`.
+- **Quan hệ:** Thuộc về 0..1 Nhóm (`group`), liên kết 1-N với bảng trung gian `dish_ingredients`.
+
+---
+
+### 3.13. Bảng `dish_ingredients` (Liên kết Nhiều-Nhiều Món ăn - Nguyên liệu)
+Model ORM: `server/app/models/ingredient.py` (`DishIngredient`).
+Bảng trung gian (Junction Table) giải quyết quan hệ Nhiều-Nhiều (M:N) giữa Món ăn (`dishes`) và Nguyên liệu toàn cục (`ingredients`):
+
+| Cột | Kiểu dữ liệu | Ràng buộc / Mặc định | Ý nghĩa & Mục đích |
+| :--- | :--- | :--- | :--- |
+| `id` | `SERIAL` / `INTEGER` | `PRIMARY KEY` | Khóa chính bản ghi liên kết |
+| `dish_id` | `INTEGER` | `NOT NULL`, `FK(dishes.id ON DELETE CASCADE)`, `INDEX` | Khóa ngoại trỏ về `dishes.id`. Khi xóa món ăn, liên kết tự động bị xóa theo. |
+| `ingredient_id` | `INTEGER` | `NOT NULL`, `FK(ingredients.id ON DELETE CASCADE)`, `INDEX` | Khóa ngoại trỏ về `ingredients.id`. Khi xóa nguyên liệu, liên kết tự động bị xóa theo. |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL`, Default: `NOW()` | Thời điểm tạo liên kết (UTC) |
+
+- **Ràng buộc duy nhất:** `uq_dish_ingredient`: `UNIQUE (dish_id, ingredient_id)` đảm bảo mỗi món ăn chỉ chứa 1 nguyên liệu cụ thể một lần duy nhất.
+- **Quan hệ:** `dishes ||--o{ dish_ingredients` (1-N) và `ingredients ||--o{ dish_ingredients` (1-N).
+
+---
+
 ## 4. Các Ràng buộc & Chỉ mục (Indexes & Constraints)
 
 1. **Ràng buộc kiểm tra hợp lệ tọa độ (Check Constraints):**
@@ -421,6 +502,9 @@ Bảng chuẩn hóa 4 mùa cố định (1..4) làm nguồn sự thật (Single 
    - `option_users.category_id` trỏ đến `categories.id` với `ON DELETE CASCADE`.
    - `weather_categories.weather_id` trỏ đến `weather.id` với `ON DELETE CASCADE`.
    - `weather_categories.category_id` trỏ đến `categories.id` với `ON DELETE CASCADE`.
+   - `ingredients.group_id` trỏ đến `ingredient_groups.id` với `ON DELETE SET NULL`.
+   - `dish_ingredients.dish_id` trỏ đến `dishes.id` với `ON DELETE CASCADE`.
+   - `dish_ingredients.ingredient_id` trỏ đến `ingredients.id` với `ON DELETE CASCADE`.
 4. **Ràng buộc duy nhất (Unique Constraint):**
    - `uq_restaurant_category_name`: `UNIQUE (restaurant_id, name)` đảm bảo mỗi quán không bị trùng tên danh mục.
    - `uq_user_favourite_dish`: `UNIQUE (user_id, dish_id)` đảm bảo mỗi người dùng chỉ yêu thích một món ăn 1 lần (Idempotent).
@@ -664,6 +748,40 @@ CREATE TABLE IF NOT EXISTS ingredients (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ingredients_name ON ingredients (name);
 
 -- 14. Bảng dish_ingredients (Liên kết Nhiều-Nhiều Món ăn - Nguyên liệu)
+CREATE TABLE IF NOT EXISTS dish_ingredients (
+    id SERIAL PRIMARY KEY,
+    dish_id INTEGER NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_dish_ingredient UNIQUE (dish_id, ingredient_id)
+);
+CREATE INDEX IF NOT EXISTS ix_dish_ingredients_dish_id ON dish_ingredients (dish_id);
+CREATE INDEX IF NOT EXISTS ix_dish_ingredients_ingredient_id ON dish_ingredients (ingredient_id);
+-- 11. Bảng ingredient_groups (Nhóm nguyên liệu chuẩn F&B)
+CREATE TABLE IF NOT EXISTS ingredient_groups (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT DEFAULT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS ix_ingredient_groups_display_order ON ingredient_groups (display_order);
+
+-- 12. Bảng ingredients (Nguyên liệu thực phẩm toàn cục)
+CREATE TABLE IF NOT EXISTS ingredients (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT DEFAULT NULL,
+    group_id INTEGER REFERENCES ingredient_groups(id) ON DELETE SET NULL,
+    allergen_group VARCHAR(100) DEFAULT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS ix_ingredients_group_id ON ingredients (group_id);
+CREATE INDEX IF NOT EXISTS ix_ingredients_allergen_group ON ingredients (allergen_group);
+
+-- 13. Bảng dish_ingredients (Bảng trung gian N-N giữa món ăn và nguyên liệu)
 CREATE TABLE IF NOT EXISTS dish_ingredients (
     id SERIAL PRIMARY KEY,
     dish_id INTEGER NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,

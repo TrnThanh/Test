@@ -53,6 +53,7 @@ def render_diagrams():
       startOnLoad: false,
       theme: 'default',
       maxTextSize: 200000,
+      themeVariables: { fontFamily: 'Segoe UI, Noto Sans, Arial, sans-serif' },
       er: { useMaxWidth: false },
       flowchart: { useMaxWidth: false }
     });
