@@ -307,6 +307,24 @@ def apply_schema_patches(conn) -> None:
         );
     """))
     conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_ingredients_name ON ingredients (name);"))
+    conn.execute(text("ALTER TABLE IF EXISTS ingredients ADD COLUMN IF NOT EXISTS allergen_group VARCHAR(100) DEFAULT NULL;"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingredients_allergen_group ON ingredients (allergen_group);"))
+
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS ingredient_groups (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            description TEXT DEFAULT NULL,
+            display_order INTEGER NOT NULL DEFAULT 0,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_ingredient_groups_name ON ingredient_groups (name);
+        CREATE INDEX IF NOT EXISTS ix_ingredient_groups_display_order ON ingredient_groups (display_order);
+
+        ALTER TABLE IF EXISTS ingredients ADD COLUMN IF NOT EXISTS group_id INTEGER DEFAULT NULL;
+        CREATE INDEX IF NOT EXISTS ix_ingredients_group_id ON ingredients (group_id);
+    """))
 
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS dish_ingredients (
@@ -364,4 +382,8 @@ def init_database() -> None:
         if getattr(settings, "AUTO_SEED_INITIAL_DATA", True):
             from server.app.services.initial_seed_service import InitialSeedService
             InitialSeedService.seed_initial_data_if_needed(db)
+            from server.app.services.ingredient_seed_service import IngredientSeedService
+            from server.app.services.restaurant_menu_align_service import RestaurantMenuAlignService
             InitialSeedService.sync_restaurant_ratings(db)
+            IngredientSeedService.seed_master_ingredients(db)
+            RestaurantMenuAlignService.align_menus_for_all_restaurants(db)

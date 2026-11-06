@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
-import type { Restaurant, Category, Dish, MealType } from '../../types';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import type { Restaurant, Category, Dish, MealType, Ingredient, IngredientGroup } from '../../types';
 import { api } from '../../services/api';
 import { useToast } from '../../composables/useToast';
 import PageHeader from '../common/PageHeader.vue';
 import Chip from '../common/Chip.vue';
 import BaseModal from '../common/BaseModal.vue';
 import ConfirmDialog from '../common/ConfirmDialog.vue';
-import RowActionMenu from '../common/RowActionMenu.vue';
+import IngredientInput from '../common/IngredientInput.vue';
 import {
   Plus,
   Search,
@@ -40,13 +40,35 @@ const emit = defineEmits<{
   (e: 'dishCreated', dish: Dish): void;
   (e: 'dishUpdated', dish: Dish): void;
   (e: 'dishDeleted', dishId: number): void;
-  (e: 'categoryCreated', category: Category): void;
-  (e: 'categoryUpdated', category: Category): void;
-  (e: 'categoryDeleted', categoryId: number): void;
   (e: 'retry'): void;
 }>();
 
 const { showToast } = useToast();
+
+const masterIngredients = ref<Ingredient[]>([]);
+const ingredientGroups = ref<IngredientGroup[]>([]);
+
+async function loadMasterIngredients() {
+  try {
+    const res = await api.getIngredients({ is_active_only: true, limit: 500 });
+    masterIngredients.value = res.items || [];
+  } catch {
+    // ignore
+  }
+}
+
+async function loadIngredientGroups() {
+  try {
+    ingredientGroups.value = await api.getIngredientGroups({ is_active_only: true });
+  } catch {
+    // ignore
+  }
+}
+
+onMounted(() => {
+  loadMasterIngredients();
+  loadIngredientGroups();
+});
 
 // Normalization function (toLowerCase FIRST, then normalize NFD, remove accents and đ)
 function normalizeText(str: string): string {
@@ -195,6 +217,8 @@ function openCreateDish() {
   newDishSpicyLevel.value = 0;
   newDishImageUrl.value = '';
   newDishIsAvailable.value = true;
+  loadMasterIngredients();
+  loadIngredientGroups();
   showCreateDishModal.value = true;
 }
 
@@ -284,6 +308,8 @@ function openEditDish(d: Dish) {
   editDishSpicyLevel.value = d.spicy_level ?? 0;
   editDishImageUrl.value = d.image_url || '';
   editDishIsAvailable.value = d.is_available ?? true;
+  loadMasterIngredients();
+  loadIngredientGroups();
   showEditDishModal.value = true;
 }
 
@@ -367,127 +393,7 @@ async function handleDeleteDishSubmit() {
   }
 }
 
-// ====================================================
-// MODAL: THÊM NHÓM MÓN (CATEGORY)
-// ====================================================
-const showCreateCatModal = ref(false);
-const newCatName = ref('');
-const newCatDesc = ref('');
-const newCatSaving = ref(false);
 
-function openCreateCat() {
-  if (!props.selectedRestaurantId) {
-    showToast('Vui lòng chọn một quán ăn trước');
-    return;
-  }
-  newCatName.value = '';
-  newCatDesc.value = '';
-  showCreateCatModal.value = true;
-}
-
-async function handleCreateCatSubmit() {
-  if (!props.selectedRestaurantId) return;
-  if (!newCatName.value.trim()) {
-    showToast('Tên nhóm không được để trống');
-    return;
-  }
-  newCatSaving.value = true;
-  try {
-    const created = await api.createCategory(props.selectedRestaurantId, {
-      name: newCatName.value.trim(),
-      description: newCatDesc.value.trim() || undefined,
-      is_active: true,
-      display_order: props.categories.length,
-    });
-    emit('categoryCreated', created);
-    showToast(`Đã tạo nhóm món "${created.name}" thành công!`);
-    showCreateCatModal.value = false;
-  } catch (err: any) {
-    showToast(err.message || 'Không thể tạo nhóm món');
-  } finally {
-    newCatSaving.value = false;
-  }
-}
-
-// ====================================================
-// MODAL: SỬA NHÓM MÓN (CATEGORY)
-// ====================================================
-const showEditCatModal = ref(false);
-const editingCategory = ref<Category | null>(null);
-const editCatName = ref('');
-const editCatDesc = ref('');
-const editCatDisplayOrder = ref(0);
-const editCatIsActive = ref(true);
-const editCatSaving = ref(false);
-
-function openEditCat(cat: Category) {
-  editingCategory.value = cat;
-  editCatName.value = cat.name;
-  editCatDesc.value = cat.description || '';
-  editCatDisplayOrder.value = cat.display_order ?? 0;
-  editCatIsActive.value = cat.is_active ?? true;
-  showEditCatModal.value = true;
-}
-
-async function handleEditCatSubmit() {
-  if (!editingCategory.value) return;
-  if (!editCatName.value.trim()) {
-    showToast('Tên nhóm không được để trống');
-    return;
-  }
-  editCatSaving.value = true;
-  try {
-    const updated = await api.updateCategory(editingCategory.value.id, {
-      name: editCatName.value.trim(),
-      description: editCatDesc.value.trim() || undefined,
-      display_order: Number(editCatDisplayOrder.value) || 0,
-      is_active: editCatIsActive.value,
-    });
-    emit('categoryUpdated', updated);
-    showToast(`Đã cập nhật nhóm "${updated.name}"!`);
-    showEditCatModal.value = false;
-  } catch (err: any) {
-    showToast(err.message || 'Không thể cập nhật danh mục');
-  } finally {
-    editCatSaving.value = false;
-  }
-}
-
-// ====================================================
-// CONFIRM: XÓA NHÓM MÓN (CATEGORY)
-// ====================================================
-const showDeleteCatConfirm = ref(false);
-const deletingCat = ref<Category | null>(null);
-const deleteCatLoading = ref(false);
-
-const deletingCatDishesCount = computed(() => {
-  if (!deletingCat.value) return 0;
-  return props.dishes.filter((d) => d.category_id === deletingCat.value!.id).length;
-});
-
-function confirmDeleteCat(cat: Category) {
-  deletingCat.value = cat;
-  showDeleteCatConfirm.value = true;
-}
-
-async function handleDeleteCatSubmit() {
-  if (!deletingCat.value) return;
-  deleteCatLoading.value = true;
-  const target = deletingCat.value;
-  try {
-    await api.deleteCategory(target.id);
-    emit('categoryDeleted', target.id);
-    if (selectedCategoryId.value === target.id) {
-      selectedCategoryId.value = 'all';
-    }
-    showToast(`Đã xóa nhóm món "${target.name}".`);
-    showDeleteCatConfirm.value = false;
-  } catch (err: any) {
-    showToast(err.message || 'Không thể xóa danh mục');
-  } finally {
-    deleteCatLoading.value = false;
-  }
-}
 </script>
 
 <template>
@@ -497,16 +403,6 @@ async function handleDeleteCatSubmit() {
       subtitle="Quản lý thực đơn và phân nhóm theo từng cơ sở ẩm thực"
     >
       <template #actions>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          :disabled="!selectedRestaurantId"
-          aria-label="Thêm nhóm món mới"
-          @click="openCreateCat"
-        >
-          <Plus class="btn-icon" />
-          <span>Nhóm món</span>
-        </button>
         <button
           type="button"
           class="btn btn-primary"
@@ -599,38 +495,18 @@ async function handleDeleteCatSubmit() {
                 Tất cả
               </button>
 
-              <div
+              <button
                 v-for="cat in availableCategories"
                 :key="cat.id"
-                class="cat-tab-item"
+                type="button"
+                class="cat-tab-btn"
+                :class="{ on: selectedCategoryId === cat.id }"
+                role="tab"
+                :aria-selected="selectedCategoryId === cat.id"
+                @click="selectedCategoryId = cat.id"
               >
-                <button
-                  type="button"
-                  class="cat-tab-btn"
-                  :class="{ on: selectedCategoryId === cat.id }"
-                  role="tab"
-                  :aria-selected="selectedCategoryId === cat.id"
-                  @click="selectedCategoryId = cat.id"
-                >
-                  {{ cat.name }}
-                </button>
-
-                <!-- Menu sửa/xóa nhóm khi nhóm đang được chọn -->
-                <RowActionMenu
-                  v-if="selectedCategoryId === cat.id"
-                  :aria-label="`Tùy chọn nhóm ${cat.name}`"
-                >
-                  <button type="button" @click="openEditCat(cat)">
-                    <Edit class="menu-item-icon" />
-                    <span>Sửa nhóm</span>
-                  </button>
-                  <hr />
-                  <button type="button" class="danger-action" @click="confirmDeleteCat(cat)">
-                    <Trash2 class="menu-item-icon" />
-                    <span>Xóa nhóm</span>
-                  </button>
-                </RowActionMenu>
-              </div>
+                {{ cat.name }}
+              </button>
             </div>
 
             <!-- Ô tìm kiếm món ăn -->
@@ -866,12 +742,13 @@ async function handleDeleteCatSubmit() {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Nguyên liệu chính (phân tách dấu phẩy)</label>
-          <input
+          <label class="form-label">Nguyên liệu &amp; Gia vị (Gợi ý thông minh)</label>
+          <IngredientInput
             v-model="newDishIngredients"
-            type="text"
-            class="form-input"
-            placeholder="Ví dụ: Thịt ba chỉ, đu đủ, cà rốt, bún tươi..."
+            :dish-name="newDishName"
+            :available-ingredients="masterIngredients"
+            :ingredient-groups="ingredientGroups"
+            placeholder="Tìm trong danh mục hoặc gõ tên mới rồi nhấn Enter..."
           />
         </div>
 
@@ -1005,11 +882,13 @@ async function handleDeleteCatSubmit() {
 
         <!-- Tag nguyên liệu hiển thị đầy đủ trong modal sửa -->
         <div class="form-group">
-          <label class="form-label">Nguyên liệu &amp; Gia vị (phân tách dấu phẩy)</label>
-          <input
+          <label class="form-label">Nguyên liệu &amp; Gia vị (Gợi ý thông minh)</label>
+          <IngredientInput
             v-model="editDishIngredients"
-            type="text"
-            class="form-input"
+            :dish-name="editDishName"
+            :available-ingredients="masterIngredients"
+            :ingredient-groups="ingredientGroups"
+            placeholder="Tìm trong danh mục hoặc gõ tên mới rồi nhấn Enter..."
           />
         </div>
 
@@ -1055,135 +934,7 @@ async function handleDeleteCatSubmit() {
       @confirm="handleDeleteDishSubmit"
     />
 
-    <!-- BaseModal: Thêm nhóm món -->
-    <BaseModal
-      v-model="showCreateCatModal"
-      title="Thêm nhóm món mới"
-      subtitle="Tạo phân loại danh mục cho thực đơn"
-      max-width="440px"
-      :prevent-close="newCatSaving"
-    >
-      <form id="createCatForm" @submit.prevent="handleCreateCatSubmit">
-        <div class="form-group">
-          <label class="form-label">Tên nhóm món *</label>
-          <input
-            v-model="newCatName"
-            type="text"
-            class="form-input"
-            placeholder="Ví dụ: Đồ uống, Món xào..."
-            required
-          />
-        </div>
 
-        <div class="form-group">
-          <label class="form-label">Mô tả ngắn</label>
-          <textarea
-            v-model="newCatDesc"
-            class="form-input"
-            rows="2"
-            placeholder="Ghi chú về nhóm món..."
-          ></textarea>
-        </div>
-      </form>
-
-      <template #footer>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          :disabled="newCatSaving"
-          @click="showCreateCatModal = false"
-        >
-          Hủy
-        </button>
-        <button
-          type="submit"
-          form="createCatForm"
-          class="btn btn-primary"
-          :disabled="newCatSaving"
-        >
-          {{ newCatSaving ? 'Đang tạo...' : 'Tạo nhóm' }}
-        </button>
-      </template>
-    </BaseModal>
-
-    <!-- BaseModal: Sửa nhóm món -->
-    <BaseModal
-      v-model="showEditCatModal"
-      :title="`Sửa nhóm: ${editingCategory?.name || ''}`"
-      subtitle="Chỉnh sửa thông tin danh mục thực đơn"
-      max-width="440px"
-      :prevent-close="editCatSaving"
-    >
-      <form id="editCatForm" @submit.prevent="handleEditCatSubmit">
-        <div class="form-group">
-          <label class="form-label">Tên nhóm món *</label>
-          <input
-            v-model="editCatName"
-            type="text"
-            class="form-input"
-            required
-          />
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Thứ tự hiển thị</label>
-            <input
-              v-model.number="editCatDisplayOrder"
-              type="number"
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Trạng thái</label>
-            <select v-model="editCatIsActive" class="form-input">
-              <option :value="true">Hoạt động</option>
-              <option :value="false">Tạm ẩn</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Mô tả</label>
-          <textarea
-            v-model="editCatDesc"
-            class="form-input"
-            rows="2"
-          ></textarea>
-        </div>
-      </form>
-
-      <template #footer>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          :disabled="editCatSaving"
-          @click="showEditCatModal = false"
-        >
-          Hủy
-        </button>
-        <button
-          type="submit"
-          form="editCatForm"
-          class="btn btn-primary"
-          :disabled="editCatSaving"
-        >
-          {{ editCatSaving ? 'Đang lưu...' : 'Lưu thay đổi' }}
-        </button>
-      </template>
-    </BaseModal>
-
-    <!-- ConfirmDialog: Xóa nhóm món -->
-    <ConfirmDialog
-      v-model="showDeleteCatConfirm"
-      title="Xác nhận xóa nhóm món"
-      :message="`Xác nhận xóa danh mục '${deletingCat?.name}'? Nhóm này đang có ${deletingCatDishesCount} món ăn. Các món ăn sẽ KHÔNG bị xóa mà chuyển về Chưa phân loại (vẫn hiển thị ở tab Tất cả).`"
-      confirm-text="Xóa nhóm"
-      cancel-text="Hủy"
-      :danger="true"
-      :loading="deleteCatLoading"
-      @confirm="handleDeleteCatSubmit"
-    />
   </div>
 </template>
 

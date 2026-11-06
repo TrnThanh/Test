@@ -289,7 +289,7 @@ class RecommendationService:
                d.calories as dish_calories, d.spicy_level as dish_spicy_level,
                d.allergens as dish_allergens, d.dietary_tags as dish_dietary_tags,
                d.meal_types as dish_meal_types, d.category_id as dish_category_id,
-               d.image_url as dish_image_url
+               d.image_url as dish_image_url, d.ingredients as dish_ingredients
         FROM nearby_restaurants nr
         JOIN dishes d ON nr.id = d.restaurant_id
         WHERE d.is_available = TRUE
@@ -357,7 +357,7 @@ class RecommendationService:
                    d.calories as dish_calories, d.spicy_level as dish_spicy_level,
                    d.allergens as dish_allergens, d.dietary_tags as dish_dietary_tags,
                    d.meal_types as dish_meal_types, d.category_id as dish_category_id,
-                   d.image_url as dish_image_url
+                   d.image_url as dish_image_url, d.ingredients as dish_ingredients
             FROM nearby_restaurants nr
             JOIN dishes d ON nr.id = d.restaurant_id
             WHERE d.is_available = TRUE
@@ -396,6 +396,21 @@ class RecommendationService:
                     is_unsafe_name = True
                     break
             if is_unsafe_name:
+                continue
+
+            # Lớp 3: Kiểm tra trực tiếp danh sách nguyên liệu món ăn trùng với dị ứng của user
+            is_unsafe_ingredient = False
+            dish_ings = getattr(row, 'dish_ingredients', []) or []
+            for ing in dish_ings:
+                ing_lower = ing.lower()
+                for allergy in expanded_allergies:
+                    alg_lower = allergy.lower()
+                    if alg_lower in ing_lower or ing_lower in alg_lower:
+                        is_unsafe_ingredient = True
+                        break
+                if is_unsafe_ingredient:
+                    break
+            if is_unsafe_ingredient:
                 continue
 
             r_id = row.id

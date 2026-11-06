@@ -198,3 +198,40 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
 }
+
+
+export interface IngredientGroup {
+  id: number;
+  name: string;
+  description?: string | null;
+  display_order: number;
+  is_active: boolean;
+  ingredient_count: number;
+  created_at: string;
+}
+
+export interface Ingredient {
+  id: number;
+  name: string;
+  description?: string | null;
+  group_id?: number | null;
+  group_name?: string | null;
+  allergen_group?: string | null;
+  is_active: boolean;
+  dish_count: number;
+  created_at: string;
+}
+
+export interface IngredientListResponse {
+  total: number;
+  items: Ingredient[];
+}
+
+export interface IngredientDetail extends Ingredient {
+  dishes: {
+    id: number;
+    name: string;
+    restaurant_id: number;
+    is_available: boolean;
+  }[];
+}

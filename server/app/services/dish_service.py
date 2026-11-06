@@ -30,11 +30,13 @@ class DishService:
                 cleaned_names.append(name)
 
         # 1. Tìm hoặc tạo các Ingredient
+        from server.app.services.ingredient_service import IngredientService
         ingredient_objs = []
         for name in cleaned_names:
             ing = db.scalar(select(Ingredient).where(func.lower(Ingredient.name) == name.lower()))
             if not ing:
-                ing = Ingredient(name=name)
+                guessed_allergen = IngredientService.guess_allergen_group(name)
+                ing = Ingredient(name=name, allergen_group=guessed_allergen)
                 db.add(ing)
                 db.flush()
             ingredient_objs.append(ing)
@@ -49,6 +51,13 @@ class DishService:
 
         # 4. Giữ đồng bộ mảng text dish.ingredients
         dish.ingredients = [ing.name for ing in ingredient_objs]
+
+        # 5. Tự động suy luận allergens cho món ăn từ allergen_group của các nguyên liệu
+        auto_allergens = set(dish.allergens or [])
+        for ing in ingredient_objs:
+            if ing.allergen_group and ing.allergen_group.strip():
+                auto_allergens.add(ing.allergen_group.strip())
+        dish.allergens = sorted(list(auto_allergens))
         db.flush()
 
     @staticmethod

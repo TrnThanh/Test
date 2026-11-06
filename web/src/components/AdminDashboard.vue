@@ -16,6 +16,7 @@ import RestaurantsTab from './admin/RestaurantsTab.vue';
 import MenusTab from './admin/MenusTab.vue';
 import UsersTab from './admin/UsersTab.vue';
 import WeatherRulesTab from './admin/WeatherRulesTab.vue';
+import IngredientsTab from './admin/IngredientsTab.vue';
 import { useToast } from '../composables/useToast';
 
 const props = defineProps<{
@@ -27,8 +28,13 @@ const emit = defineEmits<{
 }>();
 
 // --- NAVIGATION STATE ---
-type TabKey = 'dashboard' | 'restaurants' | 'menus' | 'accounts' | 'weather_rules';
+type TabKey = 'dashboard' | 'restaurants' | 'menus' | 'ingredients' | 'accounts' | 'weather_rules';
 const currentTab = ref<TabKey>('dashboard');
+const ingredientCount = ref<number | undefined>(undefined);
+
+function handleIngredientCountChanged(count: number) {
+  ingredientCount.value = count;
+}
 
 const { showToast } = useToast();
 
@@ -55,14 +61,6 @@ function handleDishUpdated(dish: Dish) {
 
 function handleDishDeleted(dishId: number) {
   menuDishes.value = menuDishes.value.filter((d) => d.id !== dishId);
-  loadStats();
-}
-
-function handleCategoryCreated(cat: Category) {
-  masterCategories.value.push(cat);
-  if (!menuCategories.value.some((c) => c.id === cat.id)) {
-    menuCategories.value.push(cat);
-  }
   loadStats();
 }
 
@@ -281,6 +279,9 @@ function handleWeatherDeleted(id: number) {
 function handleGlobalCategoryCreated(cat: Category) {
   globalCategories.value.push(cat);
   masterCategories.value.push(cat);
+  if (!menuCategories.value.some((c) => c.id === cat.id)) {
+    menuCategories.value.push(cat);
+  }
   loadStats();
 }
 
@@ -375,6 +376,7 @@ onMounted(() => {
     :admin="admin"
     :restaurant-count="stats?.total_restaurants ?? restaurants.length"
     :dish-count="stats?.total_dishes"
+    :ingredient-count="ingredientCount"
     :user-count="stats?.total_users ?? users.length"
     :weather-count="weathers.length"
     @update:current-tab="handleTabChange($event as TabKey)"
@@ -427,12 +429,18 @@ onMounted(() => {
       @dish-created="handleDishCreated"
       @dish-updated="handleDishUpdated"
       @dish-deleted="handleDishDeleted"
-      @category-created="handleCategoryCreated"
-      @category-updated="handleCategoryUpdated"
-      @category-deleted="handleCategoryDeleted"
       @retry="loadMenuData"
     />
       <!-- ============================================== -->
+    <!-- ============================================== -->
+    <!-- TAB: QUẢN LÝ NGUYÊN LIỆU (INGREDIENTS)         -->
+    <!-- ============================================== -->
+    <IngredientsTab
+      v-else-if="currentTab === 'ingredients'"
+      @ingredient-count-changed="handleIngredientCountChanged"
+    />
+
+    <!-- ============================================== -->
     <!-- TAB 4: QUẢN LÝ NGƯỜI DÙNG (USERS)              -->
     <!-- ============================================== -->
     <UsersTab

@@ -5,6 +5,7 @@ import {
   Home,
   Store,
   Utensils,
+  Salad,
   Users,
   CloudSun,
   LogOut,
@@ -24,12 +25,14 @@ withDefaults(
     admin?: RoleLoginResponse | null;
     restaurantCount?: number;
     dishCount?: number;
+    ingredientCount?: number;
     userCount?: number;
     weatherCount?: number;
   }>(),
   {
     admin: null,
     restaurantCount: undefined,
+    ingredientCount: undefined,
     userCount: undefined,
     weatherCount: undefined,
   }
@@ -85,6 +88,17 @@ const emit = defineEmits<{
           <Utensils class="nav-icon" />
           <span>Thực đơn món ăn</span>
           <em v-if="dishCount != null">{{ dishCount }}</em>
+        </button>
+
+        <button
+          type="button"
+          class="nav-btn"
+          :class="{ on: currentTab === 'ingredients' }"
+          @click="emit('update:currentTab', 'ingredients')"
+        >
+          <Salad class="nav-icon" />
+          <span>Nguyên liệu</span>
+          <em v-if="ingredientCount != null">{{ ingredientCount }}</em>
         </button>
 
         <button

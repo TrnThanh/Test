@@ -586,7 +586,7 @@ async function handleCreateCatSubmit() {
           @click="openCreateCatModal"
         >
           <Plus class="btn-icon" />
-          <span>Danh mục mới</span>
+          <span>Thêm nhóm món</span>
         </button>
       </template>
     </PageHeader>
@@ -821,19 +821,19 @@ async function handleCreateCatSubmit() {
               </span>
               <span class="meta-item">
                 <Layers class="inline-icon" />
-                Đang gợi ý: <b>{{ linkedCount }}/{{ globalCategories.length }}</b> danh mục
+                Đang gợi ý: <b>{{ linkedCount }}/{{ globalCategories.length }}</b> nhóm món
               </span>
             </div>
           </div>
 
           <!-- Category filter & search toolbar -->
           <div class="category-toolbar">
-            <label class="srch cat-srch" aria-label="Tìm danh mục món">
+            <label class="srch cat-srch" aria-label="Tìm nhóm món">
               <Search class="srch-icon" />
               <input
                 v-model="categorySearchQuery"
                 type="text"
-                placeholder="Lọc danh mục món ăn..."
+                placeholder="Lọc nhóm món ăn..."
               />
             </label>
 
@@ -894,12 +894,12 @@ async function handleCreateCatSubmit() {
                 <RowActionMenu :aria-label="`Tùy chọn danh mục ${cat.name}`">
                   <button type="button" @click="openEditCategoryModal(cat)">
                     <Edit class="menu-item-icon" />
-                    <span>Sửa danh mục</span>
+                    <span>Sửa nhóm món</span>
                   </button>
                   <hr />
                   <button type="button" class="danger-action" @click="confirmDeleteCategory(cat)">
                     <Trash2 class="menu-item-icon" />
-                    <span>Xóa danh mục</span>
+                    <span>Xóa nhóm món</span>
                   </button>
                 </RowActionMenu>
               </div>
@@ -1180,14 +1180,14 @@ async function handleCreateCatSubmit() {
     <!-- BaseModal: Thêm danh mục hệ thống mới -->
     <BaseModal
       v-model="showCreateCatModal"
-      title="Thêm danh mục món mới"
-      subtitle="Tạo danh mục món ăn chung cho toàn hệ thống PTC1"
+      title="Thêm nhóm món mới"
+      subtitle="Tạo nhóm món ăn chung cho toàn hệ thống để liên kết gợi ý theo thời tiết"
       max-width="440px"
       :prevent-close="newCatSaving"
     >
       <form id="createCatForm" @submit.prevent="handleCreateCatSubmit">
         <div class="form-group">
-          <label class="form-label">Tên danh mục món *</label>
+          <label class="form-label">Tên nhóm món *</label>
           <input
             v-model="newCatName"
             type="text"
@@ -1198,7 +1198,7 @@ async function handleCreateCatSubmit() {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Mô tả danh mục</label>
+          <label class="form-label">Mô tả nhóm món</label>
           <textarea
             v-model="newCatDesc"
             class="form-input"
@@ -1223,7 +1223,7 @@ async function handleCreateCatSubmit() {
           class="btn btn-primary"
           :disabled="newCatSaving"
         >
-          {{ newCatSaving ? 'Đang tạo...' : 'Tạo danh mục' }}
+          {{ newCatSaving ? 'Đang tạo...' : 'Tạo nhóm món' }}
         </button>
       </template>
     </BaseModal>
@@ -1231,7 +1231,7 @@ async function handleCreateCatSubmit() {
     <!-- BaseModal: Sửa danh mục món -->
     <BaseModal
       v-model="showEditCatModal"
-      :title="`Sửa danh mục: ${editingCat?.name || ''}`"
+      :title="`Sửa nhóm món: ${editingCat?.name || ''}`"
       subtitle="Chỉnh sửa thông tin phân loại món dùng chung toàn hệ thống"
       max-width="460px"
       :close-on-backdrop="false"
@@ -1239,7 +1239,7 @@ async function handleCreateCatSubmit() {
     >
       <form id="editCatForm" @submit.prevent="handleEditCatSubmit">
         <div class="form-group">
-          <label class="form-label">Tên danh mục món ăn *</label>
+          <label class="form-label">Tên nhóm món ăn *</label>
           <input
             v-model="editCatName"
             type="text"
@@ -1268,7 +1268,7 @@ async function handleCreateCatSubmit() {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Mô tả danh mục</label>
+          <label class="form-label">Mô tả nhóm món</label>
           <textarea
             v-model="editCatDesc"
             class="form-input"
@@ -1301,9 +1301,9 @@ async function handleCreateCatSubmit() {
     <!-- ConfirmDialog: Xóa danh mục hệ thống -->
     <ConfirmDialog
       v-model="showDeleteCatConfirm"
-      title="Xác nhận xóa danh mục hệ thống"
+      title="Xác nhận xóa nhóm món hệ thống"
       :message="`Xác nhận xóa danh mục '${deletingCat?.name}'? Danh mục này đang gắn với ${deletingCat?.dish_count ?? 0} món ăn (các món ăn sẽ KHÔNG bị xóa mà chuyển về Chưa phân loại) và sẽ bị gỡ bỏ khỏi toàn bộ các kiểu thời tiết liên kết.`"
-      confirm-text="Xóa danh mục"
+      confirm-text="Xóa nhóm món"
       cancel-text="Hủy"
       :danger="true"
       :loading="deleteCatLoading"

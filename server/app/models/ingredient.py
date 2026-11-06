@@ -6,6 +6,7 @@ from server.app.db.base import Base
 
 if TYPE_CHECKING:
     from server.app.models.dish import Dish
+    from server.app.models.ingredient_group import IngredientGroup
 
 
 class DishIngredient(Base, table=True):
@@ -39,11 +40,22 @@ class Ingredient(Base, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(sa_type=String(100), unique=True, index=True, nullable=False)
     description: Optional[str] = Field(default=None, sa_type=Text, nullable=True)
+    group_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(ForeignKey("ingredient_groups.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
+    allergen_group: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(100), index=True, nullable=True),
+    )
     is_active: bool = Field(default=True, sa_column=Column(Boolean, default=True, nullable=False))
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now(), nullable=False),
     )
+
+    # Quan hệ với IngredientGroup
+    group: Optional["IngredientGroup"] = Relationship(back_populates="ingredients")
 
     # Quan hệ 1-N với DishIngredient
     dish_ingredients: List["DishIngredient"] = Relationship(

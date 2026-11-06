@@ -14,6 +14,8 @@ from server.app.api.v1.endpoints import (
     user_profiles,
     recommendations,
     seasons,
+    ingredients,
+    ingredient_groups,
 )
 
 api_router = APIRouter()
@@ -86,8 +88,6 @@ api_router.include_router(
     tags=["User Profiles & Onboarding"],
 )
 
-
-
 api_router.include_router(
     seasons.router,
     prefix="/seasons",
@@ -98,4 +98,16 @@ api_router.include_router(
     recommendations.router,
     prefix="/recommendations",
     tags=["Contextual Recommendations (CARS)"],
+)
+
+api_router.include_router(
+    ingredients.router,
+    prefix="/ingredients",
+    tags=["Ingredients Management"],
+)
+
+api_router.include_router(
+    ingredient_groups.router,
+    prefix="/ingredient-groups",
+    tags=["Ingredient Groups Management"],
 )
