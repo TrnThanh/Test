@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_language.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/preference_tracker.dart';
 import '../theme/app_colors.dart';
 import '../utils/helpers.dart';
 
@@ -196,6 +197,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
   }
 
   void _showDishDetail(Dish dish) {
+    PreferenceTracker.instance.recordDishClick(dish);
     final formattedPrice = _formatVnd(dish.price);
     showModalBottomSheet(
       context: context,
