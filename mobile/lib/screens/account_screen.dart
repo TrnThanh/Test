@@ -11,6 +11,7 @@ class AccountScreen extends StatefulWidget {
   final RoleLoginResponse? currentUser;
   final Function(RoleLoginResponse) onLoginSuccess;
   final VoidCallback onLogout;
+  final ScrollController? scrollController;
 
   const AccountScreen({
     super.key,
@@ -18,6 +19,7 @@ class AccountScreen extends StatefulWidget {
     required this.currentUser,
     required this.onLoginSuccess,
     required this.onLogout,
+    this.scrollController,
   });
 
   @override
@@ -373,6 +375,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ],
         ),
         body: ListView(
+          controller: widget.scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           children: [
             // Thẻ hồ sơ thành viên
@@ -777,6 +780,7 @@ class _AccountScreenState extends State<AccountScreen> {
         surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
+        controller: widget.scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         children: [
           // 1. Khối Avatar mặc định + Lời chào Khách

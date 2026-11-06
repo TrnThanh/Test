@@ -535,19 +535,9 @@ async function handleDeleteSubmit() {
             <StatusPill :active="r.is_active" />
           </td>
 
-          <!-- Cột 4: Thao tác (Nút Thực đơn hiển thị sẵn + Kebab menu) -->
+          <!-- Cột 4: Thao tác (Kebab menu) -->
           <td style="text-align: right;">
             <div class="actions-wrapper">
-              <button
-                type="button"
-                class="btn btn-sm"
-                aria-label="Xem thực đơn quán"
-                @click="emit('selectRestaurantMenu', r.id)"
-              >
-                <UtensilsCrossed class="btn-icon" />
-                <span>Thực đơn</span>
-              </button>
-
               <RowActionMenu :aria-label="`Thao tác với quán ${r.name}`">
                 <button type="button" @click="openEditModal(r)">
                   <Edit class="menu-item-icon" />

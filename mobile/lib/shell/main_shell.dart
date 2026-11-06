@@ -25,6 +25,10 @@ class _MainShellState extends State<MainShell> {
   RoleLoginResponse? _currentUser;
   String? _selectedCategory;
 
+  final ScrollController _exploreScrollController = ScrollController();
+  final ScrollController _favouritesScrollController = ScrollController();
+  final ScrollController _accountScrollController = ScrollController();
+
   // Hỗ trợ chuyển toạ độ từ Tab Bản đồ sang Tab Gần đây
   double? _targetLat;
   double? _targetLon;
@@ -33,6 +37,37 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _exploreScrollController.dispose();
+    _favouritesScrollController.dispose();
+    _accountScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTop(ScrollController controller) {
+    if (controller.hasClients && controller.offset > 0) {
+      controller.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  void _onTabTapped(int index) {
+    if (index == 0) {
+      _scrollToTop(_exploreScrollController);
+    } else if (index == 2) {
+      _scrollToTop(_favouritesScrollController);
+    } else if (index == 3) {
+      _scrollToTop(_accountScrollController);
+    }
+    setState(() {
+      _currentIndex = index;
+    });
   }
 
   void _onLoginSuccess(RoleLoginResponse user) {
@@ -83,6 +118,7 @@ class _MainShellState extends State<MainShell> {
         api: widget.apiService,
         currentUser: _currentUser,
         initialCategory: _selectedCategory,
+        scrollController: _exploreScrollController,
         onRequireLogin: () {
           _openAuthModal(isRegister: false);
         },
@@ -111,6 +147,7 @@ class _MainShellState extends State<MainShell> {
       FavouritesScreen(
         api: widget.apiService,
         currentUser: _currentUser,
+        scrollController: _favouritesScrollController,
         onRequireLogin: () {
           _openAuthModal(isRegister: false);
         },
@@ -121,6 +158,7 @@ class _MainShellState extends State<MainShell> {
       AccountScreen(
         api: widget.apiService,
         currentUser: _currentUser,
+        scrollController: _accountScrollController,
         onLoginSuccess: _onLoginSuccess,
         onLogout: _onLogout,
       ),
@@ -140,11 +178,7 @@ class _MainShellState extends State<MainShell> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+          onTap: _onTabTapped,
           backgroundColor: Colors.white,
           type: BottomNavigationBarType.fixed,
           elevation: 0,

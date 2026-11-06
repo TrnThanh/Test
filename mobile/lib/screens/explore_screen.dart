@@ -19,6 +19,7 @@ class ExploreScreen extends StatefulWidget {
   final String? initialCategory;
   final void Function(double lat, double lon, [Restaurant? restaurant])? onNavigateToMap;
   final VoidCallback? onNavigateToAccount;
+  final ScrollController? scrollController;
 
   const ExploreScreen({
     super.key,
@@ -28,6 +29,7 @@ class ExploreScreen extends StatefulWidget {
     this.initialCategory,
     this.onNavigateToMap,
     this.onNavigateToAccount,
+    this.scrollController,
   });
 
   @override
@@ -274,6 +276,31 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final k = map[cat];
     if (k != null) return tr(k);
     return cat;
+  }
+
+  IconData _getCategoryIcon(String cat) {
+    if (cat == 'Phở, Bún & Món nước' || cat == 'Phở' || cat == 'Bún') {
+      return Icons.ramen_dining_outlined;
+    } else if (cat == 'Cơm & Xôi' || cat == 'Cơm') {
+      return Icons.rice_bowl_outlined;
+    } else if (cat == 'Bánh mì') {
+      return Icons.bakery_dining_outlined;
+    } else if (cat == 'Bánh truyền thống & Món cuốn') {
+      return Icons.lunch_dining_outlined;
+    } else if (cat == 'Lẩu & Nướng') {
+      return Icons.outdoor_grill_outlined;
+    } else if (cat == 'Ốc & Quán lai rai') {
+      return Icons.sports_bar_outlined;
+    } else if (cat == 'Đồ ăn vặt' || cat == 'Ăn vặt') {
+      return Icons.fastfood_outlined;
+    } else if (cat == 'Chè & Tráng miệng') {
+      return Icons.icecream_outlined;
+    } else if (cat == 'Cà phê & Thức uống giải khát' || cat == 'Đồ uống') {
+      return Icons.local_cafe_outlined;
+    } else if (cat == 'Ẩm thực Chay & Thực dưỡng') {
+      return Icons.eco_outlined;
+    }
+    return Icons.restaurant;
   }
 
   String _getMealGreeting() {
@@ -964,6 +991,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   },
                   color: const Color(0xFF1B3B2B),
                   child: CustomScrollView(
+                    controller: widget.scrollController,
                     slivers: [
                       SliverToBoxAdapter(
                         child: Padding(
@@ -1157,28 +1185,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 child: Row(
                                   children: _categories.map((cat) {
                                     final isSelected = (_currentCategory ?? 'Tất cả') == cat;
-                                    IconData iconData = Icons.restaurant;
-                                    if (cat == 'Phở, Bún & Món nước' || cat == 'Phở' || cat == 'Bún') {
-                                      iconData = Icons.ramen_dining_outlined;
-                                    } else if (cat == 'Cơm & Xôi' || cat == 'Cơm') {
-                                      iconData = Icons.rice_bowl_outlined;
-                                    } else if (cat == 'Bánh mì') {
-                                      iconData = Icons.bakery_dining_outlined;
-                                    } else if (cat == 'Bánh truyền thống & Món cuốn') {
-                                      iconData = Icons.lunch_dining_outlined;
-                                    } else if (cat == 'Lẩu & Nướng') {
-                                      iconData = Icons.outdoor_grill_outlined;
-                                    } else if (cat == 'Ốc & Quán lai rai') {
-                                      iconData = Icons.sports_bar_outlined;
-                                    } else if (cat == 'Đồ ăn vặt' || cat == 'Ăn vặt') {
-                                      iconData = Icons.fastfood_outlined;
-                                    } else if (cat == 'Chè & Tráng miệng') {
-                                      iconData = Icons.icecream_outlined;
-                                    } else if (cat == 'Cà phê & Thức uống giải khát' || cat == 'Đồ uống') {
-                                      iconData = Icons.local_cafe_outlined;
-                                    } else if (cat == 'Ẩm thực Chay & Thực dưỡng') {
-                                      iconData = Icons.eco_outlined;
-                                    }
+                                    final iconData = _getCategoryIcon(cat);
 
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 10),

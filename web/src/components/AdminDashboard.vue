@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import type {
   RoleLoginResponse,
   Weather,
@@ -86,7 +86,20 @@ function handleCategoryDeleted(catId: number) {
   loadStats();
 }
 
+function scrollToTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+}
+
+watch(currentTab, async () => {
+  scrollToTop();
+  await nextTick();
+  scrollToTop();
+});
+
 function handleTabChange(tab: TabKey) {
+  scrollToTop();
   currentTab.value = tab;
   if (tab === 'menus') loadMenuData();
   else if (tab === 'accounts') loadAccounts();

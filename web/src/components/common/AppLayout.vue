@@ -43,6 +43,12 @@ const emit = defineEmits<{
   (e: 'logout'): void;
 }>();
 
+function onTabClick(tab: string) {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  emit('update:currentTab', tab);
+}
 </script>
 
 <template>
@@ -62,7 +68,7 @@ const emit = defineEmits<{
           type="button"
           class="nav-btn"
           :class="{ on: currentTab === 'dashboard' }"
-          @click="emit('update:currentTab', 'dashboard')"
+          @click="onTabClick('dashboard')"
         >
           <Home class="nav-icon" />
           <span>Tổng quan</span>
@@ -72,7 +78,7 @@ const emit = defineEmits<{
           type="button"
           class="nav-btn"
           :class="{ on: currentTab === 'restaurants' }"
-          @click="emit('update:currentTab', 'restaurants')"
+          @click="onTabClick('restaurants')"
         >
           <Store class="nav-icon" />
           <span>Cơ sở quán ăn</span>
@@ -83,7 +89,7 @@ const emit = defineEmits<{
           type="button"
           class="nav-btn"
           :class="{ on: currentTab === 'menus' }"
-          @click="emit('update:currentTab', 'menus')"
+          @click="onTabClick('menus')"
         >
           <Utensils class="nav-icon" />
           <span>Thực đơn món ăn</span>
@@ -94,7 +100,7 @@ const emit = defineEmits<{
           type="button"
           class="nav-btn"
           :class="{ on: currentTab === 'ingredients' }"
-          @click="emit('update:currentTab', 'ingredients')"
+          @click="onTabClick('ingredients')"
         >
           <Salad class="nav-icon" />
           <span>Nguyên liệu</span>
@@ -105,7 +111,7 @@ const emit = defineEmits<{
           type="button"
           class="nav-btn"
           :class="{ on: currentTab === 'accounts' }"
-          @click="emit('update:currentTab', 'accounts')"
+          @click="onTabClick('accounts')"
         >
           <Users class="nav-icon" />
           <span>Người dùng</span>
@@ -116,7 +122,7 @@ const emit = defineEmits<{
           type="button"
           class="nav-btn"
           :class="{ on: currentTab === 'weather_rules' }"
-          @click="emit('update:currentTab', 'weather_rules')"
+          @click="onTabClick('weather_rules')"
         >
           <CloudSun class="nav-icon" />
           <span>Luật thời tiết</span>

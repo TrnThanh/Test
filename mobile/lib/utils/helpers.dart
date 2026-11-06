@@ -24,13 +24,21 @@ bool isOpenNow(String? openTime, String? closeTime) {
 
 /// Chuẩn hoá thông báo lỗi thân thiện với người dùng
 String formatErrorMessage(Object error) {
-  final str = error.toString().replaceAll('Exception: ', '');
+  final str = error.toString().replaceAll('Exception: ', '').trim();
   final lower = str.toLowerCase();
   if (lower.contains('failed to fetch') ||
       lower.contains('connection refused') ||
       lower.contains('socketexception') ||
       lower.contains('clientexception')) {
     return 'Chưa kết nối được tới máy chủ Backend (Cổng 8001/8000).\nVui lòng kiểm tra và chạy file "CHAY_SERVER.bat" để khởi động Backend!';
+  }
+  if (lower.contains('401') ||
+      lower.contains('incorrect email or password') ||
+      lower.contains('incorrect') ||
+      lower.contains('sai email hoặc mật khẩu') ||
+      lower.contains('tài khoản hoặc mật khẩu không chính xác') ||
+      lower.contains('unauthorized')) {
+    return 'Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!';
   }
   return str;
 }

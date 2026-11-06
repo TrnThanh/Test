@@ -428,15 +428,41 @@ class ApiService {
   }
 
   Never _throwError(http.Response res) {
+    String? message;
     try {
       final err = jsonDecode(utf8.decode(res.bodyBytes));
       if (err is Map) {
         final msg = err['detail'] ?? err['message'];
         if (msg != null && msg.toString().isNotEmpty) {
-          throw Exception(msg.toString());
+          message = msg.toString();
         }
       }
     } catch (_) {}
+
+    if (res.statusCode == 401) {
+      if (message != null &&
+          (message.toLowerCase().contains('incorrect') ||
+           message.toLowerCase().contains('sai') ||
+           message.toLowerCase().contains('password') ||
+           message.toLowerCase().contains('email'))) {
+        throw Exception('Tài khoản hoặc mật khẩu không chính xác');
+      }
+      throw Exception(message ?? 'Tài khoản hoặc mật khẩu không chính xác');
+    }
+
+    if (message != null) {
+      throw Exception(message);
+    }
+    if (res.statusCode == 403) {
+      throw Exception('Bạn không có quyền thực hiện thao tác này');
+    }
+    if (res.statusCode == 404) {
+      throw Exception('Không tìm thấy dữ liệu yêu cầu');
+    }
+    if (res.statusCode >= 500) {
+      throw Exception('Máy chủ đang gặp sự cố (${res.statusCode}), vui lòng thử lại sau');
+    }
+
     throw Exception('Lỗi máy chủ (${res.statusCode})');
   }
   // --- USER PROFILE & ONBOARDING ---

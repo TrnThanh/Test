@@ -118,6 +118,7 @@ class AppStrings {
     'explore_restaurants': {'vi': 'Khám phá quán ngon', 'en': 'Discover good places'},
     'see_all': {'vi': 'Xem tất cả', 'en': 'See all'},
     'see_more': {'vi': 'Xem thêm', 'en': 'See more'},
+    'collapse': {'vi': 'Rút gọn', 'en': 'Show less'},
     'other_restaurants': {'vi': 'quán khác', 'en': 'more restaurants'},
     'collapse_list': {'vi': 'Thu gọn danh sách', 'en': 'Collapse list'},
     'no_restaurant_found': {'vi': 'Không tìm thấy quán ăn nào phù hợp', 'en': 'No matching restaurants found'},
@@ -213,6 +214,10 @@ class AppStrings {
     'err_confirm_pwd_empty': {'vi': 'Vui lòng xác nhận lại mật khẩu', 'en': 'Please confirm your password'},
     'err_confirm_pwd_mismatch': {'vi': 'Mật khẩu xác nhận không trùng khớp', 'en': 'Passwords do not match'},
     'err_phone_invalid': {'vi': 'Số điện thoại không hợp lệ (10 số, đầu 03, 05, 07, 08, 09)', 'en': 'Invalid phone number (10 digits)'},
+    'err_login_credentials': {
+      'vi': 'Tài khoản hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!',
+      'en': 'Incorrect email or password. Please try again!',
+    },
 
     // ----------------------------------------------------
     // THAO TÁC CHUNG

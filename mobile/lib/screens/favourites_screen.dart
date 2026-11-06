@@ -10,6 +10,7 @@ class FavouritesScreen extends StatefulWidget {
   final RoleLoginResponse? currentUser;
   final VoidCallback onRequireLogin;
   final VoidCallback onExplore;
+  final ScrollController? scrollController;
 
   const FavouritesScreen({
     super.key,
@@ -17,6 +18,7 @@ class FavouritesScreen extends StatefulWidget {
     this.currentUser,
     required this.onRequireLogin,
     required this.onExplore,
+    this.scrollController,
   });
 
   @override
@@ -225,6 +227,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
                         ],
                       )
                     : ListView.separated(
+                        controller: widget.scrollController,
                         padding: const EdgeInsets.all(16),
                         itemCount: _favourites.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 12),

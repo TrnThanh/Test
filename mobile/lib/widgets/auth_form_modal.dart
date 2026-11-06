@@ -131,9 +131,20 @@ class _AuthFormModalState extends State<AuthFormModal> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _generalError = formatErrorMessage(e);
-        });
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('401') ||
+            errStr.contains('incorrect') ||
+            errStr.contains('sai email') ||
+            errStr.contains('tài khoản hoặc mật khẩu không chính xác') ||
+            errStr.contains('unauthorized')) {
+          setState(() {
+            _generalError = tr('err_login_credentials');
+          });
+        } else {
+          setState(() {
+            _generalError = formatErrorMessage(e);
+          });
+        }
       }
     } finally {
       if (mounted) {
