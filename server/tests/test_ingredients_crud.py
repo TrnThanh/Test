@@ -163,3 +163,21 @@ def test_ingredient_allergen_group_and_auto_derive(client: TestClient, db_sessio
     # 4. Kiểm tra món ăn đã tự động suy luận có allergens = ['Hải sản']!
     assert "Hải sản" in dish.allergens
     assert t_name in dish.ingredients
+
+
+def test_get_allergen_options_endpoint(client: TestClient, db_session: Session):
+    """Kiểm tra API lấy danh sách các lựa chọn dị ứng kết nối từ DB."""
+    # 1. Gọi endpoint /api/v1/ingredients/allergens
+    res1 = client.get("/api/v1/ingredients/allergens")
+    assert res1.status_code == 200
+    allergens1 = res1.json()
+    assert isinstance(allergens1, list)
+    assert "Hải sản" in allergens1
+    assert "Đậu phộng" in allergens1
+    assert "Trứng" in allergens1
+
+    # 2. Gọi endpoint alias /api/v1/allergens
+    res2 = client.get("/api/v1/allergens")
+    assert res2.status_code == 200
+    allergens2 = res2.json()
+    assert allergens2 == allergens1

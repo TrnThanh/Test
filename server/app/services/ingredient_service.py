@@ -1,6 +1,6 @@
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Set
 from fastapi import HTTPException, status
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, text
 from sqlalchemy.orm import Session
 
 from server.app.models.ingredient import Ingredient, DishIngredient
@@ -62,6 +62,67 @@ class IngredientService:
         if group_name:
             return db.scalar(select(IngredientGroup.id).where(IngredientGroup.name == group_name))
         return None
+
+    @staticmethod
+    def get_allergen_options(db: Session) -> List[str]:
+        """Lấy danh sách các nhóm và chất gây dị ứng thực phẩm từ cơ sở dữ liệu và hệ thống gợi ý."""
+        allergens_set: Set[str] = set()
+
+        # 1. Nhóm dị ứng đã khai báo trong bảng nguyên liệu ingredients
+        try:
+            ing_allergens = db.scalars(
+                select(Ingredient.allergen_group)
+                .where(Ingredient.allergen_group.is_not(None), Ingredient.allergen_group != "")
+                .distinct()
+            ).all()
+            for a in ing_allergens:
+                if a and str(a).strip():
+                    allergens_set.add(str(a).strip())
+        except Exception:
+            pass
+
+        # 2. Các thành phần dị ứng trong món ăn dishes
+        try:
+            dish_allergens = db.execute(
+                text("SELECT DISTINCT unnest(allergens) FROM dishes WHERE allergens IS NOT NULL")
+            ).scalars().all()
+            for a in dish_allergens:
+                if a and str(a).strip():
+                    allergens_set.add(str(a).strip())
+        except Exception:
+            pass
+
+        # 3. Kết hợp với các nhóm dị ứng chuẩn từ recommendation constants
+        try:
+            from server.app.services.recommendation_constants import ALLERGEN_GROUPS, VALID_ALLERGENS
+            for a in VALID_ALLERGENS:
+                if a and str(a).strip():
+                    allergens_set.add(str(a).strip())
+            for g in ALLERGEN_GROUPS.keys():
+                if g and str(g).strip():
+                    allergens_set.add(str(g).strip())
+        except Exception:
+            pass
+
+        # 4. Đảm bảo các nhóm dị ứng chuẩn thực tế luôn hiện diện đầy đủ
+        defaults = [
+            "Hải sản", "Động vật có vỏ", "Tôm", "Cua đồng", "Cá", "Mực", "Ốc",
+            "Đậu phộng", "Đậu nành", "Các loại hạt",
+            "Trứng", "Sữa bò", "Phô mai", "Bơ (sữa)",
+            "Gluten", "Mè (vừng)", "Trái cây", "Mắm tôm", "Nước mắm"
+        ]
+        for d in defaults:
+            allergens_set.add(d)
+
+        # 5. Sắp xếp: nhóm phổ biến ưu tiên đứng trước, các dị ứng khác xếp theo thứ tự bảng chữ cái
+        priority_order = [
+            "Hải sản", "Đậu phộng", "Trứng", "Sữa bò", "Gluten", "Đậu nành",
+            "Động vật có vỏ", "Tôm", "Cá", "Mực", "Ốc", "Các loại hạt",
+            "Phô mai", "Bơ (sữa)", "Mè (vừng)", "Trái cây"
+        ]
+        first_part = [item for item in priority_order if item in allergens_set]
+        remaining = sorted([item for item in allergens_set if item not in first_part])
+        return first_part + remaining
 
     @staticmethod
     def get_ingredients(

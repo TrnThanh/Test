@@ -1,4 +1,8 @@
-from fastapi import APIRouter
+from typing import List
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from server.app.db.session import get_db
+from server.app.services.ingredient_service import IngredientService
 from server.app.api.v1.endpoints import (
     auth_user,
     auth_admin,
@@ -111,3 +115,12 @@ api_router.include_router(
     prefix="/ingredient-groups",
     tags=["Ingredient Groups Management"],
 )
+
+@api_router.get(
+    "/allergens",
+    response_model=List[str],
+    tags=["Allergens"],
+    summary="Lấy danh sách các dị ứng thực phẩm có trong hệ thống",
+)
+def get_allergens(db: Session = Depends(get_db)):
+    return IngredientService.get_allergen_options(db=db)

@@ -66,19 +66,48 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
     'Nhiều đạm',
   ];
 
-  final List<String> _allergyOptions = [
+  static final List<String> _defaultAllergyOptions = [
     'Hải sản',
     'Đậu phộng',
     'Trứng',
     'Sữa bò',
     'Gluten',
     'Đậu nành',
+    'Động vật có vỏ',
+    'Tôm',
+    'Cá',
+    'Mực',
+    'Ốc',
+    'Các loại hạt',
+    'Phô mai',
+    'Bơ (sữa)',
+    'Mè (vừng)',
+    'Trái cây',
   ];
+
+  List<String> _allergyOptions = [];
+  bool _loadingAllergens = false;
+  static const int _kDefaultVisibleAllergies = 6;
+  bool _showAllAllergies = false;
+
+  List<String> get _displayedAllergies {
+    if (_showAllAllergies || _allergyOptions.length <= _kDefaultVisibleAllergies) {
+      return _allergyOptions;
+    }
+    final result = _allergyOptions.take(_kDefaultVisibleAllergies).toList();
+    for (final alg in _allergyOptions) {
+      if (_selectedAllergies.contains(alg) && !result.contains(alg)) {
+        result.add(alg);
+      }
+    }
+    return result;
+  }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _allergyOptions = List.from(_defaultAllergyOptions);
 
     final p = widget.initialProfile;
     if (p != null) {
@@ -99,7 +128,33 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
           _selectedDiets.add(d);
         }
       }
-      _selectedAllergies.addAll(p.allergies);
+      for (final a in p.allergies) {
+        final key = a.trim().toLowerCase();
+        if (key == 'seafood') {
+          _selectedAllergies.add('Hải sản');
+        } else if (key == 'peanut' || key == 'peanuts' || key == 'lạc') {
+          _selectedAllergies.add('Đậu phộng');
+        } else if (key == 'egg' || key == 'eggs') {
+          _selectedAllergies.add('Trứng');
+        } else if (key == 'milk' || key == 'dairy') {
+          _selectedAllergies.add('Sữa bò');
+        } else if (key == 'gluten' || key == 'wheat' || key == 'lúa mì') {
+          _selectedAllergies.add('Gluten');
+        } else if (key == 'soy' || key == 'soybean') {
+          _selectedAllergies.add('Đậu nành');
+        } else if (key == 'hoa quả' || key == 'trái cây' || key == 'fruit' || key == 'fruits') {
+          _selectedAllergies.add('Trái cây');
+        } else if (key == 'vừng' || key == 'mè' || key == 'mè (vừng)' || key == 'sesame') {
+          _selectedAllergies.add('Mè (vừng)');
+        } else if (a.trim().isNotEmpty) {
+          _selectedAllergies.add(a.trim());
+        }
+      }
+      for (final a in _selectedAllergies) {
+        if (!_allergyOptions.contains(a)) {
+          _allergyOptions.add(a);
+        }
+      }
       _selectedCategoryIds.addAll(p.favoriteCategoryIds);
     } else {
       _targetGoal = 'maintain';
@@ -109,6 +164,7 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
     }
     _categories = _defaultCategories;
     _loadCategories();
+    _loadAllergens();
   }
 
   Future<void> _loadCategories() async {
@@ -122,6 +178,20 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
       }
     } catch (_) {}
     if (mounted) setState(() => _loadingCategories = false);
+  }
+
+  Future<void> _loadAllergens() async {
+    setState(() => _loadingAllergens = true);
+    try {
+      final list = await widget.api.getAllergens();
+      if (mounted && list.isNotEmpty) {
+        setState(() {
+          final Set<String> merged = {..._allergyOptions, ...list, ..._selectedAllergies};
+          _allergyOptions = merged.toList();
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingAllergens = false);
   }
 
   @override
@@ -501,32 +571,72 @@ class _OnboardingSurveyDialogState extends State<OnboardingSurveyDialog> with Si
                       const Text('Dị ứng thực phẩm (nếu có):',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _allergyOptions.map((alg) {
-                          final selected = _selectedAllergies.contains(alg);
-                          return FilterChip(
-                            label: Text(alg),
-                            selected: selected,
-                            selectedColor: Colors.red[700],
-                            labelStyle: TextStyle(
-                              color: selected ? Colors.white : Colors.red[900],
-                              fontSize: 13,
+                      if (_loadingAllergens && _allergyOptions.isEmpty)
+                        const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                      else ...[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _displayedAllergies.map((alg) {
+                            final selected = _selectedAllergies.contains(alg);
+                            return FilterChip(
+                              label: Text(alg),
+                              selected: selected,
+                              selectedColor: Colors.red[700],
+                              labelStyle: TextStyle(
+                                color: selected ? Colors.white : Colors.red[900],
+                                fontSize: 13,
+                              ),
+                              backgroundColor: Colors.red[50],
+                              onSelected: (val) {
+                                setState(() {
+                                  if (val) {
+                                    _selectedAllergies.add(alg);
+                                  } else {
+                                    _selectedAllergies.remove(alg);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        if (_allergyOptions.length > _kDefaultVisibleAllergies) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () => setState(() => _showAllAllergies = !_showAllAllergies),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _showAllAllergies
+                                          ? 'Rút gọn'
+                                          : 'Xem thêm (${_allergyOptions.length - _displayedAllergies.length} dị ứng khác)',
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      _showAllAllergies
+                                          ? Icons.keyboard_arrow_up_rounded
+                                          : Icons.keyboard_arrow_down_rounded,
+                                      size: 18,
+                                      color: const Color(0xFFDC2626),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            backgroundColor: Colors.red[50],
-                            onSelected: (val) {
-                              setState(() {
-                                if (val) {
-                                  _selectedAllergies.add(alg);
-                                } else {
-                                  _selectedAllergies.remove(alg);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
+                          ),
+                        ],
+                      ],
                       const SizedBox(height: 18),
                       const Text('Ngân sách ăn uống:',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, Path, status
 from sqlalchemy.orm import Session
 
@@ -54,6 +54,17 @@ def create_ingredient(
         db=db,
         data=ingredient_in,
     )
+
+
+@router.get(
+    "/allergens",
+    response_model=List[str],
+    summary="Lấy danh sách các dị ứng thực phẩm có trong hệ thống",
+)
+def get_allergen_options(
+    db: Session = Depends(get_db),
+):
+    return IngredientService.get_allergen_options(db=db)
 
 
 @router.get(
