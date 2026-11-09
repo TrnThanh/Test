@@ -5,7 +5,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/preference_tracker.dart';
 import '../theme/app_colors.dart';
-import '../utils/helpers.dart';
+
 
 // ==========================================
 // CLIENT MENU & FAVOURITING (GUEST-FIRST)
@@ -1105,7 +1105,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
           ],
         ),
 
-        // Sticky Bottom Bar: [♡ Đã lưu] & [Đặt bàn] (Screen 6)
+        // Sticky Bottom Bar: [♡ Đã lưu] & [Chỉ đường]
         Positioned(
           left: 0,
           right: 0,
@@ -1158,9 +1158,9 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                     ),
-                    icon: const Icon(Icons.table_restaurant_rounded, size: 18),
+                    icon: const Icon(Icons.directions_walk_rounded, size: 18),
                     label: Text(
-                      'Đặt bàn',
+                      'Chỉ đường',
                       style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14),
                     ),
                     onPressed: () {
@@ -1173,7 +1173,7 @@ class _RestaurantMenuWidgetState extends State<RestaurantMenuWidget> {
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Chức năng đặt bàn trực tuyến đang hoàn thiện!')),
+                          const SnackBar(content: Text('Đang mở bản đồ chỉ đường đến quán...')),
                         );
                       }
                     },
