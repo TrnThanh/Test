@@ -21,6 +21,7 @@ class FakeApiService extends ApiService {
         openTime: '06:00',
         closeTime: '22:00',
         isActive: true,
+        isSponsor: true,
       ),
       Restaurant(
         id: 2,
@@ -33,6 +34,7 @@ class FakeApiService extends ApiService {
         openTime: '08:00',
         closeTime: '21:00',
         isActive: true,
+        isSponsor: true,
       ),
     ];
   }
@@ -53,6 +55,7 @@ class FakeApiService extends ApiService {
         openTime: '06:00',
         closeTime: '22:00',
         isActive: true,
+        isSponsor: true,
         distanceKm: 0.8,
       ),
       Restaurant(
@@ -66,6 +69,7 @@ class FakeApiService extends ApiService {
         openTime: '08:00',
         closeTime: '21:00',
         isActive: true,
+        isSponsor: true,
         distanceKm: 1.2,
       ),
     ];
@@ -236,21 +240,21 @@ void main() {
     expect(find.text('Bún Chả Đắc Kim'), findsOneWidget);
 
     // 2. Chuyển sang Tab "Bản đồ"
-    await tester.tap(find.text('Khám phá'));
+    await tester.tap(find.text('Bản đồ'));
     await tester.pumpAndSettle();
     expect(find.text('Bản Đồ & Quán Ăn Gia Lâm'), findsOneWidget);
     expect(find.byTooltip('Vị trí của tôi'), findsOneWidget);
     expect(find.text('Tất cả'), findsOneWidget);
     expect(find.byIcon(Icons.my_location), findsWidgets);
 
-    // 3. Chuyển sang Tab "Yêu thích"
-    await tester.tap(find.text('Yêu thích'));
+    // 3. Chuyển sang Tab "Đã lưu"
+    await tester.tap(find.text('Đã lưu'));
     await tester.pumpAndSettle();
     expect(find.text('Món Ăn Yêu Thích'), findsOneWidget);
     expect(find.text('Lưu Giữ Món Ăn Bạn Yêu Thích'), findsOneWidget);
 
-    // 4. Chuyển sang Tab "Tài khoản" (Chế độ Khách với giao diện mới)
-    await tester.tap(find.text('Tài khoản'));
+    // 4. Chuyển sang Tab "Cá nhân" (Chế độ Khách với giao diện mới)
+    await tester.tap(find.text('Cá nhân'));
     await tester.pumpAndSettle();
     expect(find.text('Chào bạn!'), findsOneWidget);
     expect(find.text('Bạn đang trải nghiệm với tư cách Khách'), findsOneWidget);
@@ -304,8 +308,8 @@ void main() {
     await tester.pumpWidget(Ptc1App(apiService: fakeApi));
     await tester.pumpAndSettle();
 
-    // Vào Tab Tài khoản
-    await tester.tap(find.text('Tài khoản'));
+    // Vào Tab Cá nhân
+    await tester.tap(find.text('Cá nhân'));
     await tester.pumpAndSettle();
 
     // Bấm nút Tạo tài khoản miễn phí
@@ -427,8 +431,8 @@ void main() {
     // Khách vãng lai vào thẳng Khám phá, không có popup
     expect(find.text('Hôm Nay Bạn Muốn Ăn Gì?'), findsNothing);
 
-    // Chuyển sang Tab Tài khoản để đăng nhập
-    await tester.tap(find.text('Tài khoản'));
+    // Chuyển sang Tab Cá nhân để đăng nhập
+    await tester.tap(find.text('Cá nhân'));
     await tester.pumpAndSettle();
 
     // Bấm nút Đăng nhập mở modal
@@ -551,6 +555,7 @@ void main() {
             openTime: '06:00',
             closeTime: '22:00',
             isActive: true,
+            isSponsor: true,
           ),
           initialLat: 21.0046,
           initialLon: 105.9387,
@@ -732,6 +737,7 @@ void main() {
             closeTime: '22:00',
             rating: 4.8,
             isActive: true,
+            isSponsor: true,
           ),
           initialLat: 21.0046,
           initialLon: 105.9387,
@@ -781,12 +787,12 @@ void main() {
 
     // 1. Mặc định 4 tab thanh điều hướng là Tiếng Việt
     expect(find.text('Trang chủ'), findsOneWidget);
-    expect(find.text('Khám phá'), findsOneWidget);
-    expect(find.text('Yêu thích'), findsOneWidget);
-    expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.text('Bản đồ'), findsOneWidget);
+    expect(find.text('Đã lưu'), findsOneWidget);
+    expect(find.text('Cá nhân'), findsOneWidget);
 
-    // 2. Di chuyển sang tab Tài khoản
-    await tester.tap(find.text('Tài khoản'));
+    // 2. Di chuyển sang tab Cá nhân
+    await tester.tap(find.text('Cá nhân'));
     await tester.pumpAndSettle();
 
     // 3. Cuộn xuống tìm mục Ngôn ngữ và kiểm tra nhãn Tiếng Việt
@@ -811,7 +817,7 @@ void main() {
     expect(find.text('Language'), findsOneWidget);
     expect(find.text('English'), findsWidgets);
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Explore'), findsOneWidget);
+    expect(find.text('Map'), findsOneWidget);
     expect(find.text('Favourites'), findsOneWidget);
     expect(find.text('Account'), findsWidgets);
 
@@ -825,7 +831,7 @@ void main() {
     // 9. Xác nhận giao diện hồi phục về Tiếng Việt
     expect(find.text('Ngôn ngữ'), findsOneWidget);
     expect(find.text('Trang chủ'), findsOneWidget);
-    expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.text('Cá nhân'), findsOneWidget);
   });
 
   testWidgets('Kiểm thử cấu hình ThemeData sử dụng font chữ BeVietnamPro', (WidgetTester tester) async {
@@ -833,4 +839,5 @@ void main() {
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, 'BeVietnamPro');
   });
+
 }

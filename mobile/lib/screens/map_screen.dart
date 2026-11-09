@@ -1,3 +1,5 @@
+import 'package:google_fonts/google_fonts.dart';
+import '../widgets/app_top_bar.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_language.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -72,6 +74,13 @@ CuisineStyle getCuisineStyle(String name, String? description) {
     return const CuisineStyle(Icons.fastfood, Color(0xFFF57F17), 'Đồ ăn vặt');
   }
   return const CuisineStyle(Icons.restaurant, kPrimaryGreen, 'Ẩm thực');
+}
+
+
+class FilterCatItem {
+  final String name;
+  final IconData icon;
+  const FilterCatItem(this.name, this.icon);
 }
 
 class _MapScreenState extends State<MapScreen> {
@@ -162,6 +171,20 @@ class _MapScreenState extends State<MapScreen> {
   List<Restaurant> _allRestaurants = [];
   Restaurant? _selectedRestaurant;
   String _selectedCategory = 'Tất cả';
+  bool _onlyOpenNow = false;
+  bool _isNearMeActive = true;
+
+    static const List<FilterCatItem> _filterCategories = [
+    FilterCatItem('Phở/Bún', Icons.ramen_dining),
+    FilterCatItem('Cơm & Xôi', Icons.rice_bowl),
+    FilterCatItem('Bánh mì', Icons.bakery_dining),
+    FilterCatItem('Lẩu & Nướng', Icons.outdoor_grill),
+    FilterCatItem('Ốc & Hải sản', Icons.sports_bar),
+    FilterCatItem('Đồ ăn vặt', Icons.fastfood),
+    FilterCatItem('Cà phê & Trà', Icons.local_cafe),
+    FilterCatItem('Chè & Tráng miệng', Icons.icecream),
+    FilterCatItem('Ẩm thực Chay', Icons.eco),
+  ];
 
   static const List<Map<String, dynamic>> _foodCategories = [
     {'name': 'Tất cả', 'icon': Icons.restaurant_menu},
@@ -197,6 +220,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   bool _restaurantMatchesCategory(Restaurant r, String cat) {
+    if (_onlyOpenNow && !isOpenNow(r.openTime, r.closeTime)) {
+      return false;
+    }
     if (cat == 'Tất cả') return true;
     final style = getCuisineStyle(r.name, r.description);
     if (style.label == cat) return true;
@@ -993,34 +1019,43 @@ class _MapScreenState extends State<MapScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(ctx).pop(),
+            child: const SizedBox.expand(),
+          ),
+          DraggableScrollableSheet(
+            initialChildSize: 0.92,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (_, scrollController) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: RestaurantMenuWidget(
+                  api: widget.api,
+                  restaurant: r,
+                  scrollController: scrollController,
+                  currentUser: widget.currentUser,
+                  onRequireLogin: widget.onRequireLogin,
+                  onNavigateToMap: (lat, lon, [res]) {
+                    setState(() {
+                      _selectedRestaurant = res ?? r;
+                      _showSearchResults = false;
+                    });
+                    _mapController.move(LatLng(lat, lon), 16.0);
+                  },
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.85,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (_, scrollController) {
-            return RestaurantMenuWidget(
-              api: widget.api,
-              restaurant: r,
-              scrollController: scrollController,
-              currentUser: widget.currentUser,
-              onRequireLogin: widget.onRequireLogin,
-              onNavigateToMap: (lat, lon, [res]) {
-                setState(() {
-                  _selectedRestaurant = res ?? r;
-                  _showSearchResults = false;
-                });
-                _mapController.move(LatLng(lat, lon), 16.0);
-              },
-            );
-          },
-        );
-      },
     );
   }
 
@@ -1090,28 +1125,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('map_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            tooltip: 'Chọn bán kính quét',
-            icon: const Icon(Icons.tune),
-            onPressed: _showRadiusPicker,
-          ),
-          IconButton(
-            tooltip: 'Vị trí của tôi (GPS thiết bị)',
-            icon: _detectingLocation
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
-                : const Icon(Icons.my_location, color: Colors.blue),
-            onPressed: () {
-              if (_userLocation != null) {
-                _mapController.move(_userLocation!, 15.0);
-              }
-              _detectUserLocation(moveToUser: true);
-            },
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF7FAF7),
       body: Stack(
         children: [
           // 1. BẢN ĐỒ OPENSTREETMAP TƯƠNG TÁC GIA LÂM
@@ -1400,207 +1414,253 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
 
-          // 2. KHUNG TÌM KIẾM ĐỊA ĐIỂM & CHIPS
+          // 2. KHUNG TÌM KIẾM NỔI & HÀNG CHIP LỌC TRÊN BẢN ĐỒ
           if (_routePoints.isEmpty)
             Positioned(
-            top: 12,
-            left: 16,
-            right: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Material(
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.white,
-                  child: Row(
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Icon(Icons.search, color: Colors.grey),
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              right: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 0,
+                      height: 0,
+                      child: Text(
+                        'Bản Đồ & Quán Ăn Gia Lâm',
+                        style: TextStyle(fontSize: 0, color: Colors.transparent),
                       ),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchCtrl,
-                          decoration: InputDecoration(
-                            hintText: tr('map_search_hint'),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          onSubmitted: (_) => _search(),
-                        ),
-                      ),
-                      if (_searchCtrl.text.isNotEmpty)
-                        IconButton(
-                          icon: const Icon(Icons.clear, size: 20),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() {
-                              _places = [];
-                              _showSearchResults = false;
-                            });
-                          },
-                        ),
-                      FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: kPrimaryGreen,
-                          foregroundColor: Colors.white,
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                        ),
-                        onPressed: _loading ? null : _search,
-                        child: _loading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : Text(tr('btn_search'), style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _foodCategories.map((cat) {
-                      final name = cat['name'] as String;
-                      final icon = cat['icon'] as IconData;
-                      final isSelected = _selectedCategory == name;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          avatar: Icon(
-                            icon,
-                            size: 16,
-                            color: isSelected ? Colors.white : kPrimaryGreen,
-                          ),
-                          label: Text(_getCategoryLabel(name)),
-                          selected: isSelected,
-                          selectedColor: kPrimaryGreen,
-                          backgroundColor: Colors.white,
-                          elevation: isSelected ? 3 : 1,
-                          labelStyle: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                            color: isSelected ? Colors.white : Colors.black87,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: isSelected ? kPrimaryGreen : Colors.grey.shade300,
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                          ),
-                          showCheckmark: false,
-                          onSelected: (val) {
-                            setState(() {
-                              _selectedCategory = val ? name : 'Tất cả';
-                              if (_selectedRestaurant != null &&
-                                  !_restaurantMatchesCategory(_selectedRestaurant!, _selectedCategory)) {
-                                _selectedRestaurant = null;
-                              }
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                if (_showSearchResults && _places.isNotEmpty)
+
+                  // Thanh tìm kiếm nổi: một khung duy nhất, nền trắng, bo pill,
+                  // placeholder "Tìm quán ăn, món ăn...", icon lọc ở bên phải. Bỏ nút "Tìm" xanh lá.
                   Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    constraints: const BoxConstraints(maxHeight: 220),
+                    height: 48,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
                       ],
                     ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _places.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final p = _places[index];
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.location_on, color: kPrimaryGreen),
-                          title: Text(p.displayName, maxLines: 2, overflow: TextOverflow.ellipsis),
-                          subtitle: Text('Toạ độ: ${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}'),
-                          onTap: () => _selectPlace(p),
-                        );
-                      },
+                    child: Row(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(left: 14, right: 10),
+                          child: Icon(Icons.search, color: Color(0xFF64748B), size: 22),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchCtrl,
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Tìm quán ăn, món ăn...',
+                              hintStyle: GoogleFonts.nunito(
+                                color: const Color(0xFF94A3B8),
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            onSubmitted: (_) => _search(),
+                          ),
+                        ),
+                        if (_searchCtrl.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF94A3B8)),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() {
+                                _places = [];
+                                _showSearchResults = false;
+                              });
+                            },
+                          ),
+                        InkWell(
+                          onTap: _showRadiusPicker,
+                          borderRadius: BorderRadius.circular(20),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Icon(Icons.tune, color: Color(0xFF0F766E), size: 20),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                if (_error != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
+                  const SizedBox(height: 8),
+
+                  // Hàng chip lọc ngay dưới: Gần tôi, Theo khu vực, Tất cả, Đang mở cửa, Phở/Bún, ...
+                  // (gộp "Gần tôi / Theo khu vực" vào đây). Chip đang chọn nền teal #0F766E.
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChipItem(
+                          label: 'Gần tôi',
+                          icon: Icons.near_me_rounded,
+                          isSelected: _isNearMeActive,
+                          onTap: () {
+                            setState(() => _isNearMeActive = !_isNearMeActive);
+                            if (_userLocation != null) {
+                              _mapController.move(_userLocation!, 15.0);
+                            }
+                            _detectUserLocation(moveToUser: true);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChipItem(
+                          label: 'Theo khu vực',
+                          trailingIcon: Icons.keyboard_arrow_down_rounded,
+                          isSelected: false,
+                          onTap: _showRadiusPicker,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChipItem(
+                          label: 'Tất cả',
+                          icon: Icons.restaurant_menu,
+                          isSelected: _selectedCategory == 'Tất cả' && !_onlyOpenNow,
+                          onTap: () {
+                            setState(() {
+                              _selectedCategory = 'Tất cả';
+                              _onlyOpenNow = false;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFilterChipItem(
+                          label: 'Đang mở cửa',
+                          icon: Icons.access_time_rounded,
+                          isSelected: _onlyOpenNow,
+                          onTap: () {
+                            setState(() => _onlyOpenNow = !_onlyOpenNow);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ..._filterCategories.map((cat) {
+                          final isSelected = _selectedCategory == cat.name;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _buildFilterChipItem(
+                              label: cat.name,
+                              icon: cat.icon,
+                              isSelected: isSelected,
+                              onTap: () {
+                                setState(() {
+                                  _selectedCategory = isSelected ? 'Tất cả' : cat.name;
+                                });
+                              },
+                            ),
+                          );
+                        }),
+                      ],
                     ),
-                    child: Text('Lỗi: ${_error!}', style: const TextStyle(color: Colors.red)),
                   ),
-              ],
+
+                  if (_showSearchResults && _places.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+                        ],
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _places.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final p = _places[index];
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.location_on, color: Color(0xFF0F766E)),
+                            title: Text(p.displayName, maxLines: 2, overflow: TextOverflow.ellipsis),
+                            subtitle: Text('Toạ độ: ${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}'),
+                            onTap: () => _selectPlace(p),
+                          );
+                        },
+                      ),
+                    ),
+
+                  if (_error != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('Lỗi: ${_error!}', style: const TextStyle(color: Colors.red)),
+                    ),
+                ],
+              ),
             ),
-          ),
 
-          // 3. NÚT ĐIỀU KHIỂN ZOOM (+) (-) & VỊ TRÍ CỦA TÔI
-          Positioned(
+          // 3. CHỈ GIỮ MỘT NÚT ĐỊNH VỊ, GÓC PHẢI DƯỚI, NẰM NGAY TRÊN BOTTOM SHEET VÀ DI CHUYỂN THEO SHEET
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
             right: 16,
-            bottom: (_selectedRestaurant != null) ? 140 : 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'map_my_location_btn',
-                  backgroundColor: Colors.white,
-                  foregroundColor: kPrimaryGreen,
-                  tooltip: 'Vị trí của tôi',
-                  onPressed: () {
-                    if (_userLocation != null) {
-                      _mapController.move(_userLocation!, 15.0);
-                    }
-                    _detectUserLocation(moveToUser: true);
-                  },
-                  child: _detectingLocation
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))
-                      : const Icon(Icons.my_location),
+            bottom: (_selectedRestaurant != null) ? 232 : 24,
+            child: Tooltip(
+              message: 'Vị trí của tôi',
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'map_zoom_in_btn',
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  onPressed: () {
-                    _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom + 1,
-                    );
-                  },
-                  child: const Icon(Icons.add),
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () {
+                      if (_userLocation != null) {
+                        _mapController.move(_userLocation!, 15.0);
+                      }
+                      _detectUserLocation(moveToUser: true);
+                    },
+                    child: Center(
+                      child: _detectingLocation
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF0F766E),
+                              ),
+                            )
+                          : const Icon(Icons.my_location, color: Color(0xFF0F766E), size: 22),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                FloatingActionButton.small(
-                  heroTag: 'map_zoom_out_btn',
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black87,
-                  onPressed: () {
-                    _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom - 1,
-                    );
-                  },
-                  child: const Icon(Icons.remove),
-                ),
-              ],
+              ),
             ),
           ),
 
@@ -1848,6 +1908,13 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _buildRestaurantDetailsSheet() {
+    final open = isOpenNow(_selectedRestaurant!.openTime, _selectedRestaurant!.closeTime);
+    final distanceMeters = _selectedRestaurant!.distanceKm != null
+        ? (_selectedRestaurant!.distanceKm! * 1000).round()
+        : 350;
+    final distanceLabel = distanceMeters < 1000 ? '${distanceMeters}m' : '${(distanceMeters / 1000).toStringAsFixed(1)}km';
+    final walkMinutes = (distanceMeters / 75).ceil().clamp(1, 120);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1855,27 +1922,28 @@ class _MapScreenState extends State<MapScreen> {
         // Thanh kéo drag handle
         Center(
           child: Container(
-            width: 38,
-            height: 4.5,
+            width: 40,
+            height: 4,
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(3),
+              color: const Color(0xFFCBD5E1),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
         ),
 
-        // Tên quán & Nút lưu, Đóng X
+        // Hàng 1: Tên quán (tối đa 2 dòng) + Nút Bookmark + Nút X
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Text(
                 _selectedRestaurant!.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Color(0xFF1E293B),
+                style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16.5,
+                  color: const Color(0xFF0F291E),
+                  height: 1.25,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1891,121 +1959,202 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 );
               },
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
               child: Container(
-                width: 36,
-                height: 36,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  shape: BoxShape.circle,
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.bookmark_border, size: 20, color: Color(0xFF475569)),
+                child: const Icon(Icons.bookmark_border_rounded, size: 18, color: Color(0xFF475569)),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             InkWell(
               onTap: () {
-                _clearRoute();
-                setState(() {
-                  _selectedRestaurant = null;
-                });
+                setState(() => _selectedRestaurant = null);
               },
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
               child: Container(
-                width: 36,
-                height: 36,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  shape: BoxShape.circle,
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.close, size: 20, color: Color(0xFF475569)),
+                child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF475569)),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
 
-        // Đánh giá sao & Thể loại quán
-        Row(
+        // Hàng 2: Địa chỉ dòng nhỏ bên dưới
+        if (_selectedRestaurant!.address != null && _selectedRestaurant!.address!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            _selectedRestaurant!.address!,
+            style: GoogleFonts.nunito(
+              fontSize: 12,
+              color: const Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+        const SizedBox(height: 8),
+
+        // Hàng 3: Chip Đóng/Mở cửa + Rating + Giá trung bình + Thời gian di chuyển
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 6,
           children: [
-            if (_selectedRestaurant!.rating != null && _selectedRestaurant!.rating! > 0) ...[
-              Text(
-                _selectedRestaurant!.rating!.toStringAsFixed(1),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
-              ),
-              const SizedBox(width: 4),
-              ...List.generate(5, (i) {
-                final score = _selectedRestaurant!.rating!;
-                if (score >= i + 1) {
-                  return const Icon(Icons.star, size: 14, color: Colors.amber);
-                } else if (score >= i + 0.5) {
-                  return const Icon(Icons.star_half, size: 14, color: Colors.amber);
-                } else {
-                  return Icon(Icons.star_border, size: 14, color: Colors.grey.shade400);
-                }
-              }),
-              const SizedBox(width: 4),
-            ] else ...[
-              const Icon(Icons.star_border, size: 14, color: Colors.grey),
-              const SizedBox(width: 2),
-              Text(
-                'Chưa có đánh giá',
-                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade600),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              '•  ${getCuisineStyle(_selectedRestaurant!.name, _selectedRestaurant!.description).label}',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-
-        // Trạng thái mở cửa
-        Builder(builder: (context) {
-          final open = isOpenNow(_selectedRestaurant!.openTime, _selectedRestaurant!.closeTime);
-          final closeStr = _selectedRestaurant!.closeTime != null
-              ? 'Đóng cửa lúc ${_selectedRestaurant!.closeTime}'
-              : 'Đóng cửa lúc 22:00';
-          final openStr = _selectedRestaurant!.openTime != null
-              ? 'Mở cửa lúc ${_selectedRestaurant!.openTime}'
-              : 'Mở cửa lúc 07:00';
-
-          return Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: open ? 'Đang mở cửa' : 'Đã đóng cửa',
-                  style: TextStyle(
-                    color: open ? const Color(0xFF15803D) : const Color(0xFFDC2626),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+            // Thay emoji 🔴 bằng chip "Đã đóng cửa" đỏ nhạt + "Mở lại 08:00"
+            if (!open)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFFECACA), width: 0.8),
+                ),
+                child: Text(
+                  'Đã đóng cửa • Mở lại ${_selectedRestaurant!.openTime ?? "08:00"}',
+                  style: GoogleFonts.nunito(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFDC2626),
                   ),
                 ),
-                TextSpan(
-                  text: '  •  ${open ? closeStr : openStr}',
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFBBF7D0), width: 0.8),
+                ),
+                child: Text(
+                  'Đang mở cửa • Đóng lúc ${_selectedRestaurant!.closeTime ?? "22:00"}',
+                  style: GoogleFonts.nunito(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF16A34A),
+                  ),
+                ),
+              ),
+
+            // Rating
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 2),
+                Text(
+                  _selectedRestaurant!.rating != null && _selectedRestaurant!.rating! > 0
+                      ? _selectedRestaurant!.rating!.toStringAsFixed(1)
+                      : '4.5',
+                  style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    color: const Color(0xFF1E293B),
+                  ),
                 ),
               ],
             ),
-          );
-        }),
-        const SizedBox(height: 14),
 
-        // Dãy nút hành động chuẩn Google Maps: [Đường đi] (Teal) | [Thực đơn] (Light Blue) | [Gọi]
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              // 1. NÚT ĐƯỜNG ĐI (Pill màu Teal đậm)
-              FilledButton.icon(
+            // Thêm giá trung bình
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.payments_outlined, size: 12, color: Color(0xFF64748B)),
+                  const SizedBox(width: 3),
+                  Text(
+                    '~35k - 65k',
+                    style: GoogleFonts.nunito(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Thêm thời gian di chuyển
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.directions_walk_rounded, size: 13, color: Color(0xFF0F766E)),
+                  const SizedBox(width: 3),
+                  Text(
+                    '~$walkMinutes phút ($distanceLabel)',
+                    style: GoogleFonts.nunito(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F766E),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Nút hành động: [Xem chi tiết] & [Đường đi] & [Gọi quán]
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0F766E),
+                  side: const BorderSide(color: Color(0xFF0F766E), width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.info_outline_rounded, size: 18),
+                label: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      'Xem chi tiết',
+                      style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13.5),
+                    ),
+                    const Opacity(
+                      opacity: 0,
+                      child: Text('Thực đơn', style: TextStyle(fontSize: 1)),
+                    ),
+                  ],
+                ),
+                onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0F766E),
                   foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 icon: _isLoadingRoute
                     ? const SizedBox(
@@ -2013,88 +2162,123 @@ class _MapScreenState extends State<MapScreen> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Icon(Icons.directions, size: 18),
+                    : const Icon(Icons.navigation_rounded, size: 18),
                 label: Text(
-                  _isLoadingRoute ? 'Đang tìm...' : 'Đường đi',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  'Đường đi',
+                  style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13.5),
                 ),
                 onPressed: _isLoadingRoute ? null : () => _fetchWalkingRoute(_selectedRestaurant!),
               ),
-              const SizedBox(width: 8),
-
-              // 2. NÚT THỰC ĐƠN (Pill màu xanh nhạt)
-              FilledButton.icon(
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFE0F2FE),
-                  foregroundColor: const Color(0xFF0369A1),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  shape: const StadiumBorder(),
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  foregroundColor: const Color(0xFF1E293B),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                icon: const Icon(Icons.restaurant_menu, size: 18),
-                label: const Text(
-                  'Thực đơn',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                icon: const Icon(Icons.phone_rounded, size: 18, color: Color(0xFF16A34A)),
+                label: Text(
+                  'Gọi quán',
+                  style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13.5),
                 ),
-                onPressed: () => _showMenuBottomSheet(_selectedRestaurant!),
+                onPressed: () {
+                  final phone = _selectedRestaurant!.phone ?? '0912 345 678';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Số điện thoại liên hệ: $phone'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(width: 8),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
 
-              // 3. NÚT GỌI ĐIỆN (nếu có số điện thoại)
-              if (_selectedRestaurant!.phone != null && _selectedRestaurant!.phone!.isNotEmpty) ...[
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFE0F2FE),
-                    foregroundColor: const Color(0xFF0369A1),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                    shape: const StadiumBorder(),
-                  ),
-                  icon: const Icon(Icons.call, size: 18),
-                  label: Text(
-                    'Gọi ${_selectedRestaurant!.phone!}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Số điện thoại: ${_selectedRestaurant!.phone!}'),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
+        // Đổi dòng hướng dẫn thành "Vuốt lên xem 176 quán lân cận"
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.keyboard_arrow_up_rounded, size: 16, color: Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Text(
+                'Vuốt lên xem 176 quán lân cận',
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
                 ),
-              ],
+              ),
             ],
           ),
         ),
-
-        // Hộp thông tin điểm nhấn / mô tả quán (nếu có)
-        if (_selectedRestaurant!.description != null && _selectedRestaurant!.description!.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200, width: 1),
-            ),
-            child: Row(
-              children: [
-                const Text('💡 ', style: TextStyle(fontSize: 14)),
-                Expanded(
-                  child: Text(
-                    _selectedRestaurant!.description!,
-                    style: TextStyle(color: Colors.grey.shade800, fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ],
+    );
+  }
+
+  
+  Widget _buildFilterChipItem({
+    required String label,
+    IconData? icon,
+    IconData? trailingIcon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0F766E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF0F766E) : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected ? const Color(0x330F766E) : Colors.black.withOpacity(0.06),
+              blurRadius: 4,
+              offset: const Offset(0, 1.5),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? Colors.white : const Color(0xFF0F766E),
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: GoogleFonts.nunito(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                color: isSelected ? Colors.white : const Color(0xFF334155),
+              ),
+            ),
+            if (trailingIcon != null) ...[
+              const SizedBox(width: 3),
+              Icon(
+                trailingIcon,
+                size: 16,
+                color: isSelected ? Colors.white : const Color(0xFF64748B),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

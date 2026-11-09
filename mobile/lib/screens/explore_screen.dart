@@ -1,3 +1,5 @@
+import '../widgets/app_top_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_language.dart';
 import '../models/models.dart';
@@ -5,6 +7,7 @@ import '../painters/golden_moon.dart';
 import '../painters/leaves_painter.dart';
 import '../painters/spark_painter.dart';
 import '../painters/weather_painters.dart';
+import '../painters/app_illustrations.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import '../services/api_service.dart';
 import '../services/location_service.dart';
@@ -552,13 +555,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   child: Image.network(
                     hero.recommendation?.featuredDish.imageUrl ?? _getFoodImage(hero, index),
                     width: double.infinity,
-                    height: 185,
+                    height: 135,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      height: 185,
+                      height: 135,
                       color: const Color(0xFFEBF3EC),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.restaurant, color: Color(0xFF1B3B2B), size: 48),
+                      child: const Icon(Icons.restaurant, color: Color(0xFF1B3B2B), size: 44),
                     ),
                   ),
                 ),
@@ -627,10 +630,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         child: Text(
                           hero.name,
                           style: const TextStyle(
+                            fontFamily: 'Nunito',
                             fontSize: 17,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w800,
                             color: Color(0xFF112319),
-                            letterSpacing: -0.3,
+                            letterSpacing: -0.2,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -644,8 +648,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 ? _formatCurrency(hero.recommendation!.featuredDish.price)
                                 : '65.000đ',
                             style: const TextStyle(
+                              fontFamily: 'Nunito',
                               fontSize: 17,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w800,
                               color: Color(0xFF1B3B2B),
                             ),
                           ),
@@ -749,7 +754,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               _showMenuBottomSheet(hero);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1B3B2B),
+                              backgroundColor: const Color(0xFFEA580C),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
@@ -796,28 +801,37 @@ class _ExploreScreenState extends State<ExploreScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(ctx).pop(),
+            child: const SizedBox.expand(),
+          ),
+          DraggableScrollableSheet(
+            initialChildSize: 0.92,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (_, scrollController) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: RestaurantMenuWidget(
+                  api: widget.api,
+                  restaurant: r,
+                  scrollController: scrollController,
+                  currentUser: widget.currentUser,
+                  onRequireLogin: widget.onRequireLogin,
+                  onNavigateToMap: widget.onNavigateToMap,
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.85,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (_, scrollController) {
-            return RestaurantMenuWidget(
-              api: widget.api,
-              restaurant: r,
-              scrollController: scrollController,
-              currentUser: widget.currentUser,
-              onRequireLogin: widget.onRequireLogin,
-              onNavigateToMap: widget.onNavigateToMap,
-            );
-          },
-        );
-      },
     );
   }
 
@@ -965,7 +979,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final hero = heroItems.isNotEmpty ? heroItems[activeIndex] : null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF9F4),
+      backgroundColor: const Color(0xFFF7FAF7),
+      appBar: AppTopBar(
+        title: 'Trang Chủ',
+        currentUser: widget.currentUser,
+        onAvatarTap: widget.onNavigateToAccount,
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -999,148 +1018,184 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 1. TIÊU ĐỀ NĂNG ĐỘNG Theo Thời Gian ("Sáng / Trưa / Chiều / Tối nay ăn gì nhỉ?")
-                              Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Text(
-                                    _getMealGreeting(),
-                                    style: const TextStyle(
-                                      fontSize: 27,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF112319),
-                                      letterSpacing: -0.5,
+                              // 1. GREETING TAG & HEADING (Chuẩn Style NutriFood/PTC1)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEBF9F1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.spa_outlined, size: 14, color: Color(0xFF16A34A)),
+                                    SizedBox(width: 5),
+                                    Flexible(
+                                      child: Text(
+                                        'Chào ngày mới tươi vui & tràn đầy năng lượng',
+                                        overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Color(0xFF16A34A),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
-                                  const Positioned(
-                                    top: -12,
-                                    left: 118,
-                                    child: SparkBurst(width: 18, height: 14),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: GoogleFonts.baloo2(
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF111827),
+                                          height: 1.2,
+                                        ),
+                                        children: [
+                                          const TextSpan(text: 'Hôm nay, '),
+                                          TextSpan(
+                                            text: 'mình ăn gì nhỉ?',
+                                            style: GoogleFonts.baloo2(
+                                              color: const Color(0xFF16A34A),
+                                              fontStyle: FontStyle.italic,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                  const Positioned(
-                                    top: -10,
-                                    right: -14,
-                                    child: SparkBurst(width: 18, height: 14),
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEBF9F1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(Icons.local_florist_rounded, color: Color(0xFF16A34A), size: 22),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Cùng PTC1 chọn món ngon, nhẹ lành và chuẩn dáng ✨',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                               const SizedBox(height: 14),
 
-                              // 2. WEATHER CARD (Card Bento hiện đại, gradient tinh tế & tự động đổi ngày/đêm)
-                              Builder(
-                                builder: (context) {
-                                  final weatherVisual = _getWeatherVisualConfig(_currentWeather);
-                                  return Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: weatherVisual.isNight
-                                              ? const [Colors.white, Color(0xFFF7F8FC)]
-                                              : const [Colors.white, Color(0xFFF7FBF8)],
+                              // 2. WEATHER CARD: 28°C Có mây + Gợi ý + Anime Chef Girl (Screen 2)
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(22),
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFE3F4F6), Color(0xFFEDF8F7)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: kPrimaryTeal.withAlpha(15),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                child: Stack(
+                                  children: [
+                                    // Custom Paint Landscape cho test
+                                    Positioned(
+                                      right: 0,
+                                      top: 0,
+                                      width: 100,
+                                      height: 60,
+                                      child: Opacity(
+                                        opacity: 0.15,
+                                        child: CustomPaint(
+                                          painter: WeatherLandscapePainter(isNight: _isNightTime(_currentWeather)),
                                         ),
-                                        borderRadius: BorderRadius.circular(24),
-                                        border: Border.all(
-                                          color: weatherVisual.isNight
-                                              ? const Color(0xFFE2E8F0)
-                                              : const Color(0xFFE2EFE5),
-                                          width: 1.2,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: weatherVisual.isNight
-                                                ? const Color(0xFF1E293B).withAlpha(12)
-                                                : const Color(0xFF1B3B2B).withAlpha(12),
-                                            blurRadius: 18,
-                                            offset: const Offset(0, 5),
-                                          ),
-                                        ],
                                       ),
-                                      child: Stack(
-                                        children: [
-                                          Positioned(
-                                            right: 0,
-                                            top: 0,
-                                            bottom: 0,
-                                            width: 120,
-                                            child: ClipRRect(
-                                              borderRadius: const BorderRadius.horizontal(right: Radius.circular(24)),
-                                              child: CustomPaint(
-                                                painter: WeatherLandscapePainter(isNight: weatherVisual.isNight),
-                                              ),
-                                            ),
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 48,
-                                                  height: 48,
-                                                  decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      begin: Alignment.topLeft,
-                                                      end: Alignment.bottomRight,
-                                                      colors: weatherVisual.iconBgColors,
+                                    ),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.wb_sunny_rounded, color: Color(0xFFFFB800), size: 26),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    '${_currentWeather?.temperature.round() ?? 28}°C',
+                                                    style: const TextStyle(
+                                                      fontFamily: 'Nunito',
+                                                      fontSize: 24,
+                                                      fontWeight: FontWeight.w900,
+                                                      color: kTextDark,
                                                     ),
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(color: weatherVisual.iconBorderColor, width: 1.5),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: weatherVisual.iconShadowColor,
-                                                        blurRadius: 10,
-                                                        offset: const Offset(0, 3),
-                                                      ),
-                                                    ],
                                                   ),
-                                                  child: Center(
-                                                    child: weatherVisual.customWidget ??
-                                                        Icon(
-                                                          weatherVisual.icon,
-                                                          color: weatherVisual.iconColor,
-                                                          size: 26,
-                                                        ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 14),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        '${_currentWeather?.temperature.round() ?? 26}°C',
-                                                        style: const TextStyle(
-                                                          fontSize: 24,
-                                                          fontWeight: FontWeight.w900,
-                                                          color: Color(0xFF112319),
-                                                          letterSpacing: -0.5,
-                                                        ),
+                                                  const SizedBox(width: 6),
+                                                  Flexible(
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: kPrimaryTeal.withAlpha(20),
+                                                        borderRadius: BorderRadius.circular(12),
                                                       ),
-                                                      const SizedBox(height: 2),
-                                                      Text(
+                                                      child: Text(
                                                         _getWeatherShortStatus(_currentWeather),
-                                                        style: TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w700,
-                                                          color: weatherVisual.isNight
-                                                              ? const Color(0xFF1E293B)
-                                                              : const Color(0xFF1B3B2B),
-                                                          letterSpacing: -0.2,
-                                                        ),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
+                                                        style: const TextStyle(
+                                                          fontFamily: 'Nunito',
+                                                          color: kPrimaryTeal,
+                                                          fontSize: 10.5,
+                                                          fontWeight: FontWeight.w800,
+                                                        ),
                                                       ),
-                                                    ],
+                                                    ),
                                                   ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${_resolveToCityName(_selectedCity, lat: _userLat, lon: _userLon)} • Độ ẩm ${_currentWeather?.humidity ?? 82}%',
+                                                style: GoogleFonts.nunito(
+                                                  color: const Color(0xFF64748B),
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                'Thích hợp món nướng, lẩu nóng',
+                                                style: GoogleFonts.nunito(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: kPrimaryTeal,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                  );
-                                },
+                                        ),
+                                        const AnimeChefArt(width: 95, height: 95),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 16),
 
@@ -1246,6 +1301,87 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               ),
                               const SizedBox(height: 18),
 
+                              // PROMO BANNER: Ưu đãi đặc biệt Giảm đến 30% (Screen 5)
+                              Container(
+                                margin: const EdgeInsets.only(top: 4, bottom: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF0E6A69), Color(0xFF16807E)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF0E6A69).withAlpha(50),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Ưu đãi đặc biệt',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 1),
+                                          const Text(
+                                            'Giảm đến 30%',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          InkWell(
+                                            onTap: () {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Đang áp dụng mã giảm giá 30%!')),
+                                              );
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    'Săn ngay',
+                                                    style: TextStyle(
+                                                      color: Color(0xFF0E6A69),
+                                                      fontSize: 11.5,
+                                                      fontWeight: FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: 4),
+                                                  Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF0E6A69)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const NoodleBowlArt(size: 60),
+                                  ],
+                                ),
+                              ),
+
                               // 5. SECTION: GỢI Ý RIÊNG CHO BẠN
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1261,11 +1397,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                             Flexible(
                                               child: Text(
                                                 tr('hungry_explore'),
-                                                style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: Color(0xFF112319),
-                                                  letterSpacing: -0.3,
+                                                style: GoogleFonts.baloo2(
+                                                  fontSize: 19,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: const Color(0xFF112319),
+                                                  letterSpacing: -0.2,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -1426,11 +1562,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   Expanded(
                                     child: Text(
                                       tr('explore_restaurants'),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(0xFF112319),
-                                        letterSpacing: -0.3,
+                                      style: GoogleFonts.baloo2(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF112319),
+                                        letterSpacing: -0.2,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -1565,7 +1701,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Expanded(
                                             child: Text(
@@ -1579,12 +1714,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          Text(
-                                            distanceText,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF0F172A),
+                                          Container(
+                                            margin: const EdgeInsets.only(left: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFEF2F2),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: const Color(0xFFFCA5A5)),
+                                            ),
+                                            child: const Text(
+                                              'Giảm 30%',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFFDC2626),
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1632,6 +1776,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                               color: Color(0xFF0F172A),
                                             ),
                                           ),
+                                          Text(' • $distanceText', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                                           const Text(' • ', style: TextStyle(color: Color(0xFF94A3B8))),
                                             Flexible(
                                               child: Text(
@@ -1745,5 +1890,4 @@ class _ExploreScreenState extends State<ExploreScreen> {
 // ==========================================
 // TAB 2: BẢN ĐỒ & QUÁN ĂN GIA LÂM (MAP & SPATIAL SEARCH)
 // ==========================================
-typedef HomeScreen = ExploreScreen;
 

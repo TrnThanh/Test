@@ -4,8 +4,10 @@ import '../models/models.dart';
 import '../screens/account_screen.dart';
 import '../screens/explore_screen.dart';
 import '../screens/favourites_screen.dart';
+import '../screens/home_screen.dart';
 import '../screens/map_screen.dart';
 import '../services/api_service.dart';
+import '../theme/app_colors.dart';
 import '../widgets/auth_form_modal.dart';
 
 class MainShell extends StatefulWidget {
@@ -25,6 +27,7 @@ class _MainShellState extends State<MainShell> {
   RoleLoginResponse? _currentUser;
   String? _selectedCategory;
 
+  final ScrollController _homeScrollController = ScrollController();
   final ScrollController _exploreScrollController = ScrollController();
   final ScrollController _favouritesScrollController = ScrollController();
   final ScrollController _accountScrollController = ScrollController();
@@ -35,12 +38,8 @@ class _MainShellState extends State<MainShell> {
   Restaurant? _targetRestaurant;
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
+    _homeScrollController.dispose();
     _exploreScrollController.dispose();
     _favouritesScrollController.dispose();
     _accountScrollController.dispose();
@@ -59,7 +58,7 @@ class _MainShellState extends State<MainShell> {
 
   void _onTabTapped(int index) {
     if (index == 0) {
-      _scrollToTop(_exploreScrollController);
+      _scrollToTop(_homeScrollController);
     } else if (index == 2) {
       _scrollToTop(_favouritesScrollController);
     } else if (index == 3) {
@@ -95,17 +94,26 @@ class _MainShellState extends State<MainShell> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => AuthFormModal(
-        api: widget.apiService,
-        initialRegister: isRegister,
-        onSuccess: (res) {
-          _onLoginSuccess(res);
-          onSuccess?.call();
-        },
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(ctx).pop(),
+            child: const SizedBox.expand(),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: AuthFormModal(
+              api: widget.apiService,
+              initialRegister: isRegister,
+              onSuccess: (res) {
+                _onLoginSuccess(res);
+                onSuccess?.call();
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -113,15 +121,14 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final tabs = [
-      ExploreScreen(
-        key: ValueKey(_currentUser?.id),
+      // TAB 0: Trang chủ (Screen 2)
+      HomeScreen(
+        key: ValueKey('home_${_currentUser?.id}'),
         api: widget.apiService,
         currentUser: _currentUser,
-        initialCategory: _selectedCategory,
-        scrollController: _exploreScrollController,
-        onRequireLogin: () {
-          _openAuthModal(isRegister: false);
-        },
+        scrollController: _homeScrollController,
+        onRequireLogin: () => _openAuthModal(isRegister: false),
+        onNavigateToExplore: () => setState(() => _currentIndex = 1),
         onNavigateToMap: (lat, lon, [restaurant]) {
           setState(() {
             _targetLat = lat;
@@ -130,11 +137,12 @@ class _MainShellState extends State<MainShell> {
             _currentIndex = 1;
           });
         },
-        onNavigateToAccount: () {
-          setState(() => _currentIndex = 3);
-        },
+        onNavigateToAccount: () => setState(() => _currentIndex = 3),
       ),
+
+      // TAB 1: Bản đồ (Screen 3)
       MapScreen(
+        key: ValueKey('map_${_currentUser?.id}'),
         api: widget.apiService,
         initialLat: _targetLat,
         initialLon: _targetLon,
@@ -144,7 +152,10 @@ class _MainShellState extends State<MainShell> {
           _openAuthModal(isRegister: false);
         },
       ),
+
+      // TAB 2: Đã lưu (Screen 7)
       FavouritesScreen(
+        key: ValueKey('fav_${_currentUser?.id}'),
         api: widget.apiService,
         currentUser: _currentUser,
         scrollController: _favouritesScrollController,
@@ -155,7 +166,10 @@ class _MainShellState extends State<MainShell> {
           setState(() => _currentIndex = 0);
         },
       ),
+
+      // TAB 3: Cá nhân (Screen 8)
       AccountScreen(
+        key: ValueKey('acc_${_currentUser?.id}'),
         api: widget.apiService,
         currentUser: _currentUser,
         scrollController: _accountScrollController,
@@ -173,41 +187,54 @@ class _MainShellState extends State<MainShell> {
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(
-            top: BorderSide(color: Color(0xFFF1F5F9), width: 1.2),
+            top: BorderSide(color: Color(0xFFE2EBE9), width: 1.0),
           ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          backgroundColor: Colors.white,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          selectedItemColor: const Color(0xFF1B3B2B),
-          unselectedItemColor: const Color(0xFF6E7A73),
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.home_outlined),
-              activeIcon: const Icon(Icons.home),
-              label: tr('tab_home'),
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.map_outlined),
-              activeIcon: const Icon(Icons.map),
-              label: tr('tab_map'),
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.favorite_outline),
-              activeIcon: const Icon(Icons.favorite),
-              label: tr('tab_favourites'),
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person_outline),
-              activeIcon: const Icon(Icons.person),
-              label: tr('tab_account'),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 10,
+              offset: Offset(0, -2),
             ),
           ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 56,
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: _onTabTapped,
+              backgroundColor: Colors.white,
+              type: BottomNavigationBarType.fixed,
+              elevation: 0,
+              selectedItemColor: kPrimaryTeal,
+              unselectedItemColor: const Color(0xFF64748B),
+              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+              items: [
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.home_outlined),
+                  activeIcon: const Icon(Icons.home_rounded),
+                  label: tr('tab_home'),
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.map_outlined),
+                  activeIcon: const Icon(Icons.map_rounded),
+                  label: tr('tab_map'),
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.bookmark_outline_rounded),
+                  activeIcon: const Icon(Icons.bookmark_rounded),
+                  label: tr('tab_favourites'),
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.person_outline_rounded),
+                  activeIcon: const Icon(Icons.person_rounded),
+                  label: tr('tab_account'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

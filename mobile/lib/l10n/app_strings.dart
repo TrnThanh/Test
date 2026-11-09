@@ -7,8 +7,8 @@ class AppStrings {
     'tab_home': {'vi': 'Trang chủ', 'en': 'Home'},
     'tab_explore': {'vi': 'Khám phá', 'en': 'Explore'},
     'tab_map': {'vi': 'Bản đồ', 'en': 'Map'},
-    'tab_favourites': {'vi': 'Yêu thích', 'en': 'Favourites'},
-    'tab_account': {'vi': 'Tài khoản', 'en': 'Account'},
+    'tab_favourites': {'vi': 'Đã lưu', 'en': 'Favourites'},
+    'tab_account': {'vi': 'Cá nhân', 'en': 'Account'},
 
     // ----------------------------------------------------
     // CÀI ĐẶT NGÔN NGỮ
@@ -185,7 +185,7 @@ class AppStrings {
     'menu_search_hint': {'vi': 'Tìm món ăn trong thực đơn...', 'en': 'Search dishes in menu...'},
     'login_required': {'vi': 'Yêu Cầu Đăng Nhập', 'en': 'Login Required'},
     'login_required_desc': {
-      'vi': 'Bạn cần đăng nhập tài khoản để thả tim lưu món ăn này!',
+      'vi': 'Bạn cần đăng nhập tài khoản Thực khách để lưu món ăn này vào danh sách yêu thích.',
       'en': 'You need to sign in to save this dish to your favorites!',
     },
     'maybe_later': {'vi': 'Để sau', 'en': 'Maybe later'},
@@ -228,6 +228,36 @@ class AppStrings {
     'retry': {'vi': 'Thử lại', 'en': 'Try again'},
     'welcome_back': {'vi': 'Chào mừng', 'en': 'Welcome'},
     'logged_out': {'vi': 'Đã đăng xuất tài khoản.', 'en': 'Logged out successfully.'},
+
+    'location_service_title': {
+      'vi': 'Dịch Vụ Vị Trí & GPS',
+      'en': 'Location & GPS Service',
+    },
+    'location_service_desc': {
+      'vi': 'Ứng dụng PTC1 sử dụng vị trí GPS của bạn để tìm kiếm các quán ăn gần nhất trong địa bàn Gia Lâm, tính toán cự ly đi bộ chính xác và chỉ đường nhanh chóng.',
+      'en': 'PTC1 uses your GPS location to discover nearby restaurants in Gia Lam, calculate walking distances, and provide fast navigation.',
+    },
+    'privacy_title': {
+      'vi': 'Điều Khoản & Quyền Riêng Tư',
+      'en': 'Terms & Privacy Policy',
+    },
+    'privacy_desc': {
+      'vi': 'PTC1 cam kết bảo mật 100% dữ liệu sức khỏe, chỉ số BMI và lịch sử ẩm thực của bạn. Dữ liệu chỉ được dùng để cá nhân hóa dinh dưỡng thông minh và không chia sẻ cho bên thứ ba.',
+      'en': 'PTC1 is committed to 100% privacy of your health metrics, BMI data, and dining history. Data is strictly used for personalized nutrition.',
+    },
+    'select_language_title': {
+      'vi': 'Chọn Ngôn Ngữ Hiển Thị',
+      'en': 'Select Display Language',
+    },
+    'forgot_pwd_title': {
+      'vi': 'Quên Mật Khẩu',
+      'en': 'Forgot Password',
+    },
+    'forgot_pwd_desc': {
+      'vi': 'Vui lòng liên hệ ban quản trị hệ thống PTC1 hoặc gửi email hỗ trợ đến hotro@ptc1.vn để được hỗ trợ cấp lại mật khẩu an toàn.',
+      'en': 'Please contact the PTC1 administration team or email hotro@ptc1.vn for assistance with account password recovery.',
+    },
+
   };
 
   /// Tra cứu chuỗi theo mã ngôn ngữ và key. Nếu không có mã thì fallback sang Tiếng Việt ('vi').

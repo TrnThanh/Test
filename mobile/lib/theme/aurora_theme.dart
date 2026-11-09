@@ -131,10 +131,11 @@ class AuroraTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
+          fontFamily: 'Nunito',
           color: GZColors.ink,
           fontSize: 22,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.6,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.2,
         ),
         iconTheme: IconThemeData(color: GZColors.ink),
       ),

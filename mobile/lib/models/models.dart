@@ -18,6 +18,7 @@ class Restaurant {
   final RestaurantRecommendation? recommendation;
 
   int? get categoryId => recommendation?.featuredDish.categoryId;
+  String? get imageUrl => recommendation?.featuredDish.imageUrl;
 
   Restaurant({
     required this.id,
